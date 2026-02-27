@@ -3,6 +3,8 @@ import cors from 'cors';
 import { initDatabaseService, DatabaseService } from './services/DatabaseService';
 import { databaseInitializer } from './database/initializer';
 import { saveRepository } from './models/SaveRepository';
+import { initializeLLMService, getLLMService } from './services/llm';
+import type { Message, ChatOptions } from '@ai-rpg/shared';
 
 const app = express();
 const PORT = process.env.PORT || 6756;
@@ -165,6 +167,166 @@ app.post('/api/saves/:id/snapshots', (req, res) => {
   }
 });
 
+app.get('/api/llm/config', (_req, res) => {
+  try {
+    const llmService = getLLMService();
+    const config = llmService.getConfig();
+    const providers = Object.keys(config.providers).map((key) => ({
+      name: key,
+      configured: llmService.isProviderConfigured(key),
+      defaultModel: config.providers[key]?.defaultModel,
+    }));
+
+    res.json({
+      defaultProvider: config.defaultProvider,
+      defaultModel: config.defaultModel,
+      providers,
+      availableProviders: llmService.getAvailableProviders(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.put('/api/llm/config', (req, res) => {
+  try {
+    const llmService = getLLMService();
+    const { provider, apiKey, baseURL, defaultModel } = req.body;
+
+    if (!provider) {
+      res.status(400).json({ error: 'Provider is required' });
+      return;
+    }
+
+    llmService.updateProviderConfig(provider, {
+      apiKey,
+      baseURL,
+      defaultModel,
+    });
+
+    if (apiKey) {
+      llmService.registerProvider(provider, {
+        apiKey,
+        baseURL,
+        defaultModel,
+        models: [],
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Provider ${provider} configured successfully`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.get('/api/llm/models', (_req, res) => {
+  try {
+    const llmService = getLLMService();
+    const capabilities = llmService.getAllCapabilities();
+
+    res.json({
+      models: capabilities,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.post('/api/llm/test', async (req, res) => {
+  try {
+    const { provider } = req.body;
+    const llmService = getLLMService();
+
+    if (!llmService.isProviderConfigured(provider)) {
+      res.status(400).json({
+        success: false,
+        error: `Provider ${provider} is not configured`,
+      });
+      return;
+    }
+
+    const adapter = llmService.getAdapter(provider);
+    const capabilities = adapter.getCapabilities();
+
+    const testMessage: Message = {
+      role: 'user',
+      content: 'Hello, this is a test message. Please respond with "Connection successful."',
+    };
+
+    const response = await adapter.chat([testMessage], {
+      maxTokens: 50,
+      temperature: 0.1,
+    });
+
+    res.json({
+      success: true,
+      provider,
+      model: capabilities.model,
+      response: response.content.substring(0, 100),
+      usage: response.usage,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.post('/api/llm/chat', async (req, res) => {
+  try {
+    const { messages, options, provider } = req.body as {
+      messages: Message[];
+      options?: ChatOptions;
+      provider?: string;
+    };
+
+    const llmService = getLLMService();
+    const response = await llmService.chat(messages, { ...options, provider });
+
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.post('/api/llm/chat/stream', async (req, res) => {
+  try {
+    const { messages, options, provider } = req.body as {
+      messages: Message[];
+      options?: ChatOptions;
+      provider?: string;
+    };
+
+    const llmService = getLLMService();
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    for await (const chunk of llmService.chatStream(messages, { ...options, provider })) {
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    }
+
+    res.end();
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 async function initializeApp() {
   console.log('Initializing application...');
 
@@ -175,6 +337,17 @@ async function initializeApp() {
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error);
+  }
+
+  try {
+    await initializeLLMService({
+      defaultProvider: 'deepseek',
+      defaultModel: 'deepseek-chat',
+      providers: {},
+    });
+    console.log('LLM Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize LLM service:', error);
   }
 }
 
