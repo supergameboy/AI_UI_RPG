@@ -9,6 +9,7 @@ export interface ConfirmDialogProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  open?: boolean;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -18,7 +19,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelText = '取消',
   onConfirm,
   onCancel,
+  open = true,
 }) => {
+  if (!open) return null;
+
   return (
     <div className={styles.overlay} onClick={onCancel}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>

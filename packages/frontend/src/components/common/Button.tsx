@@ -11,6 +11,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean;
   icon?: React.ReactNode;
   children?: React.ReactNode;
+  as?: 'button' | 'span';
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -22,6 +23,7 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   children,
   className,
+  as = 'button',
   ...props
 }) => {
   const classNames = [
@@ -33,15 +35,33 @@ export const Button: React.FC<ButtonProps> = ({
     className,
   ].filter(Boolean).join(' ');
 
+  const content = (
+    <>
+      {loading && <span className={styles.spinner} />}
+      {icon && !loading && <span className={styles.icon}>{icon}</span>}
+      {children && <span className={styles.text}>{children}</span>}
+    </>
+  );
+
+  if (as === 'span') {
+    return (
+      <span
+        className={classNames}
+        aria-disabled={disabled || loading}
+        {...(props as React.HTMLAttributes<HTMLSpanElement>)}
+      >
+        {content}
+      </span>
+    );
+  }
+
   return (
     <button
       className={classNames}
       disabled={disabled || loading}
       {...props}
     >
-      {loading && <span className={styles.spinner} />}
-      {icon && !loading && <span className={styles.icon}>{icon}</span>}
-      {children && <span className={styles.text}>{children}</span>}
+      {content}
     </button>
   );
 };

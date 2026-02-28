@@ -89,6 +89,99 @@ export class SaveRepository extends BaseRepository<Save> {
     return stmt.all(limit);
   }
 
+  /**
+   * 分页查询存档，支持 template_id 筛选
+   */
+  public findWithPagination(options: {
+    page?: number;
+    limit?: number;
+    template_id?: string;
+  }): { saves: Save[]; total: number; page: number; limit: number; totalPages: number } {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.max(1, Math.min(100, options.limit || 10));
+    const offset = (page - 1) * limit;
+
+    let countQuery = 'SELECT COUNT(*) as count FROM saves';
+    let dataQuery = 'SELECT * FROM saves';
+    const params: unknown[] = [];
+
+    if (options.template_id !== undefined) {
+      countQuery += ' WHERE template_id = ?';
+      dataQuery += ' WHERE template_id = ?';
+      params.push(options.template_id);
+    }
+
+    dataQuery += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+
+    // 获取总数
+    const countStmt = this.db.prepare<{ count: number }>(countQuery);
+    const countResult = countStmt.get(...params);
+    const total = countResult?.count || 0;
+
+    // 获取分页数据
+    const dataStmt = this.db.prepare<Save>(dataQuery);
+    const saves = dataStmt.all(...params, limit, offset);
+
+    return {
+      saves,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * 获取存档统计信息
+   */
+  public getStats(): {
+    total: number;
+    byTemplate: Record<string, number>;
+    byGameMode: Record<string, number>;
+    totalPlayTime: number;
+  } {
+    // 获取总数
+    const totalStmt = this.db.prepare<{ count: number }>('SELECT COUNT(*) as count FROM saves');
+    const totalResult = totalStmt.get();
+    const total = totalResult?.count || 0;
+
+    // 按 template_id 分组统计
+    const byTemplateStmt = this.db.prepare<{ template_id: string | null; count: number }>(
+      'SELECT template_id, COUNT(*) as count FROM saves GROUP BY template_id'
+    );
+    const byTemplateRows = byTemplateStmt.all();
+    const byTemplate: Record<string, number> = {};
+    for (const row of byTemplateRows) {
+      if (row.template_id !== null) {
+        byTemplate[row.template_id] = row.count;
+      }
+    }
+
+    // 按 game_mode 分组统计
+    const byGameModeStmt = this.db.prepare<{ game_mode: string; count: number }>(
+      'SELECT game_mode, COUNT(*) as count FROM saves GROUP BY game_mode'
+    );
+    const byGameModeRows = byGameModeStmt.all();
+    const byGameMode: Record<string, number> = {};
+    for (const row of byGameModeRows) {
+      byGameMode[row.game_mode] = row.count;
+    }
+
+    // 获取总游戏时长
+    const playTimeStmt = this.db.prepare<{ total: number | null }>(
+      'SELECT SUM(play_time) as total FROM saves'
+    );
+    const playTimeResult = playTimeStmt.get();
+    const totalPlayTime = playTimeResult?.total || 0;
+
+    return {
+      total,
+      byTemplate,
+      byGameMode,
+      totalPlayTime,
+    };
+  }
+
   public createSnapshot(data: Omit<SaveSnapshot, 'id' | 'created_at'>): SaveSnapshot {
     const id = this.generateId();
     const now = Math.floor(Date.now() / 1000);
@@ -154,6 +247,9 @@ export const saveRepository = {
   deleteById: (id: string) => getSaveRepository().deleteById(id),
   findByGameMode: (gameMode: Save['game_mode']) => getSaveRepository().findByGameMode(gameMode),
   findRecent: (limit?: number) => getSaveRepository().findRecent(limit),
+  findWithPagination: (options: Parameters<SaveRepository['findWithPagination']>[0]) =>
+    getSaveRepository().findWithPagination(options),
+  getStats: () => getSaveRepository().getStats(),
   createSnapshot: (data: Parameters<SaveRepository['createSnapshot']>[0]) => getSaveRepository().createSnapshot(data),
   findSnapshotById: (id: string) => getSaveRepository().findSnapshotById(id),
   findLatestSnapshot: (saveId: string) => getSaveRepository().findLatestSnapshot(saveId),

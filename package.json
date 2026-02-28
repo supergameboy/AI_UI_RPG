@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm run --parallel dev",
     "build": "pnpm run --parallel build",
+    "typecheck": "pnpm run --parallel typecheck",
     "lint": "pnpm run --parallel lint",
     "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css}\"",
     "clean": "pnpm run --parallel clean"

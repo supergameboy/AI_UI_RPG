@@ -63,10 +63,30 @@ app.post('/api/database/init', async (_req, res) => {
   }
 });
 
-app.get('/api/saves', (_req, res) => {
+app.get('/api/saves', (req, res) => {
   try {
-    const saves = saveRepository.findAll();
-    res.json(saves);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const template_id = req.query.template_id as string | undefined;
+
+    const result = saveRepository.findWithPagination({
+      page,
+      limit,
+      template_id,
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.get('/api/saves/stats', (_req, res) => {
+  try {
+    const stats = saveRepository.getStats();
+    res.json(stats);
   } catch (error) {
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -103,7 +123,31 @@ app.get('/api/saves/:id', (req, res) => {
 
 app.post('/api/saves', (req, res) => {
   try {
-    const save = saveRepository.create(req.body);
+    const { snapshot, ...saveData } = req.body;
+
+    // 创建存档
+    const save = saveRepository.create(saveData);
+
+    // 如果提供了快照数据，自动创建初始快照
+    if (snapshot) {
+      saveRepository.createSnapshot({
+        save_id: save.id,
+        snapshot_type: snapshot.snapshot_type || 'manual',
+        context_state: snapshot.context_state || '{}',
+        memory_state: snapshot.memory_state || '{}',
+        agent_states: snapshot.agent_states || '{}',
+      });
+    } else if (saveData.game_state) {
+      // 如果没有提供快照但有游戏状态，自动创建一个初始快照
+      saveRepository.createSnapshot({
+        save_id: save.id,
+        snapshot_type: 'manual',
+        context_state: '{}',
+        memory_state: '{}',
+        agent_states: saveData.game_state,
+      });
+    }
+
     res.status(201).json(save);
   } catch (error) {
     res.status(500).json({
@@ -208,6 +252,7 @@ app.put('/api/llm/config', (req, res) => {
 
     if (apiKey) {
       llmService.registerProvider(provider, {
+        provider,
         apiKey,
         baseURL,
         defaultModel,

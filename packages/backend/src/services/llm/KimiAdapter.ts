@@ -149,7 +149,7 @@ export class KimiAdapter extends BaseLLMAdapter {
         throw new Error(`${this.name} API error: ${response.status} - ${error}`);
       }
 
-      const data: KimiChatResponse = await response.json();
+      const data = await response.json() as KimiChatResponse;
       return this.parseChatResponse(data);
     });
   }

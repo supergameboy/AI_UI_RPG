@@ -159,7 +159,7 @@ class Statement<T> {
   }
 
   run(...params: unknown[]): { changes: number; lastInsertRowid: number } {
-    this.db.run(this.sql, params);
+    this.db.run(this.sql, params as Parameters<typeof this.db.run>[1]);
     this.onSave();
     return {
       changes: this.db.getRowsModified(),
@@ -169,7 +169,7 @@ class Statement<T> {
 
   get(...params: unknown[]): T | undefined {
     const stmt = this.db.prepare(this.sql);
-    stmt.bind(params);
+    stmt.bind(params as Parameters<typeof stmt.bind>[0]);
     if (stmt.step()) {
       const row = stmt.getAsObject();
       stmt.free();
@@ -182,7 +182,7 @@ class Statement<T> {
   all(...params: unknown[]): T[] {
     const results: T[] = [];
     const stmt = this.db.prepare(this.sql);
-    stmt.bind(params);
+    stmt.bind(params as Parameters<typeof stmt.bind>[0]);
     while (stmt.step()) {
       results.push(stmt.getAsObject() as T);
     }

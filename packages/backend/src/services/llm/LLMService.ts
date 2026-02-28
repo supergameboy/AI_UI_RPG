@@ -1,12 +1,10 @@
 import type {
   LLMAdapter,
-  LLMConfig,
   Message,
   ChatOptions,
   ChatResponse,
   StreamChunk,
   ModelCapabilities,
-  LLMSettings,
   LLMProviderConfig,
 } from '@ai-rpg/shared';
 import { DeepSeekAdapter } from './DeepSeekAdapter';
@@ -124,7 +122,6 @@ export class LLMService {
   }
 
   setAgentModel(agentType: string, provider: string, model?: string): void {
-    const key = `${agentType}:${provider}`;
     this.config.agentModelMapping[agentType] = model 
       ? `${provider}:${model}` 
       : provider;

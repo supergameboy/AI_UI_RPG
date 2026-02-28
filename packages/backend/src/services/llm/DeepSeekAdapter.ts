@@ -131,7 +131,7 @@ export class DeepSeekAdapter extends BaseLLMAdapter {
         throw new Error(`${this.name} API error: ${response.status} - ${error}`);
       }
 
-      const data: DeepSeekChatResponse = await response.json();
+      const data = await response.json() as DeepSeekChatResponse;
       return this.parseChatResponse(data);
     });
   }

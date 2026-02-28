@@ -1,29 +1,35 @@
-import React, { useState } from 'react';
-import { Button, Icon } from '../common';
+import React, { useEffect, useState } from 'react';
+import { Button, Icon, ConfirmDialog } from '../common';
+import { SaveManager } from '../save';
 import { useGameStore, useThemeStore } from '../../stores';
 import styles from './MainMenu.module.css';
 
 export const MainMenu: React.FC = () => {
-  const { startNewGame, openSettings, saves, setScreen } = useGameStore();
+  const { startNewGame, openSettings, saves, fetchSaves, loadGame, setScreen } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
-  const [showSaveList, setShowSaveList] = useState(false);
+  const [showSaveManager, setShowSaveManager] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const hasSaves = saves.length > 0;
+  useEffect(() => {
+    fetchSaves();
+  }, [fetchSaves]);
 
   const handleContinue = () => {
-    if (hasSaves) {
-      setShowSaveList(true);
-    }
+    setShowSaveManager(true);
   };
 
-  const handleLoadSave = (saveId: string) => {
-    useGameStore.getState().loadGame(saveId);
-    setShowSaveList(false);
+  const handleLoadSave = async (save: Parameters<typeof loadGame>[0]) => {
+    await loadGame(save);
+    setShowSaveManager(false);
   };
 
   const handleQuickStart = () => {
     startNewGame();
     setScreen('game');
+  };
+
+  const handleSaveManagerClose = () => {
+    setShowSaveManager(false);
   };
 
   return (
@@ -54,7 +60,6 @@ export const MainMenu: React.FC = () => {
             size="large" 
             fullWidth 
             onClick={handleContinue}
-            disabled={!hasSaves}
             icon={<Icon name="load" size={20} />}
           >
             继续游戏
@@ -71,6 +76,21 @@ export const MainMenu: React.FC = () => {
           </Button>
         </nav>
 
+        {saves.length > 0 && (
+          <div className={styles.recentSave}>
+            <span className={styles.recentLabel}>最近存档：</span>
+            <button 
+              className={styles.recentBtn}
+              onClick={() => setShowConfirm(true)}
+            >
+              <span className={styles.recentName}>{saves[0].name}</span>
+              <span className={styles.recentTime}>
+                {new Date(saves[0].timestamp * 1000).toLocaleString('zh-CN')}
+              </span>
+            </button>
+          </div>
+        )}
+
         <div className={styles.footer}>
           <button className={styles.themeToggle} onClick={toggleTheme}>
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} />
@@ -80,37 +100,33 @@ export const MainMenu: React.FC = () => {
         </div>
       </div>
 
-      {showSaveList && (
-        <div className={styles.modal} onClick={() => setShowSaveList(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>选择存档</h2>
-              <button className={styles.closeButton} onClick={() => setShowSaveList(false)}>
-                <Icon name="close" size={20} />
-              </button>
-            </div>
-            <div className={styles.saveList}>
-              {saves.map((save) => (
-                <button
-                  key={save.id}
-                  className={styles.saveItem}
-                  onClick={() => handleLoadSave(save.id)}
-                >
-                  <div className={styles.saveInfo}>
-                    <span className={styles.saveName}>{save.name}</span>
-                    <span className={styles.saveDetails}>
-                      {save.chapter} · {save.location} · Lv.{save.level}
-                    </span>
-                  </div>
-                  <span className={styles.saveTime}>
-                    {new Date(save.timestamp).toLocaleString('zh-CN')}
-                  </span>
-                </button>
-              ))}
-            </div>
+      {showSaveManager && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <SaveManager
+              mode="load"
+              onClose={handleSaveManagerClose}
+              onLoad={handleLoadSave}
+            />
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="加载最近存档"
+        message={`确定要加载存档"${saves[0]?.name}"吗？`}
+        confirmText="加载"
+        cancelText="取消"
+        onConfirm={async () => {
+          if (saves[0]) {
+            const saveData = await import('../../services/saveService').then(m => m.saveService.getSave(saves[0].id));
+            await loadGame(saveData);
+          }
+          setShowConfirm(false);
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 };

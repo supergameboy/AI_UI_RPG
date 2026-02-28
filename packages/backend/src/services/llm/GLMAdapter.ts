@@ -149,7 +149,7 @@ export class GLMAdapter extends BaseLLMAdapter {
         throw new Error(`${this.name} API error: ${response.status} - ${error}`);
       }
 
-      const data: GLMChatResponse = await response.json();
+      const data = await response.json() as GLMChatResponse;
       return this.parseChatResponse(data);
     });
   }
