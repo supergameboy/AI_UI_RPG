@@ -172,6 +172,12 @@ export class LLMService {
   getAvailableProviders(): string[] {
     return Array.from(this.adapters.keys());
   }
+
+  removeProvider(provider: string): void {
+    this.adapters.delete(provider);
+    delete this.config.providers[provider];
+    console.log(`[LLMService] Removed adapter: ${provider}`);
+  }
 }
 
 let llmService: LLMService | null = null;

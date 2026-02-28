@@ -1,0 +1,173 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Icon, type IconName } from '../common';
+import { useDeveloperStore, useSettingsStore } from '../../stores';
+import { RequestMonitor } from './RequestMonitor';
+import { AgentCommunication } from './AgentCommunication';
+import { LogViewer } from './LogViewer';
+import { StateInspector } from './StateInspector';
+import styles from './DeveloperPanel.module.css';
+
+const TABS: { id: 'requests' | 'agents' | 'logs' | 'state'; label: string; icon: IconName }[] = [
+  { id: 'requests', label: '请求', icon: 'send' },
+  { id: 'agents', label: '智能体', icon: 'developer' },
+  { id: 'logs', label: '日志', icon: 'folder' },
+  { id: 'state', label: '状态', icon: 'character' },
+];
+
+export const DeveloperPanel: React.FC = () => {
+  const { settings } = useSettingsStore();
+  const {
+    isDeveloperPanelVisible,
+    isMinimized,
+    activeTab,
+    position,
+    size,
+    showDeveloperPanel,
+    hideDeveloperPanel,
+    minimizePanel,
+    expandPanel,
+    setActiveTab,
+    setPosition,
+    setSize,
+  } = useDeveloperStore();
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (settings.developer.developerMode && !isDeveloperPanelVisible) {
+      showDeveloperPanel();
+    }
+    if (!settings.developer.developerMode && isDeveloperPanelVisible) {
+      hideDeveloperPanel();
+    }
+  }, [settings.developer.developerMode, isDeveloperPanelVisible, showDeveloperPanel, hideDeveloperPanel]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest(`.${styles.headerButtons}`)) {
+      return;
+    }
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    });
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isDragging) {
+      const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - 100));
+      const newY = Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - 50));
+      setPosition({ x: newX, y: newY });
+    }
+
+    if (isResizing && panelRef.current) {
+      const rect = panelRef.current.getBoundingClientRect();
+      const newWidth = Math.max(400, e.clientX - rect.left);
+      const newHeight = Math.max(300, e.clientY - rect.top);
+      setSize({ width: newWidth, height: newHeight });
+    }
+  }, [isDragging, isResizing, dragOffset, setPosition, setSize]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
+
+  if (!settings.developer.developerMode || !isDeveloperPanelVisible) {
+    return null;
+  }
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'requests':
+        return <RequestMonitor />;
+      case 'agents':
+        return <AgentCommunication />;
+      case 'logs':
+        return <LogViewer />;
+      case 'state':
+        return <StateInspector />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div
+      ref={panelRef}
+      className={`${styles.panel} ${isMinimized ? styles.minimized : ''}`}
+      style={{
+        left: position.x,
+        top: position.y,
+        width: isMinimized ? 'auto' : size.width,
+        height: isMinimized ? 'auto' : size.height,
+      }}
+    >
+      <div
+        className={styles.header}
+        onMouseDown={handleMouseDown}
+      >
+        <div className={styles.headerTitle}>
+          <Icon name="developer" size={18} />
+          <span>开发者工具</span>
+        </div>
+        <div className={styles.headerButtons}>
+          <button
+            className={styles.headerButton}
+            onClick={isMinimized ? expandPanel : minimizePanel}
+            title={isMinimized ? '展开' : '最小化'}
+          >
+            <Icon name={isMinimized ? 'chevron-up' : 'chevron-down'} size={16} />
+          </button>
+          <button
+            className={styles.headerButton}
+            onClick={hideDeveloperPanel}
+            title="关闭"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      </div>
+
+      {!isMinimized && (
+        <>
+          <div className={styles.tabs}>
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                className={`${styles.tab} ${activeTab === tab.id ? styles.active : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon name={tab.icon} size={14} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.content}>
+            {renderTabContent()}
+          </div>
+
+          <div
+            className={styles.resizeHandle}
+            onMouseDown={() => setIsResizing(true)}
+          />
+        </>
+      )}
+    </div>
+  );
+};

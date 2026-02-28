@@ -1,11 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Icon, Panel } from '../common';
-import { useGameStore, useThemeStore } from '../../stores';
+import { LLMConfigModal } from '../settings';
+import { useGameStore, useThemeStore, useSettingsStore } from '../../stores';
 import styles from './Settings.module.css';
 
 export const Settings: React.FC = () => {
-  const { closeSettings } = useGameStore();
+  const { closeSettings, setAutoSaveEnabled } = useGameStore();
   const { theme, setTheme } = useThemeStore();
+  const { settings, updateGameplaySettings, updateDeveloperSettings } = useSettingsStore();
+  const [showLLMConfig, setShowLLMConfig] = useState(false);
+
+  const handleAutoSaveToggle = (enabled: boolean) => {
+    updateGameplaySettings({ autoSaveEnabled: enabled });
+    setAutoSaveEnabled(enabled);
+  };
+
+  const handleTextSpeedChange = (speed: string) => {
+    updateGameplaySettings({ textSpeed: speed as typeof settings.gameplay.textSpeed });
+  };
+
+  const handleDeveloperModeToggle = (enabled: boolean) => {
+    updateDeveloperSettings({ developerMode: enabled });
+  };
+
+  const handleSaveAndClose = () => {
+    closeSettings();
+  };
 
   return (
     <div className={styles.container}>
@@ -51,7 +71,7 @@ export const Settings: React.FC = () => {
                 <span className={styles.settingName}>LLM配置</span>
                 <span className={styles.settingDesc}>配置AI模型和API密钥</span>
               </div>
-              <Button variant="secondary" size="small">
+              <Button variant="secondary" size="small" onClick={() => setShowLLMConfig(true)}>
                 配置
               </Button>
             </div>
@@ -64,7 +84,11 @@ export const Settings: React.FC = () => {
                 <span className={styles.settingDesc}>场景切换时自动保存</span>
               </div>
               <label className={styles.toggle}>
-                <input type="checkbox" defaultChecked />
+                <input 
+                  type="checkbox" 
+                  checked={settings.gameplay.autoSaveEnabled}
+                  onChange={(e) => handleAutoSaveToggle(e.target.checked)}
+                />
                 <span className={styles.toggleSlider} />
               </label>
             </div>
@@ -73,9 +97,13 @@ export const Settings: React.FC = () => {
                 <span className={styles.settingName}>文本速度</span>
                 <span className={styles.settingDesc}>调整文字显示速度</span>
               </div>
-              <select className={styles.select}>
+              <select 
+                className={styles.select}
+                value={settings.gameplay.textSpeed}
+                onChange={(e) => handleTextSpeedChange(e.target.value)}
+              >
                 <option value="slow">慢速</option>
-                <option value="normal" selected>正常</option>
+                <option value="normal">正常</option>
                 <option value="fast">快速</option>
                 <option value="instant">即时</option>
               </select>
@@ -89,7 +117,11 @@ export const Settings: React.FC = () => {
                 <span className={styles.settingDesc}>显示调试面板和日志</span>
               </div>
               <label className={styles.toggle}>
-                <input type="checkbox" />
+                <input 
+                  type="checkbox"
+                  checked={settings.developer.developerMode}
+                  onChange={(e) => handleDeveloperModeToggle(e.target.checked)}
+                />
                 <span className={styles.toggleSlider} />
               </label>
             </div>
@@ -97,11 +129,16 @@ export const Settings: React.FC = () => {
         </div>
 
         <div className={styles.footer}>
-          <Button variant="primary" onClick={closeSettings}>
+          <Button variant="primary" onClick={handleSaveAndClose}>
             保存并返回
           </Button>
         </div>
       </div>
+
+      <LLMConfigModal 
+        isOpen={showLLMConfig} 
+        onClose={() => setShowLLMConfig(false)} 
+      />
     </div>
   );
 };

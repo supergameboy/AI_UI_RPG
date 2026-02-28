@@ -6,6 +6,7 @@ import { saveRepository } from './models/SaveRepository';
 import { initializeLLMService, getLLMService } from './services/llm';
 import { initializeAgentService } from './services/AgentService';
 import agentRoutes from './routes/agentRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 
 const app = express();
@@ -290,37 +291,52 @@ app.get('/api/llm/models', (_req, res) => {
 
 app.post('/api/llm/test', async (req, res) => {
   try {
-    const { provider } = req.body;
-    const llmService = getLLMService();
-
-    if (!llmService.isProviderConfigured(provider)) {
+    const { provider, apiKey, baseURL } = req.body;
+    
+    if (!apiKey) {
       res.status(400).json({
         success: false,
-        error: `Provider ${provider} is not configured`,
+        error: 'API Key is required',
       });
       return;
     }
 
-    const adapter = llmService.getAdapter(provider);
-    const capabilities = adapter.getCapabilities();
-
-    const testMessage: Message = {
-      role: 'user',
-      content: 'Hello, this is a test message. Please respond with "Connection successful."',
-    };
-
-    const response = await adapter.chat([testMessage], {
-      maxTokens: 50,
-      temperature: 0.1,
-    });
-
-    res.json({
-      success: true,
+    const llmService = getLLMService();
+    
+    const testConfig = {
       provider,
-      model: capabilities.model,
-      response: response.content.substring(0, 100),
-      usage: response.usage,
-    });
+      apiKey,
+      baseURL: baseURL || undefined,
+      models: [],
+    };
+    
+    const testProviderName = `test_${provider}_${Date.now()}`;
+    llmService.registerProvider(testProviderName, testConfig);
+    
+    try {
+      const adapter = llmService.getAdapter(testProviderName);
+      const capabilities = adapter.getCapabilities();
+
+      const testMessage: Message = {
+        role: 'user',
+        content: 'Hello, this is a test message. Please respond with "Connection successful."',
+      };
+
+      const response = await adapter.chat([testMessage], {
+        maxTokens: 50,
+        temperature: 0.1,
+      });
+
+      res.json({
+        success: true,
+        provider,
+        model: capabilities.model,
+        response: response.content.substring(0, 100),
+        usage: response.usage,
+      });
+    } finally {
+      llmService.removeProvider(testProviderName);
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -375,6 +391,7 @@ app.post('/api/llm/chat/stream', async (req, res) => {
 });
 
 app.use('/api/agents', agentRoutes);
+app.use('/api/settings', settingsRoutes);
 
 async function initializeApp() {
   console.log('Initializing application...');

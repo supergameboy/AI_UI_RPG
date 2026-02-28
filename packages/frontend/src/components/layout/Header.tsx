@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
-import { useGameStore, useThemeStore, useUIStore } from '../../stores';
+import { useGameStore, useThemeStore, useUIStore, useSettingsStore } from '../../stores';
 import styles from './Header.module.css';
 
 export const Header: React.FC = () => {
   const { returnToMenu, openSettings, saveGame, hasUnsavedChanges } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
-  const { isDeveloperMode, toggleDeveloperMode } = useUIStore();
+  const { toggleDeveloperPanel } = useUIStore();
+  const { settings } = useSettingsStore();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -103,14 +104,16 @@ export const Header: React.FC = () => {
             icon={<Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />}
             title={theme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
           />
-          <Button 
-            variant="ghost" 
-            size="small" 
-            onClick={toggleDeveloperMode}
-            icon={<Icon name="developer" size={18} />}
-            title="开发者工具"
-            className={isDeveloperMode ? styles.active : ''}
-          />
+          {settings.developer.developerMode && (
+            <Button 
+              variant="ghost" 
+              size="small" 
+              onClick={toggleDeveloperPanel}
+              icon={<Icon name="developer" size={18} />}
+              title="开发者工具"
+              className={styles.active}
+            />
+          )}
           <Button 
             variant="ghost" 
             size="small" 

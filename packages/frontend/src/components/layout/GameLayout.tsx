@@ -4,6 +4,7 @@ import { Footer } from './Footer';
 import { LeftSidebar } from './LeftSidebar';
 import { PanelContainer } from './PanelContainer';
 import { StoryDisplay, QuickOptions, ChatInput } from '../game';
+import { DeveloperPanel } from '../developer';
 import styles from './GameLayout.module.css';
 
 export const GameLayout: React.FC = () => {
@@ -22,6 +23,7 @@ export const GameLayout: React.FC = () => {
       </main>
       
       <Footer />
+      <DeveloperPanel />
     </div>
   );
 };

@@ -1,22 +1,25 @@
 import { create } from 'zustand';
+import { useSettingsStore } from './settingsStore';
 
 export type PanelType = 'character' | 'skills' | 'equipment' | 'inventory' | 'quests' | 'map' | 'npc' | 'journal' | null;
 
 export interface UIState {
   activePanel: PanelType;
   isPanelOpen: boolean;
-  isDeveloperMode: boolean;
+  isDeveloperPanelVisible: boolean;
   
   openPanel: (panel: PanelType) => void;
   closePanel: () => void;
   togglePanel: (panel: PanelType) => void;
-  toggleDeveloperMode: () => void;
+  toggleDeveloperPanel: () => void;
+  showDeveloperPanel: () => void;
+  hideDeveloperPanel: () => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
   activePanel: null,
   isPanelOpen: false,
-  isDeveloperMode: false,
+  isDeveloperPanelVisible: false,
   
   openPanel: (panel: PanelType) => {
     set({ activePanel: panel, isPanelOpen: true });
@@ -35,7 +38,23 @@ export const useUIStore = create<UIState>((set, get) => ({
     }
   },
   
-  toggleDeveloperMode: () => {
-    set((state) => ({ isDeveloperMode: !state.isDeveloperMode }));
+  toggleDeveloperPanel: () => {
+    const { settings, updateDeveloperSettings } = useSettingsStore.getState();
+    const newMode = !settings.developer.developerMode;
+    updateDeveloperSettings({ developerMode: newMode });
+    
+    if (newMode) {
+      set({ isDeveloperPanelVisible: true });
+    } else {
+      set({ isDeveloperPanelVisible: false });
+    }
+  },
+  
+  showDeveloperPanel: () => {
+    set({ isDeveloperPanelVisible: true });
+  },
+  
+  hideDeveloperPanel: () => {
+    set({ isDeveloperPanelVisible: false });
   },
 }));
