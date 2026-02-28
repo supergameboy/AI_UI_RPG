@@ -4,6 +4,8 @@ import { initDatabaseService, DatabaseService } from './services/DatabaseService
 import { databaseInitializer } from './database/initializer';
 import { saveRepository } from './models/SaveRepository';
 import { initializeLLMService, getLLMService } from './services/llm';
+import { initializeAgentService } from './services/AgentService';
+import agentRoutes from './routes/agentRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 
 const app = express();
@@ -372,6 +374,8 @@ app.post('/api/llm/chat/stream', async (req, res) => {
   }
 });
 
+app.use('/api/agents', agentRoutes);
+
 async function initializeApp() {
   console.log('Initializing application...');
 
@@ -393,6 +397,13 @@ async function initializeApp() {
     console.log('LLM Service initialized');
   } catch (error) {
     console.error('Failed to initialize LLM service:', error);
+  }
+
+  try {
+    await initializeAgentService();
+    console.log('Agent Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Agent service:', error);
   }
 }
 

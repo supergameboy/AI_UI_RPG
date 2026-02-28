@@ -272,3 +272,30 @@ CREATE TABLE IF NOT EXISTS db_version (
 
 -- 初始版本记录
 INSERT OR IGNORE INTO db_version (version, description) VALUES (1, 'Initial schema');
+
+-- ============================================
+-- 智能体配置表
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS agent_configs (
+  id TEXT PRIMARY KEY,
+  agent_type TEXT NOT NULL UNIQUE,
+  provider TEXT NOT NULL DEFAULT 'deepseek',
+  model TEXT NOT NULL DEFAULT 'deepseek-chat',
+  temperature REAL DEFAULT 0.7,
+  max_tokens INTEGER DEFAULT 2048,
+  timeout INTEGER DEFAULT 30000,
+  max_retries INTEGER DEFAULT 3,
+  system_prompt TEXT,
+  custom_config TEXT DEFAULT '{}',
+  enabled INTEGER DEFAULT 1,
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+-- 智能体配置索引
+CREATE INDEX IF NOT EXISTS idx_agent_configs_type ON agent_configs(agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_configs_enabled ON agent_configs(enabled);
+
+-- 数据库版本更新
+INSERT OR IGNORE INTO db_version (version, description) VALUES (2, 'Added agent_configs table');

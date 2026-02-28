@@ -1,0 +1,155 @@
+.container {
+  padding: 16px;
+  background: #1a1a2e;
+  border-radius: 8px;
+  color: #eee;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background: #4a4a6a;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.button:hover:not(:disabled) {
+  background: #5a5a7a;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dangerButton {
+  background: #e74c3c;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+.stats {
+  margin-bottom: 12px;
+  color: #888;
+  font-size: 14px;
+}
+
+.logList {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.logItem {
+  background: #16213e;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  padding: 12px;
+  border-left: 3px solid #4a4a6a;
+}
+
+.logHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.statusSuccess {
+  background: #27ae60;
+  color: #fff;
+}
+
+.statusError {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.statusPending {
+  background: #f39c12;
+  color: #fff;
+}
+
+.direction {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #4a4a6a;
+  font-size: 12px;
+}
+
+.agentType {
+  color: #3498db;
+  font-weight: 500;
+}
+
+.timestamp {
+  color: #888;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.logBody {
+  padding-left: 8px;
+  border-left: 2px solid #4a4a6a;
+}
+
+.messageInfo {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.messageInfo strong {
+  color: #aaa;
+}
+
+.errorInfo {
+  color: #e74c3c;
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(231, 76, 60, 0.1);
+  border-radius: 4px;
+}
+
+.empty {
+  text-align: center;
+  color: #888;
+  padding: 40px;
+}
+
+.error {
+  color: #e74c3c;
+  padding: 16px;
+  background: rgba(231, 76, 60, 0.1);
+  border-radius: 4px;
+}

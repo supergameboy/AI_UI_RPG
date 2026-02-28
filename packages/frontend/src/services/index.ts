@@ -9,3 +9,12 @@ export type {
   SaveQueryOptions,
   GameMode,
 } from './saveService';
+
+export { agentService } from './agentService';
+export type {
+  AgentServiceStatus,
+  AgentLogQuery,
+  AgentStatusType,
+  AgentConfigWithMeta,
+  AgentConfigUpdate,
+} from './agentService';
