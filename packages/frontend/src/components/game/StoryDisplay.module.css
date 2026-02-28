@@ -1,0 +1,41 @@
+.container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  background: var(--color-background);
+}
+
+.content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.narrative {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.scene {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.dialogue {
+  padding: var(--spacing-md);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.speaker {
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-right: var(--spacing-sm);
+}
+
+.text {
+  color: var(--color-text);
+  font-style: italic;
+}

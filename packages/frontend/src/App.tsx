@@ -1,25 +1,17 @@
-import { useState } from 'react';
+import { useGameStore } from './stores';
+import { MainMenu, Settings } from './components/menu';
+import { GameLayout } from './components/layout';
+import './styles/global.css';
 
 function App() {
-  const [count, setCount] = useState(0);
+  const { screen, showSettings } = useGameStore();
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>AI-RPG Engine</h1>
-        <p>AI驱动的通用角色扮演游戏引擎</p>
-      </header>
-      <main className="app-main">
-        <div className="card">
-          <button onClick={() => setCount((count) => count + 1)}>
-            count is {count}
-          </button>
-          <p>
-            编辑 <code>src/App.tsx</code> 并保存以测试 HMR
-          </p>
-        </div>
-      </main>
-    </div>
+    <>
+      {screen === 'menu' && <MainMenu />}
+      {(screen === 'game' || screen === 'template-select') && <GameLayout />}
+      {showSettings && <Settings />}
+    </>
   );
 }
 

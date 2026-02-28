@@ -50,11 +50,16 @@ interface GLMStreamResponse {
   choices: Array<{
     index: number;
     delta: {
-    role?: string;
-    content?: string;
-  };
+      role?: string;
+      content?: string;
+    };
     finish_reason: string | null;
   }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 }
 
 const GLM_MODELS: ModelCapabilities[] = [

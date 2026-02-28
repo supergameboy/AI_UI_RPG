@@ -1,0 +1,125 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  height: 28px;
+}
+
+.medium {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  height: 36px;
+}
+
+.large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-lg);
+  height: 44px;
+}
+
+.primary {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: transparent;
+}
+
+.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-text-tertiary);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.danger {
+  background: var(--color-error);
+  color: white;
+  border-color: transparent;
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--color-error-hover);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.loading {
+  pointer-events: none;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon svg {
+  width: 1em;
+  height: 1em;
+}
+
+.text {
+  line-height: 1;
+}

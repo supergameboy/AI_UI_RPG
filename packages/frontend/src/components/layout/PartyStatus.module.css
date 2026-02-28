@@ -1,0 +1,25 @@
+.partyStatus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  min-width: 160px;
+}
+
+.member {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

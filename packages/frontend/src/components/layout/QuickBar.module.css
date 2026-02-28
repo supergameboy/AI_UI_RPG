@@ -1,0 +1,41 @@
+.quickBar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  flex: 2;
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.slots {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.slot {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.slot:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.key {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
