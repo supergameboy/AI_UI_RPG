@@ -4,7 +4,7 @@ import { Icon } from '../common';
 import styles from './DeveloperPanel.module.css';
 
 export const AgentCommunication: React.FC = () => {
-  const { agentMessages } = useDeveloperStore();
+  const { agentMessages, wsConnection, clearAgentMessages } = useDeveloperStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedMessage = agentMessages.find((m) => m.id === selectedId);
@@ -13,8 +13,26 @@ export const AgentCommunication: React.FC = () => {
     return new Date(timestamp).toLocaleTimeString('zh-CN');
   };
 
+  const handleClearMessages = async () => {
+    try {
+      await fetch('http://localhost:6756/api/logs/agents', { method: 'DELETE' });
+      clearAgentMessages();
+    } catch (error) {
+      console.error('Failed to clear agent messages:', error);
+    }
+  };
+
   return (
     <div className={styles.tabContent}>
+      <div className={styles.toolbar}>
+        <div className={styles.connectionStatus}>
+          <span className={`${styles.statusDot} ${wsConnection.connected ? styles.connected : styles.disconnected}`} />
+          <span>{wsConnection.connected ? '已连接' : wsConnection.reconnecting ? '重连中...' : '未连接'}</span>
+        </div>
+        <button className={styles.clearButton} onClick={handleClearMessages}>
+          清空
+        </button>
+      </div>
       <div className={styles.listContainer}>
         <div className={styles.listHeader}>
           <span>消息流</span>

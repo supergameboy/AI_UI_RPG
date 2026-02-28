@@ -40,16 +40,16 @@ export class SaveRepository extends BaseRepository<Save> {
     stmt.run(
       id,
       data.name,
-      data.template_id,
+      data.template_id ?? null,
       data.game_mode,
-      data.character_id,
+      data.character_id ?? null,
       now,
       now,
-      data.play_time || 0,
-      data.current_location,
-      data.current_scene,
-      data.game_state || '{}',
-      data.story_progress || '{}'
+      data.play_time ?? 0,
+      data.current_location ?? null,
+      data.current_scene ?? null,
+      data.game_state ?? '{}',
+      data.story_progress ?? '{}'
     );
 
     return this.findById(id)!;

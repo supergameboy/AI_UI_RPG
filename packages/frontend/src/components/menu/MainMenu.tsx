@@ -96,7 +96,7 @@ export const MainMenu: React.FC = () => {
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} />
             <span>{theme === 'dark' ? '亮色模式' : '暗色模式'}</span>
           </button>
-          <span className={styles.version}>v0.1.0</span>
+          <span className={styles.version}>v0.2.0</span>
         </div>
       </div>
 

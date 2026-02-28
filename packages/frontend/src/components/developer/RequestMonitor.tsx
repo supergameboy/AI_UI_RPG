@@ -4,7 +4,7 @@ import { Icon } from '../common';
 import styles from './DeveloperPanel.module.css';
 
 export const RequestMonitor: React.FC = () => {
-  const { llmRequests } = useDeveloperStore();
+  const { llmRequests, wsConnection, clearLLMRequests } = useDeveloperStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedRequest = llmRequests.find((r) => r.id === selectedId);
@@ -18,8 +18,26 @@ export const RequestMonitor: React.FC = () => {
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
+  const handleClearRequests = async () => {
+    try {
+      await fetch('http://localhost:6756/api/logs/llm', { method: 'DELETE' });
+      clearLLMRequests();
+    } catch (error) {
+      console.error('Failed to clear LLM requests:', error);
+    }
+  };
+
   return (
     <div className={styles.tabContent}>
+      <div className={styles.toolbar}>
+        <div className={styles.connectionStatus}>
+          <span className={`${styles.statusDot} ${wsConnection.connected ? styles.connected : styles.disconnected}`} />
+          <span>{wsConnection.connected ? '已连接' : wsConnection.reconnecting ? '重连中...' : '未连接'}</span>
+        </div>
+        <button className={styles.clearButton} onClick={handleClearRequests}>
+          清空
+        </button>
+      </div>
       <div className={styles.listContainer}>
         <div className={styles.listHeader}>
           <span>请求列表</span>

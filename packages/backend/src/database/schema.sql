@@ -299,3 +299,60 @@ CREATE INDEX IF NOT EXISTS idx_agent_configs_enabled ON agent_configs(enabled);
 
 -- 数据库版本更新
 INSERT OR IGNORE INTO db_version (version, description) VALUES (2, 'Added agent_configs table');
+
+-- ============================================
+-- 提示词工程表
+-- ============================================
+
+-- 提示词模板表
+CREATE TABLE IF NOT EXISTS prompt_templates (
+  id TEXT PRIMARY KEY,
+  agent_type TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  content TEXT NOT NULL,
+  variables TEXT DEFAULT '[]',
+  metadata TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+-- 提示词版本表
+CREATE TABLE IF NOT EXISTS prompt_versions (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  variables TEXT DEFAULT '[]',
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  created_by TEXT,
+  change_note TEXT,
+  FOREIGN KEY (template_id) REFERENCES prompt_templates(id) ON DELETE CASCADE,
+  UNIQUE(template_id, version)
+);
+
+-- 提示词测试结果表
+CREATE TABLE IF NOT EXISTS prompt_test_results (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  test_input TEXT NOT NULL,
+  test_output TEXT,
+  response_time INTEGER DEFAULT 0,
+  input_tokens INTEGER DEFAULT 0,
+  output_tokens INTEGER DEFAULT 0,
+  total_tokens INTEGER DEFAULT 0,
+  evaluation_score REAL,
+  evaluation_feedback TEXT,
+  evaluation_criteria TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  FOREIGN KEY (template_id) REFERENCES prompt_templates(id) ON DELETE CASCADE
+);
+
+-- 提示词模板索引
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_type ON prompt_templates(agent_type);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_template ON prompt_versions(template_id, version);
+CREATE INDEX IF NOT EXISTS idx_prompt_test_results_template ON prompt_test_results(template_id, created_at);
+
+-- 数据库版本更新
+INSERT OR IGNORE INTO db_version (version, description) VALUES (3, 'Added prompt engineering tables');

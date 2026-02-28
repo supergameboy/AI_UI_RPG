@@ -1,15 +1,21 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
 import { initDatabaseService, DatabaseService } from './services/DatabaseService';
 import { databaseInitializer } from './database/initializer';
 import { saveRepository } from './models/SaveRepository';
 import { initializeLLMService, getLLMService } from './services/llm';
 import { initializeAgentService } from './services/AgentService';
+import { initializePromptService } from './services/PromptService';
+import { getWebSocketService } from './services/WebSocketService';
+import { getDeveloperLogService } from './services/DeveloperLogService';
 import agentRoutes from './routes/agentRoutes';
 import settingsRoutes from './routes/settingsRoutes';
+import promptRoutes from './routes/promptRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 
 const app = express();
+const server = createServer(app);
 const PORT = process.env.PORT || 6756;
 
 app.use(cors());
@@ -22,7 +28,7 @@ app.get('/api/health', (_req, res) => {
 app.get('/api', (_req, res) => {
   res.json({
     name: 'AI-RPG Engine API',
-    version: '0.1.0',
+    version: '0.2.0',
   });
 });
 
@@ -128,10 +134,10 @@ app.post('/api/saves', (req, res) => {
   try {
     const { snapshot, ...saveData } = req.body;
 
-    // 创建存档
+    console.log('[API] Creating save with data:', saveData);
+
     const save = saveRepository.create(saveData);
 
-    // 如果提供了快照数据，自动创建初始快照
     if (snapshot) {
       saveRepository.createSnapshot({
         save_id: save.id,
@@ -141,7 +147,6 @@ app.post('/api/saves', (req, res) => {
         agent_states: snapshot.agent_states || '{}',
       });
     } else if (saveData.game_state) {
-      // 如果没有提供快照但有游戏状态，自动创建一个初始快照
       saveRepository.createSnapshot({
         save_id: save.id,
         snapshot_type: 'manual',
@@ -153,8 +158,9 @@ app.post('/api/saves', (req, res) => {
 
     res.status(201).json(save);
   } catch (error) {
+    console.error('[API] Error creating save:', error);
     res.status(500).json({
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 });
@@ -237,7 +243,7 @@ app.get('/api/llm/config', (_req, res) => {
   }
 });
 
-app.put('/api/llm/config', (req, res) => {
+app.put('/api/llm/config', async (req, res) => {
   try {
     const llmService = getLLMService();
     const { provider, apiKey, baseURL, defaultModel } = req.body;
@@ -254,7 +260,7 @@ app.put('/api/llm/config', (req, res) => {
     });
 
     if (apiKey) {
-      llmService.registerProvider(provider, {
+      await llmService.registerProvider(provider, {
         provider,
         apiKey,
         baseURL,
@@ -310,11 +316,14 @@ app.post('/api/llm/test', async (req, res) => {
       models: [],
     };
     
-    const testProviderName = `test_${provider}_${Date.now()}`;
-    llmService.registerProvider(testProviderName, testConfig);
+    const existingAdapter = llmService.getAvailableProviders().includes(provider);
+    
+    if (!existingAdapter) {
+      await llmService.registerProvider(provider, testConfig);
+    }
     
     try {
-      const adapter = llmService.getAdapter(testProviderName);
+      const adapter = llmService.getAdapter(provider);
       const capabilities = adapter.getCapabilities();
 
       const testMessage: Message = {
@@ -335,7 +344,9 @@ app.post('/api/llm/test', async (req, res) => {
         usage: response.usage,
       });
     } finally {
-      llmService.removeProvider(testProviderName);
+      if (!existingAdapter) {
+        llmService.removeProvider(provider);
+      }
     }
   } catch (error) {
     res.status(500).json({
@@ -392,6 +403,55 @@ app.post('/api/llm/chat/stream', async (req, res) => {
 
 app.use('/api/agents', agentRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/prompts', promptRoutes);
+
+app.get('/api/logs/llm', (_req, res) => {
+  try {
+    const logService = getDeveloperLogService();
+    const logs = logService.getLLMRequests();
+    res.json({ logs });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.get('/api/logs/agents', (_req, res) => {
+  try {
+    const logService = getDeveloperLogService();
+    const logs = logService.getAgentMessages();
+    res.json({ logs });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.delete('/api/logs/llm', (_req, res) => {
+  try {
+    const logService = getDeveloperLogService();
+    logService.clearLLMRequests();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.delete('/api/logs/agents', (_req, res) => {
+  try {
+    const logService = getDeveloperLogService();
+    logService.clearAgentMessages();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
 
 async function initializeApp() {
   console.log('Initializing application...');
@@ -417,15 +477,28 @@ async function initializeApp() {
   }
 
   try {
+    await initializePromptService();
+    console.log('Prompt Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Prompt service:', error);
+  }
+
+  try {
     await initializeAgentService();
     console.log('Agent Service initialized');
   } catch (error) {
     console.error('Failed to initialize Agent service:', error);
   }
+
+  getWebSocketService().initialize(server);
+  console.log('WebSocket Service initialized');
+  
+  getDeveloperLogService();
+  console.log('Developer Log Service initialized');
 }
 
 initializeApp().then(() => {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
   });
 });

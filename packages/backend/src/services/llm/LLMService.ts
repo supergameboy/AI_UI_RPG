@@ -6,10 +6,12 @@ import type {
   StreamChunk,
   ModelCapabilities,
   LLMProviderConfig,
+  AgentType,
 } from '@ai-rpg/shared';
 import { DeepSeekAdapter } from './DeepSeekAdapter';
 import { GLMAdapter } from './GLMAdapter';
 import { KimiAdapter } from './KimiAdapter';
+import { getDeveloperLogService } from '../DeveloperLogService';
 
 export interface LLMServiceConfig {
   defaultProvider: string;
@@ -84,20 +86,99 @@ export class LLMService {
 
   async chat(
     messages: Message[],
-    options?: ChatOptions & { provider?: string }
+    options?: ChatOptions & { provider?: string; agentType?: string }
   ): Promise<ChatResponse> {
     const provider = options?.provider || this.defaultAdapter;
     const adapter = this.getAdapter(provider);
-    return adapter.chat(messages, options);
+    const startTime = Date.now();
+    
+    const logService = getDeveloperLogService();
+    
+    const capabilities = adapter.getCapabilities();
+    
+    const requestLog = logService.addLLMRequest({
+      agentType: (options?.agentType as AgentType) || 'unknown',
+      provider,
+      model: capabilities.model,
+      status: 'pending',
+      duration: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      prompt: JSON.stringify(messages, null, 2),
+    });
+    const requestId = requestLog.id;
+
+    try {
+      const response = await adapter.chat(messages, options);
+      
+      logService.updateLLMRequest(requestId, {
+        status: 'success',
+        duration: Date.now() - startTime,
+        promptTokens: response.usage?.promptTokens || 0,
+        completionTokens: response.usage?.completionTokens || 0,
+        response: response.content,
+      });
+      
+      return response;
+    } catch (error) {
+      logService.updateLLMRequest(requestId, {
+        status: 'error',
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
   }
 
   async *chatStream(
     messages: Message[],
-    options?: ChatOptions & { provider?: string }
+    options?: ChatOptions & { provider?: string; agentType?: string }
   ): AsyncIterable<StreamChunk> {
     const provider = options?.provider || this.defaultAdapter;
     const adapter = this.getAdapter(provider);
-    yield* adapter.chatStream(messages, options);
+    const startTime = Date.now();
+    
+    const logService = getDeveloperLogService();
+    const capabilities = adapter.getCapabilities();
+    
+    const requestLog = logService.addLLMRequest({
+      agentType: (options?.agentType as AgentType) || 'unknown',
+      provider,
+      model: capabilities.model,
+      status: 'pending',
+      duration: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      prompt: JSON.stringify(messages, null, 2),
+    });
+    const requestId = requestLog.id;
+    
+    let totalContent = '';
+    let totalTokens = 0;
+    
+    try {
+      for await (const chunk of adapter.chatStream(messages, options)) {
+        totalContent += chunk.delta || '';
+        if (chunk.usage) {
+          totalTokens = chunk.usage.completionTokens || 0;
+        }
+        yield chunk;
+      }
+      
+      logService.updateLLMRequest(requestId, {
+        status: 'success',
+        duration: Date.now() - startTime,
+        completionTokens: totalTokens,
+        response: totalContent.substring(0, 1000),
+      });
+    } catch (error) {
+      logService.updateLLMRequest(requestId, {
+        status: 'error',
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
   }
 
   getCapabilities(provider?: string): ModelCapabilities {

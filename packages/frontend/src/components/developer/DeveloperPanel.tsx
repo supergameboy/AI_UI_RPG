@@ -5,13 +5,15 @@ import { RequestMonitor } from './RequestMonitor';
 import { AgentCommunication } from './AgentCommunication';
 import { LogViewer } from './LogViewer';
 import { StateInspector } from './StateInspector';
+import { PromptEditor } from './PromptEditor';
 import styles from './DeveloperPanel.module.css';
 
-const TABS: { id: 'requests' | 'agents' | 'logs' | 'state'; label: string; icon: IconName }[] = [
+const TABS: { id: 'requests' | 'agents' | 'logs' | 'state' | 'prompts'; label: string; icon: IconName }[] = [
   { id: 'requests', label: '请求', icon: 'send' },
   { id: 'agents', label: '智能体', icon: 'developer' },
   { id: 'logs', label: '日志', icon: 'folder' },
   { id: 'state', label: '状态', icon: 'character' },
+  { id: 'prompts', label: '提示词', icon: 'edit' },
 ];
 
 export const DeveloperPanel: React.FC = () => {
@@ -101,6 +103,8 @@ export const DeveloperPanel: React.FC = () => {
         return <LogViewer />;
       case 'state':
         return <StateInspector />;
+      case 'prompts':
+        return <PromptEditor />;
       default:
         return null;
     }

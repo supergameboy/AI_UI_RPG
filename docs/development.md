@@ -380,6 +380,61 @@ interface GameSettings {
 
 ---
 
+### 11. 提示词工程系统
+
+**实现时间**: 第二阶段  
+**文件位置**: 
+- 类型定义: `packages/shared/src/types/prompt.ts`
+- 服务: `packages/backend/src/services/PromptService.ts`
+- 数据访问: `packages/backend/src/models/PromptRepository.ts`
+- 路由: `packages/backend/src/routes/promptRoutes.ts`
+- 前端组件: `packages/frontend/src/components/developer/PromptEditor.tsx`
+
+#### 11.1 核心功能
+
+- 提示词模板管理：支持 12 个智能体的提示词模板
+- 变量注入：支持 `{{variable_name}}` 格式的变量替换
+- 版本控制：每次修改自动创建版本快照
+- 测试框架：支持测试提示词效果
+
+#### 11.2 提示词模板文件
+
+```
+packages/backend/src/prompts/
+├── coordinator.md      # 统筹智能体
+├── story_context.md    # 故事上下文智能体
+├── dialogue.md         # 对话智能体
+├── quest.md            # 任务智能体
+├── combat.md           # 战斗智能体
+├── map.md              # 地图智能体
+├── npc_party.md        # NPC/队伍智能体
+├── numerical.md        # 数值智能体
+├── inventory.md        # 背包智能体
+├── skill.md            # 技能智能体
+├── ui.md               # UI智能体
+└── event.md            # 事件智能体
+```
+
+#### 11.3 数据库表
+
+| 表名 | 用途 |
+|------|------|
+| `prompt_templates` | 存储提示词模板 |
+| `prompt_versions` | 存储版本历史 |
+| `prompt_test_results` | 存储测试结果 |
+
+#### 11.4 API 路由
+
+| 路由 | 方法 | 功能 |
+|------|------|------|
+| `/api/prompts/:agentType` | GET | 获取提示词模板 |
+| `/api/prompts/:agentType` | PUT | 更新提示词模板 |
+| `/api/prompts/test` | POST | 测试提示词 |
+| `/api/prompts/:agentType/versions` | GET | 获取版本历史 |
+| `/api/prompts/:agentType/rollback/:version` | POST | 回滚版本 |
+
+---
+
 ## 开发规范
 
 ### 代码风格
@@ -403,6 +458,7 @@ ComponentName/
 
 ---
 
-*文档版本: v1.1*
+*文档版本: v1.2*
 *创建日期: 2025-02-28*
 *最后更新: 2026-02-28*
+*项目版本: 0.2.0*

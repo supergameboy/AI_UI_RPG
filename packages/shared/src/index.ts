@@ -5,3 +5,5 @@ export * from './types/map';
 export * from './types/agent';
 export * from './types/template';
 export * from './types/llm';
+export * from './types/prompt';
+export * from './types/websocket';

@@ -1,5 +1,5 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogSource = 'frontend' | 'backend' | 'agent';
+export type LogSource = 'frontend' | 'backend' | 'agent' | 'prompt-editor';
 
 export interface LogEntry {
   id: string;
@@ -34,6 +34,7 @@ export interface AgentMessageRecord {
   action: string;
   status: 'sent' | 'received' | 'error';
   payload?: Record<string, unknown>;
+  error?: string;
 }
 
 const MAX_LOGS = 1000;

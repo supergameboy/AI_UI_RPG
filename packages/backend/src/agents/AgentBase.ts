@@ -10,9 +10,12 @@ import type {
   Message,
   ChatResponse,
   StreamChunk,
+  PromptContext,
 } from '@ai-rpg/shared';
 import { getMessageRouter, getMessageQueue } from '../services/MessageQueue';
 import { getLLMService } from '../services/llm/LLMService';
+import { getAgentConfigService } from '../services/AgentConfigService';
+import { getDeveloperLogService } from '../services/DeveloperLogService';
 
 export abstract class AgentBase implements Agent {
   abstract readonly type: AgentType;
@@ -109,6 +112,19 @@ export abstract class AgentBase implements Agent {
     }
   ): Promise<AgentMessage> {
     const router = getMessageRouter();
+    const logService = getDeveloperLogService();
+    
+    const targets = Array.isArray(to) ? to : [to];
+    for (const target of targets) {
+      logService.logAgentMessage(
+        this.type,
+        target,
+        action,
+        'sent',
+        data
+      );
+    }
+    
     return router.send(this.type, to, action, data, options);
   }
 
@@ -118,12 +134,16 @@ export abstract class AgentBase implements Agent {
       temperature?: number;
       maxTokens?: number;
       stream?: boolean;
+      context?: PromptContext;
     }
   ): Promise<ChatResponse> {
     const llmService = getLLMService();
+    const agentConfigService = getAgentConfigService();
+    
+    const systemPrompt = agentConfigService.getSystemPrompt(this.type, options?.context);
     
     const allMessages: Message[] = [
-      { role: 'system', content: this.systemPrompt },
+      { role: 'system', content: systemPrompt },
       ...this.buildMemoryMessages(),
       ...messages,
     ];
@@ -141,12 +161,16 @@ export abstract class AgentBase implements Agent {
     options?: {
       temperature?: number;
       maxTokens?: number;
+      context?: PromptContext;
     }
   ): AsyncIterable<StreamChunk> {
     const llmService = getLLMService();
+    const agentConfigService = getAgentConfigService();
+    
+    const systemPrompt = agentConfigService.getSystemPrompt(this.type, options?.context);
     
     const allMessages: Message[] = [
-      { role: 'system', content: this.systemPrompt },
+      { role: 'system', content: systemPrompt },
       ...this.buildMemoryMessages(),
       ...messages,
     ];
@@ -205,6 +229,15 @@ export abstract class AgentBase implements Agent {
 
   protected async handleMessage(message: AgentMessage): Promise<AgentMessage> {
     this.status = 'processing';
+    
+    const logService = getDeveloperLogService();
+    logService.logAgentMessage(
+      message.from,
+      this.type,
+      message.payload?.action || 'unknown',
+      'received',
+      message.payload?.data
+    );
 
     try {
       const response = await this.processMessage(message);

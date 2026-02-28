@@ -1,7 +1,8 @@
-import type { AgentConfig } from '@ai-rpg/shared';
+import type { AgentConfig, PromptContext } from '@ai-rpg/shared';
 import { AgentType, AGENT_DESCRIPTIONS, AGENT_CAPABILITIES, DEFAULT_AGENT_CONFIG } from '@ai-rpg/shared';
 import { AgentConfigRepository } from '../models/AgentConfigRepository';
 import type { AgentConfigEntity } from '../models/AgentConfigRepository';
+import { getPromptService } from './PromptService';
 
 export interface AgentConfigWithMetadata extends AgentConfig {
   type: AgentType;
@@ -174,6 +175,13 @@ export class AgentConfigService {
   }
 
   private getDefaultSystemPrompt(agentType: AgentType): string {
+    const promptService = getPromptService();
+    const template = promptService.getTemplate(agentType);
+    
+    if (template) {
+      return template.content;
+    }
+
     const prompts: Partial<Record<AgentType, string>> = {
       [AgentType.COORDINATOR]: `你是游戏的主控制器和协调者。你的职责是：
 1. 分析玩家输入，理解其真实意图
@@ -263,6 +271,23 @@ export class AgentConfigService {
     };
 
     return prompts[agentType] || '你是一个游戏智能体。';
+  }
+
+  getSystemPrompt(agentType: AgentType, context?: PromptContext): string {
+    const config = this.configCache.get(agentType);
+    
+    if (config?.systemPrompt) {
+      return config.systemPrompt;
+    }
+
+    const promptService = getPromptService();
+    
+    if (context) {
+      return promptService.buildSystemPrompt(agentType, context);
+    }
+
+    const template = promptService.getTemplate(agentType);
+    return template?.content || this.getDefaultSystemPrompt(agentType);
   }
 }
 
