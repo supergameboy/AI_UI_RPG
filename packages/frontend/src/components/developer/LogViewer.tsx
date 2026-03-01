@@ -5,7 +5,7 @@ import { Icon } from '../common';
 import styles from './DeveloperPanel.module.css';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
-const LOG_SOURCES: LogSource[] = ['frontend', 'backend', 'agent'];
+const LOG_SOURCES: LogSource[] = ['frontend', 'backend', 'agent', 'system', 'llm', 'prompt-editor'];
 
 export const LogViewer: React.FC = () => {
   const { logs, setLogs } = useDeveloperStore();

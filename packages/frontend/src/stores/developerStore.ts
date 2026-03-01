@@ -33,6 +33,7 @@ export interface DeveloperState {
   clearAgentMessages: () => void;
 
   addLog: (level: LogEntry['level'], message: string, data?: Record<string, unknown>) => void;
+  addLogEntry: (entry: LogEntry) => void;
   setLogs: (logs: LogEntry[]) => void;
   clearLogs: () => void;
   
@@ -151,6 +152,15 @@ export const useDeveloperStore = create<DeveloperState>((set, get) => ({
     }
   },
 
+  addLogEntry: (entry: LogEntry) => {
+    const logs = [entry, ...get().logs];
+    if (logs.length > MAX_MESSAGES) {
+      set({ logs: logs.slice(0, MAX_MESSAGES) });
+    } else {
+      set({ logs });
+    }
+  },
+
   setLogs: (logs: LogEntry[]) => set({ logs }),
   clearLogs: () => set({ logs: [] }),
   
@@ -165,6 +175,9 @@ export const useDeveloperStore = create<DeveloperState>((set, get) => ({
       } else if (message.type === 'agent_message') {
         const log = message.payload as AgentMessageLog;
         get().addAgentMessage(convertAgentMessageLog(log));
+      } else if (message.type === 'log') {
+        const logEntry = message.payload as LogEntry;
+        get().addLogEntry(logEntry);
       }
     });
     

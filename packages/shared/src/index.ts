@@ -7,3 +7,5 @@ export * from './types/template';
 export * from './types/llm';
 export * from './types/prompt';
 export * from './types/websocket';
+export * from './types/characterCreation';
+export * from './types/log';

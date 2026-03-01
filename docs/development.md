@@ -27,12 +27,15 @@ AI_UI_RPG/
 │   │   │   ├── stores/       # Zustand状态管理
 │   │   │   └── types/        # TypeScript类型定义
 │   │   └── package.json
-│   └── backend/           # Express 后端服务
-│       ├── src/
-│       │   ├── models/       # 数据模型
-│       │   ├── services/     # 业务服务
-│       │   ├── routes/       # API路由
-│       │   └── types/        # TypeScript类型定义
+│   ├── backend/           # Express 后端服务
+│   │   ├── src/
+│   │   │   ├── models/       # 数据模型
+│   │   │   ├── services/     # 业务服务
+│   │   │   ├── routes/       # API路由
+│   │   │   └── types/        # TypeScript类型定义
+│   │   └── package.json
+│   └── shared/            # 共享类型定义
+│       ├── src/types/
 │       └── package.json
 ├── pnpm-workspace.yaml
 └── package.json
@@ -106,6 +109,7 @@ LLMService (统一入口)
 - 实现流式响应 (SSE)
 - 错误处理和重试机制
 - 统一的 API 调用接口
+- 启动时自动加载已保存的配置
 
 ---
 
@@ -146,10 +150,23 @@ components/
 │   └── LLMConfigModal.tsx   # LLM配置弹窗
 ├── developer/
 │   ├── DeveloperPanel.tsx   # 开发者面板
+│   ├── GlobalDeveloperTools.tsx # 全局开发者工具
 │   ├── RequestMonitor.tsx   # 请求监控
 │   ├── AgentCommunication.tsx # 智能体通信
 │   ├── LogViewer.tsx        # 日志查看
 │   └── StateInspector.tsx   # 状态检查
+├── character/
+│   ├── CharacterCreation.tsx # 角色创建主组件
+│   ├── NameInputStep.tsx    # 名称输入
+│   ├── RaceSelectionStep.tsx # 种族选择
+│   ├── ClassSelectionStep.tsx # 职业选择
+│   ├── BackgroundSelectionStep.tsx # 背景选择
+│   ├── CharacterConfirmStep.tsx # 角色确认
+│   └── OptionCard.tsx       # 选项卡片
+├── template/
+│   ├── TemplateManager.tsx  # 模板管理器
+│   ├── TemplateSelect.tsx   # 模板选择
+│   └── editors/             # 模板编辑器
 └── common/
     ├── Button.tsx           # 按钮组件
     ├── Input.tsx            # 输入组件
@@ -210,37 +227,7 @@ agents/
 └── index.ts               # 导出
 ```
 
-#### 7.2 AgentBase 基类
-
-```typescript
-export abstract class AgentBase {
-  abstract readonly type: AgentType;
-  abstract readonly name: string;
-  
-  protected messageQueue: AgentMessage[] = [];
-  protected priority: number = 5;
-  
-  abstract initialize(): Promise<void>;
-  abstract processMessage(message: AgentMessage): Promise<AgentResponse>;
-  abstract start(): Promise<void>;
-  abstract stop(): Promise<void>;
-  
-  async sendMessage(to: AgentType, action: string, payload?: unknown): Promise<void> {
-    const message: AgentMessage = {
-      id: generateId(),
-      from: this.type,
-      to,
-      action,
-      payload,
-      timestamp: Date.now(),
-      status: 'pending',
-    };
-    await agentCommunication.send(message);
-  }
-}
-```
-
-#### 7.3 已实现的12个智能体
+#### 7.2 已实现的12个智能体
 
 | 智能体 | 职责 |
 |--------|------|
@@ -256,32 +243,6 @@ export abstract class AgentBase {
 | CombatAgent | 回合制战斗系统 |
 | DialogueAgent | NPC对话生成 |
 | EventAgent | 随机事件管理 |
-
-#### 7.4 AgentService 服务
-
-**文件位置**: `packages/backend/src/services/AgentService.ts`
-
-```typescript
-export class AgentService {
-  private agents: Map<AgentType, AgentBase> = new Map();
-  
-  async initialize(): Promise<void> {
-    this.agents.set('coordinator', new CoordinatorAgent());
-    this.agents.set('storyContext', new StoryContextAgent());
-    // ... 其他智能体
-    
-    for (const agent of this.agents.values()) {
-      await agent.initialize();
-    }
-  }
-  
-  async start(): Promise<void> {
-    for (const agent of this.agents.values()) {
-      await agent.start();
-    }
-  }
-}
-```
 
 ---
 
@@ -303,6 +264,8 @@ interface GameSettings {
   gameplay: {
     autoSaveEnabled: boolean;
     textSpeed: 'slow' | 'normal' | 'fast' | 'instant';
+    aiRandomGeneration: boolean;      // AI随机生成角色选项
+    generateImagePrompt: boolean;     // 生成文生图提示词
   };
   developer: {
     developerMode: boolean;
@@ -310,14 +273,11 @@ interface GameSettings {
 }
 ```
 
-#### 8.2 LLM配置功能
+#### 8.2 配置持久化
 
-**文件位置**: `packages/frontend/src/components/settings/LLMConfigModal.tsx`
-
-- 支持配置多个AI提供商（DeepSeek、GLM、Kimi）
-- API密钥输入和保存
-- 模型选择
-- 测试连接功能
+- 设置自动保存到系统应用数据目录
+- 后端启动时自动加载已保存的 LLM 配置
+- 支持多提供商配置
 
 ---
 
@@ -337,28 +297,25 @@ interface GameSettings {
 | 日志查看 | 系统日志查看，支持过滤和导出 |
 | 状态检查 | 查看和修改游戏状态 |
 
-#### 9.2 日志服务
+#### 9.2 全局日志服务
 
-**前端**: `packages/frontend/src/services/logService.ts`
-- 多级别日志（DEBUG、INFO、WARN、ERROR）
-- 来源标记（frontend、backend、agent）
-- 日志过滤和搜索
-- 日志导出（JSON/文本格式）
+**后端**: `packages/backend/src/services/GameLogService.ts`
+- 自动捕获所有 `console.log/error/warn` 调用
+- 通过 WebSocket 实时广播到前端
+- 日志写入文件 `logs/game-YYYY-MM-DD.log`
+- 支持日志级别过滤和搜索
 
-**后端**: `packages/backend/src/services/LogService.ts`
-- 日志收集和存储
-- 自动写入日志文件到 `logs/` 目录
-- 按日期分割日志文件
+**前端**: `packages/frontend/src/stores/developerStore.ts`
+- 接收后端广播的日志
+- 实时显示在开发者工具中
 
-#### 9.3 开发者面板组件
+#### 9.3 全局开发者工具
 
-```typescript
-// DeveloperPanel.tsx - 浮动窗口
-- 可拖拽移动位置
-- 可调整窗口大小
-- 可最小化/展开
-- 仅在开发者模式启用时显示
-```
+**文件位置**: `packages/frontend/src/components/developer/GlobalDeveloperTools.tsx`
+
+- WebSocket 连接在全局级别建立
+- 开发者面板在所有界面都可用
+- 不受屏幕切换影响
 
 ---
 
@@ -377,6 +334,16 @@ interface GameSettings {
 | `/api/agent/status` | GET | 智能体状态 |
 | `/api/agent/config` | GET/PUT | 智能体配置 |
 | `/api/settings` | GET/PUT | 游戏设置 |
+| `/api/templates` | GET/POST | 模板列表/创建 |
+| `/api/templates/:id` | GET/PUT/DELETE | 模板操作 |
+| `/api/templates/generate/*` | POST | AI生成各种内容 |
+| `/api/character/generate-races` | POST | 生成种族选项 |
+| `/api/character/generate-classes` | POST | 生成职业选项 |
+| `/api/character/generate-backgrounds` | POST | 生成背景选项 |
+| `/api/character/calculate-attributes` | POST | 计算属性 |
+| `/api/character/finalize` | POST | 完成角色创建 |
+| `/api/logs/game` | GET | 获取游戏日志 |
+| `/api/logs/game/file` | GET | 获取日志文件路径 |
 
 ---
 
@@ -397,45 +364,9 @@ interface GameSettings {
 - 版本控制：每次修改自动创建版本快照
 - 测试框架：支持测试提示词效果
 
-#### 11.2 提示词模板文件
-
-```
-packages/backend/src/prompts/
-├── coordinator.md      # 统筹智能体
-├── story_context.md    # 故事上下文智能体
-├── dialogue.md         # 对话智能体
-├── quest.md            # 任务智能体
-├── combat.md           # 战斗智能体
-├── map.md              # 地图智能体
-├── npc_party.md        # NPC/队伍智能体
-├── numerical.md        # 数值智能体
-├── inventory.md        # 背包智能体
-├── skill.md            # 技能智能体
-├── ui.md               # UI智能体
-└── event.md            # 事件智能体
-```
-
-#### 11.3 数据库表
-
-| 表名 | 用途 |
-|------|------|
-| `prompt_templates` | 存储提示词模板 |
-| `prompt_versions` | 存储版本历史 |
-| `prompt_test_results` | 存储测试结果 |
-
-#### 11.4 API 路由
-
-| 路由 | 方法 | 功能 |
-|------|------|------|
-| `/api/prompts/:agentType` | GET | 获取提示词模板 |
-| `/api/prompts/:agentType` | PUT | 更新提示词模板 |
-| `/api/prompts/test` | POST | 测试提示词 |
-| `/api/prompts/:agentType/versions` | GET | 获取版本历史 |
-| `/api/prompts/:agentType/rollback/:version` | POST | 回滚版本 |
-
 ---
 
-### 14. 故事模板系统
+### 12. 故事模板系统
 
 **实现时间**: 第二阶段  
 **文件位置**: 
@@ -446,131 +377,61 @@ packages/backend/src/prompts/
 - 前端 Store: `packages/frontend/src/stores/templateStore.ts`
 - 前端组件: `packages/frontend/src/components/template/`
 
-#### 14.1 功能概述
+#### 12.1 功能概述
 
 故事模板定义了游戏的世界观、种族、职业、背景等核心规则，是角色创建流程的前置依赖。
 
-#### 14.2 编辑器模块
-
-| 模块 | 功能描述 |
-|------|----------|
-| 基础信息编辑 | 模板名称、描述、版本、作者、标签、游戏模式 |
-| 世界观构建器 | 可视化编辑世界设定，支持自定义字段，支持 AI 自动生成 |
-| 种族编辑器 | 定义种族属性加成/惩罚、特性、可选职业，支持 AI 自动生成 |
-| 职业编辑器 | 定义职业主属性、生命骰、技能熟练、初始装备，支持 AI 自动生成 |
-| 背景编辑器 | 定义背景故事、技能熟练、语言、背景特性，支持 AI 自动生成 |
-| 属性编辑器 | 自定义角色属性系统，支持添加/编辑/删除属性 |
-| 规则配置器 | 配置战斗规则、技能规则、物品规则、任务规则、数值复杂度、特殊规则 |
-| AI约束设置 | 设置AI行为边界、内容过滤、风格指导、AI行为配置（响应风格/详细程度/玩家自由度） |
-| 场景设计器 | 设计初始场景、NPC布局、物品、任务，支持 AI 自动生成完整场景 |
-| UI主题定制 | 自定义UI颜色、字体、背景样式、自定义CSS |
-| 界面布局 | 小地图、战斗面板、技能栏、队伍面板显示控制 |
-| 预览测试 | 实时预览角色创建流程和初始场景，快速测试模板效果 |
-
-#### 14.3 预设模板
+#### 12.2 预设模板
 
 | 模板名称 | 游戏模式 | 特色 |
 |----------|----------|------|
-| 中世纪奇幻冒险 | 回合制RPG | 种族：人类/精灵/矮人，职业：战士/法师/盗贼/圣骑士/游侠，背景：贵族后裔/农夫之子/流浪孤儿 |
-| 现代都市恋爱 | 视觉小说 | 职业：学生/上班族/自由职业者，好感度系统，叙事型战斗 |
-| 克苏鲁恐怖调查 | 文字冒险 | 职业：侦探/记者/医生/学者，SAN值系统，KP模式，永久死亡 |
-| 赛博朋克佣兵 | 动态战斗 | 种族：自然人/改造人/仿生人，职业：黑客/佣兵/医生/商人，义体系统 |
-
-#### 14.4 API 路由
-
-| 路由 | 方法 | 功能 |
-|------|------|------|
-| `/api/templates` | GET | 获取模板列表 |
-| `/api/templates/:id` | GET | 获取单个模板 |
-| `/api/templates` | POST | 创建新模板 |
-| `/api/templates/:id` | PUT | 更新模板 |
-| `/api/templates/:id` | DELETE | 删除模板 |
-| `/api/templates/generate/npc` | POST | AI生成NPC |
-| `/api/templates/generate/item` | POST | AI生成物品 |
-| `/api/templates/generate/quest` | POST | AI生成任务 |
-| `/api/templates/generate/scene` | POST | AI生成场景 |
-| `/api/templates/generate/race` | POST | AI生成种族 |
-| `/api/templates/generate/class` | POST | AI生成职业 |
-| `/api/templates/generate/background` | POST | AI生成背景 |
-| `/api/templates/generate/worldSetting` | POST | AI生成世界观 |
-
-#### 14.5 模板数据结构
-
-```typescript
-interface StoryTemplate {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
-  author: string;
-  tags: string[];
-  gameMode: 'text_adventure' | 'turn_based_rpg' | 'visual_novel' | 'dynamic_combat';
-  worldSetting: WorldSetting;
-  characterCreation: CharacterCreationRules;
-  gameRules: GameRules;
-  aiConstraints: AIConstraints;
-  startingScene: StartingScene;
-  uiTheme: UITheme;
-  uiLayout: UILayout;
-  numericalComplexity: 'simple' | 'medium' | 'complex';
-  specialRules: SpecialRules;
-}
-
-interface AIBehavior {
-  responseStyle: 'narrative' | 'mechanical' | 'adaptive';
-  detailLevel: 'brief' | 'normal' | 'detailed';
-  playerAgency: 'guided' | 'balanced' | 'freeform';
-}
-
-interface AttributeDefinition {
-  id: string;
-  name: string;
-  abbreviation: string;
-  description: string;
-  defaultValue: number;
-  minValue: number;
-  maxValue: number;
-}
-```
-
-#### 14.6 初始化流程
-
-后端启动时自动初始化预设模板：
-1. 检查数据库中是否存在内置模板
-2. 使用 `INSERT OR REPLACE` 更新已存在的模板
-3. 插入新模板并标记为内置模板
+| 中世纪奇幻冒险 | 回合制RPG | 种族：人类/精灵/矮人，职业：战士/法师/盗贼/圣骑士/游侠 |
+| 现代都市恋爱 | 视觉小说 | 职业：学生/上班族/自由职业者，好感度系统 |
+| 克苏鲁恐怖调查 | 文字冒险 | 职业：侦探/记者/医生/学者，SAN值系统 |
+| 赛博朋克佣兵 | 动态战斗 | 种族：自然人/改造人/仿生人，义体系统 |
 
 ---
 
-### 15. 模板编辑器增强功能
+### 13. 角色创建系统
 
 **实现时间**: 第三阶段  
 **文件位置**: 
-- 前端编辑器: `packages/frontend/src/components/template/editors/`
-- 后端 AI 服务: `packages/backend/src/services/AIGenerateService.ts`
+- 后端 Service: `packages/backend/src/services/CharacterGenerationService.ts`
+- 后端路由: `packages/backend/src/routes/characterRoutes.ts`
+- 前端 Store: `packages/frontend/src/stores/characterCreationStore.ts`
+- 前端组件: `packages/frontend/src/components/character/`
+- 共享类型: `packages/shared/src/types/characterCreation.ts`
 
-#### 15.1 AI 辅助生成功能
+#### 13.1 创建流程
 
-支持 AI 自动生成以下内容：
-- 世界观设定：根据模板名称和描述自动生成完整世界观
-- 种族定义：根据世界观生成种族（含属性加成、特殊能力）
-- 职业定义：根据世界观和种族生成职业（含主属性、技能、装备）
-- 背景定义：根据世界观、种族、职业生成背景故事
-- 起始场景：生成完整起始场景（含NPC、物品、任务）
+```
+主菜单 → 模板选择 → 角色创建 → 游戏界面
+                     ├── 名称输入
+                     ├── 种族选择
+                     ├── 职业选择
+                     ├── 背景选择
+                     └── 角色确认
+```
 
-#### 15.2 属性系统
+#### 13.2 AI 生成功能
 
-支持自定义角色属性系统：
-- 默认 6 种属性：力量(STR)、敏捷(DEX)、体质(CON)、智力(INT)、感知(WIS)、魅力(CHA)
-- 可添加自定义属性
-- 属性 ID 用于种族加成和职业主属性配置
-- 支持动态属性传递给种族/职业编辑器
+- **批量生成**: 一次 API 调用生成 3 个选项
+- **种族生成**: 包含属性加成/惩罚、特性、可选职业
+- **职业生成**: 包含主属性、生命骰、技能熟练、初始装备
+- **背景生成**: 包含技能熟练、语言、装备、背景特性
+- **外观生成**: AI 生成外观描述和文生图提示词
 
-#### 15.3 预览测试功能
+#### 13.3 属性计算
 
-- 角色创建流程预览：显示种族、职业、背景选项
-- 初始场景预览：显示地点、NPC、物品、任务
-- 快速验证模板效果
+- 基础值 + 种族加成/惩罚 + 职业加成
+- 支持自定义属性系统
+- 属性 ID 标准化（strength, dexterity, constitution, intelligence, wisdom, charisma）
+
+#### 13.4 请求防抖
+
+- Store 层: `isLoading` 检查防止并发请求
+- 组件层: `useRef` 防止重复调用
+- 缓存检查: 已有结果时不重复请求
 
 ---
 
@@ -597,7 +458,7 @@ ComponentName/
 
 ---
 
-*文档版本: v1.3*
+*文档版本: v1.5*
 *创建日期: 2025-02-28*
-*最后更新: 2026-03-01*
-*项目版本: 0.3.0*
+*最后更新: 2026-03-02*
+*项目版本: 0.4.0*

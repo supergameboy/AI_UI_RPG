@@ -9,13 +9,18 @@ import { initializeAgentService } from './services/AgentService';
 import { initializePromptService } from './services/PromptService';
 import { getWebSocketService } from './services/WebSocketService';
 import { getDeveloperLogService } from './services/DeveloperLogService';
+import { initializeGameLogService, getGameLogService } from './services/GameLogService';
 import { getTemplateService } from './services/TemplateService';
 import { initializeAIGenerateService } from './services/AIGenerateService';
+import { initializeCharacterGenerationService } from './services/CharacterGenerationService';
+import { getSettingsService, initializeSettingsService } from './services/SettingsService';
 import agentRoutes from './routes/agentRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import promptRoutes from './routes/promptRoutes';
 import templateRoutes from './routes/templateRoutes';
+import characterRoutes from './routes/characterRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
+import type { LogLevel, LogSource } from './services/GameLogService';
 
 const app = express();
 const server = createServer(app);
@@ -408,6 +413,7 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/prompts', promptRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/character', characterRoutes);
 
 app.get('/api/logs/llm', (_req, res) => {
   try {
@@ -457,6 +463,47 @@ app.delete('/api/logs/agents', (_req, res) => {
   }
 });
 
+app.get('/api/logs/game', (req, res) => {
+  try {
+    const gameLogService = getGameLogService();
+    const level = req.query.level as LogLevel | undefined;
+    const source = req.query.source as LogSource | undefined;
+    const search = req.query.search as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 100;
+
+    const logs = gameLogService.getFilteredLogs({ level, source, search, limit });
+    res.json({ logs });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.get('/api/logs/game/file', (_req, res) => {
+  try {
+    const gameLogService = getGameLogService();
+    const logPath = gameLogService.getLogFilePath();
+    res.json({ path: logPath });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+app.delete('/api/logs/game', (_req, res) => {
+  try {
+    const gameLogService = getGameLogService();
+    gameLogService.clearLogs();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 async function initializeApp() {
   console.log('Initializing application...');
 
@@ -477,8 +524,42 @@ async function initializeApp() {
     });
     console.log('LLM Service initialized');
     
+    initializeSettingsService();
+    const settingsService = getSettingsService();
+    const settings = settingsService.getSettings();
+    console.log('[Startup] Loading saved LLM configuration...');
+    
+    const llmService = getLLMService();
+    const { ai } = settings;
+    
+    for (const [provider, config] of Object.entries(ai.providers)) {
+      if (config.apiKey) {
+        try {
+          await llmService.registerProvider(provider, {
+            provider,
+            apiKey: config.apiKey,
+            baseURL: config.baseURL,
+            defaultModel: config.defaultModel,
+            models: [],
+          });
+          console.log(`[Startup] Registered LLM provider from saved config: ${provider}`);
+        } catch (err) {
+          console.error(`[Startup] Failed to register provider ${provider}:`, err);
+        }
+      }
+    }
+    
+    if (ai.defaultProvider && llmService.getAvailableProviders().includes(ai.defaultProvider)) {
+      llmService.setDefaultProvider(ai.defaultProvider);
+      console.log(`[Startup] Set default provider to: ${ai.defaultProvider}`);
+    }
+    
     initializeAIGenerateService(getLLMService());
     console.log('AI Generate Service initialized');
+    
+    const { getAIGenerateService } = await import('./services/AIGenerateService');
+    initializeCharacterGenerationService(getLLMService(), getAIGenerateService()!);
+    console.log('Character Generation Service initialized');
   } catch (error) {
     console.error('Failed to initialize LLM service:', error);
   }
@@ -502,6 +583,9 @@ async function initializeApp() {
   
   getDeveloperLogService();
   console.log('Developer Log Service initialized');
+  
+  initializeGameLogService();
+  console.log('Game Log Service initialized');
 
   try {
     const templateService = getTemplateService();

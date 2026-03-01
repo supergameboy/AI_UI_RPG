@@ -1,0 +1,109 @@
+.optionCard {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.optionCard:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.optionCard.selected {
+  border-color: var(--color-primary);
+  background: rgba(74, 144, 217, 0.05);
+}
+
+.optionCard.aiGenerated::before {
+  content: '✨ AI';
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.cardHeader {
+  margin-bottom: var(--spacing-md);
+}
+
+.cardTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.cardBadge {
+  display: inline-block;
+  background: var(--color-background);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-left: var(--spacing-sm);
+}
+
+.cardDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--spacing-md);
+}
+
+.cardTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.tagLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-right: var(--spacing-xs);
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.tagPositive {
+  color: var(--color-success);
+}
+
+.tagNegative {
+  color: var(--color-error);
+}
+
+.tagPrimary {
+  color: var(--color-primary);
+}
+
+.feature {
+  background: var(--color-background);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.featureLabel {
+  color: var(--color-text-secondary);
+  margin-right: var(--spacing-xs);
+}
+
+.featureText {
+  color: var(--color-text-primary);
+}

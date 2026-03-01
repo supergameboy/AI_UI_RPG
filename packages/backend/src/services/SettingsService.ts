@@ -1,3 +1,7 @@
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+
 export interface GameSettings {
   ai: {
     defaultProvider: string;
@@ -30,11 +34,61 @@ const DEFAULT_SETTINGS: GameSettings = {
   },
 };
 
+function getSettingsFilePath(): string {
+  const platform = process.platform;
+  let baseDir: string;
+
+  if (platform === 'win32') {
+    baseDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  } else if (platform === 'darwin') {
+    baseDir = path.join(os.homedir(), 'Library', 'Application Support');
+  } else {
+    baseDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  }
+
+  const appDataPath = path.join(baseDir, 'ai-rpg-engine');
+
+  if (!fs.existsSync(appDataPath)) {
+    fs.mkdirSync(appDataPath, { recursive: true });
+  }
+
+  return path.join(appDataPath, 'settings.json');
+}
+
 class SettingsService {
   private settings: GameSettings;
+  private settingsPath: string;
 
   constructor() {
-    this.settings = { ...DEFAULT_SETTINGS };
+    this.settingsPath = getSettingsFilePath();
+    this.settings = this.loadFromFile();
+  }
+
+  private loadFromFile(): GameSettings {
+    try {
+      if (fs.existsSync(this.settingsPath)) {
+        const data = fs.readFileSync(this.settingsPath, 'utf-8');
+        const parsed = JSON.parse(data) as Partial<GameSettings>;
+        console.log('[SettingsService] Loaded settings from file:', this.settingsPath);
+        return {
+          ai: { ...DEFAULT_SETTINGS.ai, ...parsed.ai },
+          gameplay: { ...DEFAULT_SETTINGS.gameplay, ...parsed.gameplay },
+          developer: { ...DEFAULT_SETTINGS.developer, ...parsed.developer },
+        };
+      }
+    } catch (error) {
+      console.error('[SettingsService] Failed to load settings from file:', error);
+    }
+    return { ...DEFAULT_SETTINGS };
+  }
+
+  private saveToFile(): void {
+    try {
+      fs.writeFileSync(this.settingsPath, JSON.stringify(this.settings, null, 2), 'utf-8');
+      console.log('[SettingsService] Settings saved to file:', this.settingsPath);
+    } catch (error) {
+      console.error('[SettingsService] Failed to save settings to file:', error);
+    }
   }
 
   getSettings(): GameSettings {
@@ -66,6 +120,7 @@ class SettingsService {
       };
     }
 
+    this.saveToFile();
     return this.getSettings();
   }
 }

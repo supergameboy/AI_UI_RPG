@@ -1,0 +1,141 @@
+.stepContent {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.stepTitle {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
+  text-align: center;
+}
+
+.stepDescription {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.sectionTitle svg {
+  color: var(--color-primary);
+}
+
+.optionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.generateButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.generateButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.generateButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.errorMessage {
+  color: #ef4444;
+  font-size: var(--font-size-sm);
+  text-align: center;
+  margin: 0;
+}
+
+.errorButtons {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.retryButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: #ef4444;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retryButton:hover {
+  background: #dc2626;
+}
+
+.retryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settingsButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.settingsButton:hover {
+  background: var(--color-primary-hover, #4f46e5);
+}
+
+.settingsButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

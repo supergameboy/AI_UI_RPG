@@ -1,27 +1,15 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { LeftSidebar } from './LeftSidebar';
 import { PanelContainer } from './PanelContainer';
 import { StoryDisplay, QuickOptions, ChatInput } from '../game';
-import { DeveloperPanel } from '../developer';
 import { TemplateSelect } from '../template';
-import { useDeveloperStore } from '../../stores/developerStore';
 import { useGameStore } from '../../stores';
 import styles from './GameLayout.module.css';
 
 export const GameLayout: React.FC = () => {
   const screen = useGameStore((state) => state.screen);
-  const connectWebSocket = useDeveloperStore((state) => state.connectWebSocket);
-  const disconnectWebSocket = useDeveloperStore((state) => state.disconnectWebSocket);
-  
-  useEffect(() => {
-    connectWebSocket();
-    
-    return () => {
-      disconnectWebSocket();
-    };
-  }, [connectWebSocket, disconnectWebSocket]);
 
   if (screen === 'template-select') {
     return (
@@ -31,7 +19,6 @@ export const GameLayout: React.FC = () => {
           <TemplateSelect />
         </main>
         <Footer />
-        <DeveloperPanel />
       </div>
     );
   }
@@ -51,7 +38,6 @@ export const GameLayout: React.FC = () => {
       </main>
       
       <Footer />
-      <DeveloperPanel />
     </div>
   );
 };

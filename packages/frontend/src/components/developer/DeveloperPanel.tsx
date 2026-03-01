@@ -24,7 +24,6 @@ export const DeveloperPanel: React.FC = () => {
     activeTab,
     position,
     size,
-    showDeveloperPanel,
     hideDeveloperPanel,
     minimizePanel,
     expandPanel,
@@ -37,15 +36,6 @@ export const DeveloperPanel: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (settings.developer.developerMode && !isDeveloperPanelVisible) {
-      showDeveloperPanel();
-    }
-    if (!settings.developer.developerMode && isDeveloperPanelVisible) {
-      hideDeveloperPanel();
-    }
-  }, [settings.developer.developerMode, isDeveloperPanelVisible, showDeveloperPanel, hideDeveloperPanel]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(`.${styles.headerButtons}`)) {
@@ -88,6 +78,12 @@ export const DeveloperPanel: React.FC = () => {
       };
     }
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    if (!settings.developer.developerMode && isDeveloperPanelVisible) {
+      hideDeveloperPanel();
+    }
+  }, [settings.developer.developerMode, isDeveloperPanelVisible, hideDeveloperPanel]);
 
   if (!settings.developer.developerMode || !isDeveloperPanelVisible) {
     return null;

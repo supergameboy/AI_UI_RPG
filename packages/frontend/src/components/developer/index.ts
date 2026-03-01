@@ -1,4 +1,5 @@
 export { DeveloperPanel } from './DeveloperPanel';
+export { GlobalDeveloperTools } from './GlobalDeveloperTools';
 export { RequestMonitor } from './RequestMonitor';
 export { AgentCommunication } from './AgentCommunication';
 export { LogViewer } from './LogViewer';

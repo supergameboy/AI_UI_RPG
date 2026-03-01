@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
 import { SaveManager } from '../save';
-import { useGameStore, useThemeStore } from '../../stores';
+import { useGameStore, useThemeStore, useSettingsStore } from '../../stores';
 import styles from './MainMenu.module.css';
 
 export const MainMenu: React.FC = () => {
   const { startNewGame, openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { settings } = useSettingsStore();
   const [showSaveManager, setShowSaveManager] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  const developerMode = settings.developer.developerMode;
 
   useEffect(() => {
     fetchSaves();
@@ -24,6 +27,10 @@ export const MainMenu: React.FC = () => {
   };
 
   const handleQuickStart = () => {
+    setScreen('template-select');
+  };
+
+  const handleDevModeGame = () => {
     startNewGame();
     setScreen('game');
   };
@@ -54,6 +61,18 @@ export const MainMenu: React.FC = () => {
           >
             开始新游戏
           </Button>
+          
+          {developerMode && (
+            <Button 
+              variant="secondary" 
+              size="large" 
+              fullWidth 
+              onClick={handleDevModeGame}
+              icon={<Icon name="developer" size={20} />}
+            >
+              模拟游戏界面
+            </Button>
+          )}
           
           <Button 
             variant="secondary" 
@@ -106,7 +125,7 @@ export const MainMenu: React.FC = () => {
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} />
             <span>{theme === 'dark' ? '亮色模式' : '暗色模式'}</span>
           </button>
-          <span className={styles.version}>v0.2.0</span>
+          <span className={styles.version}>v0.4.0</span>
         </div>
       </div>
 

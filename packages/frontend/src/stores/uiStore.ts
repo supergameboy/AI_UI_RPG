@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useSettingsStore } from './settingsStore';
 
 export type PanelType = 'character' | 'skills' | 'equipment' | 'inventory' | 'quests' | 'map' | 'npc' | 'journal' | null;
 
@@ -39,15 +38,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   
   toggleDeveloperPanel: () => {
-    const { settings, updateDeveloperSettings } = useSettingsStore.getState();
-    const newMode = !settings.developer.developerMode;
-    updateDeveloperSettings({ developerMode: newMode });
-    
-    if (newMode) {
-      set({ isDeveloperPanelVisible: true });
-    } else {
-      set({ isDeveloperPanelVisible: false });
-    }
+    set((state) => ({ isDeveloperPanelVisible: !state.isDeveloperPanelVisible }));
   },
   
   showDeveloperPanel: () => {

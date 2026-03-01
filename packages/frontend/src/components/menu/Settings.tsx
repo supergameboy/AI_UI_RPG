@@ -108,6 +108,34 @@ export const Settings: React.FC = () => {
                 <option value="instant">即时</option>
               </select>
             </div>
+            <div className={styles.settingItem}>
+              <div className={styles.settingLabel}>
+                <span className={styles.settingName}>AI随机生成角色选项</span>
+                <span className={styles.settingDesc}>创建角色时AI额外生成种族/职业/背景选项</span>
+              </div>
+              <label className={styles.toggle}>
+                <input 
+                  type="checkbox" 
+                  checked={settings.gameplay.aiRandomGeneration}
+                  onChange={(e) => updateGameplaySettings({ aiRandomGeneration: e.target.checked })}
+                />
+                <span className={styles.toggleSlider} />
+              </label>
+            </div>
+            <div className={styles.settingItem}>
+              <div className={styles.settingLabel}>
+                <span className={styles.settingName}>生成文生图提示词</span>
+                <span className={styles.settingDesc}>创建角色时生成AI绘图提示词</span>
+              </div>
+              <label className={styles.toggle}>
+                <input 
+                  type="checkbox" 
+                  checked={settings.gameplay.generateImagePrompt}
+                  onChange={(e) => updateGameplaySettings({ generateImagePrompt: e.target.checked })}
+                />
+                <span className={styles.toggleSlider} />
+              </label>
+            </div>
           </Panel>
 
           <Panel title="开发者选项">

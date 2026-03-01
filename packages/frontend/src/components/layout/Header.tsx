@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
-import { useGameStore, useThemeStore, useUIStore, useSettingsStore } from '../../stores';
+import { useGameStore, useThemeStore, useSettingsStore, useDeveloperStore } from '../../stores';
 import styles from './Header.module.css';
 
 export const Header: React.FC = () => {
   const { returnToMenu, openSettings, saveGame, hasUnsavedChanges } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
-  const { toggleDeveloperPanel } = useUIStore();
+  const { toggleDeveloperPanel, isDeveloperPanelVisible } = useDeveloperStore();
   const { settings } = useSettingsStore();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSaveForm, setShowSaveForm] = useState(false);
@@ -111,7 +111,7 @@ export const Header: React.FC = () => {
               onClick={toggleDeveloperPanel}
               icon={<Icon name="developer" size={18} />}
               title="开发者工具"
-              className={styles.active}
+              className={isDeveloperPanelVisible ? styles.active : undefined}
             />
           )}
           <Button 

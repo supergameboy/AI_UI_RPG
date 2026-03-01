@@ -46,6 +46,7 @@ export interface Character {
   statusEffects: StatusEffect[];
 
   appearance: string;
+  imagePrompt?: string;
   personality: string;
   backstory: string;
 

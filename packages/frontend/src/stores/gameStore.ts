@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { saveService, Save, CreateSaveData } from '../services/saveService';
+import type { StoryTemplate, Character } from '@ai-rpg/shared';
 
-export type GameScreen = 'menu' | 'game' | 'template-select' | 'save-load' | 'template-manager';
+export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
 
 export interface SaveInfo {
   id: string;
@@ -45,6 +46,7 @@ export interface GameState {
   
   templateId: string | null;
   gameMode: 'text_adventure' | 'turn_based_rpg' | 'visual_novel' | 'dynamic_combat' | null;
+  selectedTemplate: StoryTemplate | null;
   
   character: CharacterState;
   currentLocation: string;
@@ -79,6 +81,8 @@ export interface GameState {
   fetchSaves: () => Promise<void>;
   
   setTemplate: (templateId: string, gameMode: GameState['gameMode']) => void;
+  setSelectedTemplate: (template: StoryTemplate | null) => void;
+  onCharacterCreated: (character: Character) => void;
   setCharacter: (character: Partial<CharacterState>) => void;
   setLocation: (location: string) => void;
   setScene: (scene: string) => void;
@@ -121,6 +125,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   templateId: null,
   gameMode: null,
+  selectedTemplate: null,
   
   character: defaultCharacter,
   currentLocation: '',
@@ -356,6 +361,42 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   setTemplate: (templateId: string, gameMode: GameState['gameMode']) => {
     set({ templateId, gameMode });
+  },
+  
+  setSelectedTemplate: (template: StoryTemplate | null) => {
+    set({ selectedTemplate: template, templateId: template?.id ?? null, gameMode: template?.gameMode ?? null });
+  },
+  
+  onCharacterCreated: (character: Character) => {
+    const baseAttrs = character.baseAttributes;
+    const attributes: Record<string, number> = {
+      strength: baseAttrs.strength,
+      dexterity: baseAttrs.dexterity,
+      constitution: baseAttrs.constitution,
+      intelligence: baseAttrs.intelligence,
+      wisdom: baseAttrs.wisdom,
+      charisma: baseAttrs.charisma,
+    };
+    if (baseAttrs.customStats) {
+      Object.assign(attributes, baseAttrs.customStats);
+    }
+    
+    set({
+      screen: 'game',
+      character: {
+        id: character.id,
+        name: character.name,
+        race: character.race,
+        class: character.class,
+        level: character.level,
+        health: character.derivedAttributes.maxHp,
+        maxHealth: character.derivedAttributes.maxHp,
+        mana: character.derivedAttributes.maxMp,
+        maxMana: character.derivedAttributes.maxMp,
+        attributes,
+      },
+      sessionStartTime: Date.now(),
+    });
   },
   
   setCharacter: (character: Partial<CharacterState>) => {

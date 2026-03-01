@@ -3,16 +3,28 @@ import { MainMenu, Settings } from './components/menu';
 import { GameLayout } from './components/layout';
 import { SaveManager } from './components/save';
 import { TemplateManager } from './components/template';
+import { CharacterCreation } from './components/character';
+import { GlobalDeveloperTools } from './components/developer';
 import { Icon } from './components/common';
 import './styles/global.css';
 
 function App() {
-  const { screen, showSettings, showSaveManager, notification } = useGameStore();
+  const { screen, showSettings, showSaveManager, notification, selectedTemplate, setSelectedTemplate, onCharacterCreated } = useGameStore();
 
   return (
     <>
       {screen === 'menu' && <MainMenu />}
       {(screen === 'game' || screen === 'template-select') && <GameLayout />}
+      {screen === 'character-creation' && selectedTemplate && (
+        <CharacterCreation
+          template={selectedTemplate}
+          onComplete={onCharacterCreated}
+          onCancel={() => {
+            setSelectedTemplate(null);
+            useGameStore.getState().setScreen('template-select');
+          }}
+        />
+      )}
       {screen === 'template-manager' && <TemplateManager />}
       {showSettings && <Settings />}
       
@@ -75,6 +87,8 @@ function App() {
           <span>{notification.message}</span>
         </div>
       )}
+
+      <GlobalDeveloperTools />
     </>
   );
 }

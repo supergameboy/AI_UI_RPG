@@ -124,6 +124,26 @@ export class AIGenerateService {
     }
   }
 
+  async generateRaces(context: GenerateContext, count: number = 3): Promise<RaceDefinition[]> {
+    const systemPrompt = this.buildBatchSystemPrompt('race', context, count);
+    const userMessage = this.buildBatchUserMessage('race', context, count);
+
+    try {
+      const response = await this.llmService.chat(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        { temperature: 0.8, maxTokens: 3000, agentType: 'template' }
+      );
+
+      return this.parseRacesResponse(response.content);
+    } catch (error) {
+      console.error('[AIGenerateService] Failed to generate races:', error);
+      return [];
+    }
+  }
+
   async generateClass(context: GenerateContext): Promise<ClassDefinition | null> {
     const systemPrompt = this.buildSystemPrompt('class', context);
     const userMessage = this.buildUserMessage('class', context);
@@ -144,6 +164,26 @@ export class AIGenerateService {
     }
   }
 
+  async generateClasses(context: GenerateContext, count: number = 3): Promise<ClassDefinition[]> {
+    const systemPrompt = this.buildBatchSystemPrompt('class', context, count);
+    const userMessage = this.buildBatchUserMessage('class', context, count);
+
+    try {
+      const response = await this.llmService.chat(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        { temperature: 0.8, maxTokens: 3000, agentType: 'template' }
+      );
+
+      return this.parseClassesResponse(response.content);
+    } catch (error) {
+      console.error('[AIGenerateService] Failed to generate classes:', error);
+      return [];
+    }
+  }
+
   async generateBackground(context: GenerateContext): Promise<BackgroundDefinition | null> {
     const systemPrompt = this.buildSystemPrompt('background', context);
     const userMessage = this.buildUserMessage('background', context);
@@ -161,6 +201,26 @@ export class AIGenerateService {
     } catch (error) {
       console.error('[AIGenerateService] Failed to generate background:', error);
       return null;
+    }
+  }
+
+  async generateBackgrounds(context: GenerateContext, count: number = 3): Promise<BackgroundDefinition[]> {
+    const systemPrompt = this.buildBatchSystemPrompt('background', context, count);
+    const userMessage = this.buildBatchUserMessage('background', context, count);
+
+    try {
+      const response = await this.llmService.chat(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        { temperature: 0.8, maxTokens: 3000, agentType: 'template' }
+      );
+
+      return this.parseBackgroundsResponse(response.content);
+    } catch (error) {
+      console.error('[AIGenerateService] Failed to generate backgrounds:', error);
+      return [];
     }
   }
 
@@ -454,6 +514,80 @@ ${context.userPrompt}
     return autoGeneratePrompts[type];
   }
 
+  private buildBatchSystemPrompt(type: 'race' | 'class' | 'background', context: GenerateContext, count: number): string {
+    const worldContext = this.buildWorldContext(context.template);
+    const behaviorPrompts = this.buildBehaviorPrompts(context.aiBehavior);
+    const complexityPrompt = this.buildComplexityPrompt(context.numericalComplexity);
+
+    const typePrompts = {
+      race: `你是一个RPG游戏的种族设计专家。根据世界观背景，一次生成${count}个不同的种族选项供玩家选择。
+请以JSON数组格式返回，每个种族包含以下字段：
+- id: 自动生成的唯一ID (格式: race_时间戳_序号)
+- name: 种族名称
+- description: 种族的详细描述，包括外貌特征、文化背景、性格倾向等
+- bonuses: 属性加成对象，键必须是以下属性ID之一: "strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"。值通常为1-3。例如: { "strength": 2, "constitution": 1 }
+- penalties: 属性减值对象，键必须是以下属性ID之一: "strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"。值通常为1-2。例如: { "intelligence": 1 }
+- abilities: 种族能力名称数组（字符串数组）
+- availableClasses: 该种族适合的职业名称数组（字符串数组，如 ["战士", "游侠"]）
+
+重要：bonuses 和 penalties 必须使用属性ID，不要使用其他名称！
+
+只返回JSON数组，不要有其他文字。格式: [{...}, {...}, {...}]`,
+      class: `你是一个RPG游戏的职业设计专家。根据世界观背景，一次生成${count}个不同的职业选项供玩家选择。
+请以JSON数组格式返回，每个职业包含以下字段：
+- id: 自动生成的唯一ID (格式: class_时间戳_序号)
+- name: 职业名称
+- description: 职业的详细描述
+- primaryAttributes: 主属性ID数组，必须使用以下ID之一: "strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"。例如: ["strength", "constitution"]
+- hitDie: 生命骰 (如 "d8", "d10", "d12")
+- skillProficiencies: 技能熟练度数组（字符串数组）
+- startingEquipment: 初始装备数组（字符串数组）
+
+重要：primaryAttributes 必须使用属性ID，不要使用其他名称！
+
+只返回JSON数组，不要有其他文字。格式: [{...}, {...}, {...}]`,
+      background: `你是一个RPG游戏的背景设计专家。根据世界观背景，一次生成${count}个不同的角色背景选项供玩家选择。
+请以JSON数组格式返回，每个背景包含以下字段：
+- id: 自动生成的唯一ID (格式: bg_时间戳_序号)
+- name: 背景名称
+- description: 背景的详细描述
+- skillProficiencies: 技能熟练度数组（字符串数组）
+- languages: 语言数组（字符串数组）
+- equipment: 初始装备数组（字符串数组）
+- feature: 背景特性描述（必须是字符串，描述该背景提供的独特能力或社会关系）
+
+只返回JSON数组，不要有其他文字。格式: [{...}, {...}, {...}]`,
+    };
+
+    return `${typePrompts[type]}
+
+${worldContext}
+
+${behaviorPrompts}
+
+${complexityPrompt}`;
+  }
+
+  private buildBatchUserMessage(type: 'race' | 'class' | 'background', context: GenerateContext, count: number): string {
+    const typeLabels = {
+      race: '种族',
+      class: '职业',
+      background: '背景',
+    };
+
+    const extraContext = context.userPrompt || '';
+
+    return `请生成${count}个不同的${typeLabels[type]}选项供玩家选择。
+
+${extraContext}
+
+要求：
+- 每个选项应该有明显不同的特色和玩法风格
+- 选项之间应该平衡，没有明显的最优选择
+- 所有选项都应该符合世界观设定
+- 提供多样化的选择，让不同类型的玩家都能找到适合自己的选项`;
+  }
+
   private buildWorldContext(template: Partial<StoryTemplate>): string {
     const parts: string[] = [];
 
@@ -645,7 +779,7 @@ ${context.userPrompt}
 
       const parsed = JSON.parse(jsonMatch[0]);
       return {
-        id: parsed.id || `race_${Date.now()}`,
+        id: parsed.id || `race_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: parsed.name || '未命名种族',
         description: parsed.description || '',
         bonuses: parsed.bonuses || {},
@@ -666,7 +800,7 @@ ${context.userPrompt}
 
       const parsed = JSON.parse(jsonMatch[0]);
       return {
-        id: parsed.id || `class_${Date.now()}`,
+        id: parsed.id || `class_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: parsed.name || '未命名职业',
         description: parsed.description || '',
         primaryAttributes: parsed.primaryAttributes || [],
@@ -687,18 +821,105 @@ ${context.userPrompt}
 
       const parsed = JSON.parse(jsonMatch[0]);
       return {
-        id: parsed.id || `bg_${Date.now()}`,
+        id: parsed.id || `bg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: parsed.name || '未命名背景',
         description: parsed.description || '',
         skillProficiencies: parsed.skillProficiencies || [],
         languages: parsed.languages || [],
         equipment: parsed.equipment || [],
-        feature: parsed.feature || '',
+        feature: this.normalizeFeature(parsed.feature),
       };
     } catch (error) {
       console.error('[AIGenerateService] Failed to parse background response:', error);
       return null;
     }
+  }
+
+  private parseRacesResponse(content: string): RaceDefinition[] {
+    try {
+      const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonArrayMatch) {
+        const singleRace = this.parseRaceResponse(content);
+        return singleRace ? [singleRace] : [];
+      }
+
+      const parsed = JSON.parse(jsonArrayMatch[0]);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed.map((item: any, index: number) => ({
+        id: item.id || `race_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+        name: item.name || `种族 ${index + 1}`,
+        description: item.description || '',
+        bonuses: item.bonuses || {},
+        penalties: item.penalties || {},
+        abilities: item.abilities || [],
+        availableClasses: item.availableClasses || [],
+      }));
+    } catch (error) {
+      console.error('[AIGenerateService] Failed to parse races response:', error);
+      return [];
+    }
+  }
+
+  private parseClassesResponse(content: string): ClassDefinition[] {
+    try {
+      const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonArrayMatch) {
+        const singleClass = this.parseClassResponse(content);
+        return singleClass ? [singleClass] : [];
+      }
+
+      const parsed = JSON.parse(jsonArrayMatch[0]);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed.map((item: any, index: number) => ({
+        id: item.id || `class_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+        name: item.name || `职业 ${index + 1}`,
+        description: item.description || '',
+        primaryAttributes: item.primaryAttributes || [],
+        hitDie: item.hitDie || 'd8',
+        skillProficiencies: item.skillProficiencies || [],
+        startingEquipment: item.startingEquipment || [],
+      }));
+    } catch (error) {
+      console.error('[AIGenerateService] Failed to parse classes response:', error);
+      return [];
+    }
+  }
+
+  private parseBackgroundsResponse(content: string): BackgroundDefinition[] {
+    try {
+      const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonArrayMatch) {
+        const singleBg = this.parseBackgroundResponse(content);
+        return singleBg ? [singleBg] : [];
+      }
+
+      const parsed = JSON.parse(jsonArrayMatch[0]);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed.map((item: any, index: number) => ({
+        id: item.id || `bg_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+        name: item.name || `背景 ${index + 1}`,
+        description: item.description || '',
+        skillProficiencies: item.skillProficiencies || [],
+        languages: item.languages || [],
+        equipment: item.equipment || [],
+        feature: this.normalizeFeature(item.feature),
+      }));
+    } catch (error) {
+      console.error('[AIGenerateService] Failed to parse backgrounds response:', error);
+      return [];
+    }
+  }
+
+  private normalizeFeature(feature: any): string {
+    if (!feature) return '';
+    if (typeof feature === 'string') return feature;
+    if (typeof feature === 'object') {
+      return feature.name || feature.description || JSON.stringify(feature);
+    }
+    return String(feature);
   }
 
   private parseWorldSettingResponse(content: string): WorldSetting | null {

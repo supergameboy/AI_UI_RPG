@@ -1,14 +1,6 @@
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogSource = 'frontend' | 'backend' | 'agent' | 'prompt-editor';
+import type { LogLevel, LogSource, LogEntry } from '@ai-rpg/shared';
 
-export interface LogEntry {
-  id: string;
-  timestamp: number;
-  level: LogLevel;
-  source: LogSource;
-  message: string;
-  data?: Record<string, unknown>;
-}
+export type { LogLevel, LogSource, LogEntry };
 
 export interface LLMRequestRecord {
   id: string;

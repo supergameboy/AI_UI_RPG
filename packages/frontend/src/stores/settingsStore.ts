@@ -16,6 +16,8 @@ export interface AISettings {
 export interface GameplaySettings {
   autoSaveEnabled: boolean;
   textSpeed: TextSpeed;
+  aiRandomGeneration: boolean;
+  generateImagePrompt: boolean;
 }
 
 export interface DeveloperSettings {
@@ -38,6 +40,8 @@ const defaultSettings: GameSettings = {
   gameplay: {
     autoSaveEnabled: true,
     textSpeed: 'normal',
+    aiRandomGeneration: true,
+    generateImagePrompt: true,
   },
   developer: {
     developerMode: false,

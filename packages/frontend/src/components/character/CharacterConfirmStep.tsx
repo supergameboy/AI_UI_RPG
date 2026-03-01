@@ -1,0 +1,110 @@
+import React, { useEffect, useRef } from 'react';
+import { useCharacterCreationStore, useSettingsStore } from '../../stores';
+import styles from './CharacterConfirmStep.module.css';
+
+export const CharacterConfirmStep: React.FC = () => {
+  const {
+    characterName,
+    selectedRace,
+    selectedClass,
+    selectedBackground,
+    templateAttributes,
+    calculatedAttributes,
+    generatedAppearance,
+    generatedImagePrompt,
+    generatedBackstory,
+    calculateAttributes,
+  } = useCharacterCreationStore();
+
+  const { settings } = useSettingsStore();
+  const hasCalculatedRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasCalculatedRef.current && Object.keys(calculatedAttributes).length === 0) {
+      hasCalculatedRef.current = true;
+      calculateAttributes();
+    }
+  }, [calculateAttributes, calculatedAttributes]);
+
+  const getAttributeName = (attrId: string): string => {
+    const attr = templateAttributes.find((a) => a.id === attrId);
+    return attr?.name || attrId;
+  };
+
+  if (!selectedRace || !selectedClass || !selectedBackground) {
+    return null;
+  }
+
+  return (
+    <div className={styles.confirmContent}>
+      <h2 className={styles.stepTitle}>确认你的角色</h2>
+
+      <div className={styles.characterCard}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.characterName}>{characterName}</h3>
+          <p className={styles.characterInfo}>
+            {selectedRace.name} · {selectedClass.name} · {selectedBackground.name}
+          </p>
+        </div>
+
+        <div className={styles.cardBody}>
+          <div className={styles.section}>
+            <h4 className={styles.sectionTitle}>选择详情</h4>
+            <div className={styles.selections}>
+              <div className={styles.selectionItem}>
+                <div className={styles.selectionLabel}>种族</div>
+                <div className={styles.selectionValue}>{selectedRace.name}</div>
+              </div>
+              <div className={styles.selectionItem}>
+                <div className={styles.selectionLabel}>职业</div>
+                <div className={styles.selectionValue}>{selectedClass.name}</div>
+              </div>
+              <div className={styles.selectionItem}>
+                <div className={styles.selectionLabel}>背景</div>
+                <div className={styles.selectionValue}>{selectedBackground.name}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.section}>
+            <h4 className={styles.sectionTitle}>属性</h4>
+            <div className={styles.attributesGrid}>
+              {Object.entries(calculatedAttributes).map(([attrId, calc]) => (
+                <div key={attrId} className={styles.attributeItem}>
+                  <div className={styles.attributeName}>{getAttributeName(attrId)}</div>
+                  <div className={styles.attributeValue}>{calc.finalValue}</div>
+                  <div className={styles.attributeBreakdown}>
+                    {calc.baseValue}
+                    {calc.raceBonus !== 0 && ` ${calc.raceBonus > 0 ? '+' : ''}${calc.raceBonus}(种族)`}
+                    {calc.classBonus !== 0 && ` +${calc.classBonus}(职业)`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {generatedAppearance && (
+            <div className={styles.section}>
+              <h4 className={styles.sectionTitle}>外观</h4>
+              <p className={styles.description}>{generatedAppearance}</p>
+            </div>
+          )}
+
+          {settings.gameplay.generateImagePrompt && generatedImagePrompt && (
+            <div className={styles.section}>
+              <h4 className={styles.sectionTitle}>图像提示词</h4>
+              <pre className={styles.imagePrompt}>{generatedImagePrompt}</pre>
+            </div>
+          )}
+
+          {generatedBackstory && (
+            <div className={styles.section}>
+              <h4 className={styles.sectionTitle}>背景故事</h4>
+              <p className={styles.description}>{generatedBackstory}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

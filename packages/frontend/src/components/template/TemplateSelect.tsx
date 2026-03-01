@@ -15,6 +15,7 @@ const GAME_MODE_LABELS: Record<string, string> = {
 export const TemplateSelect: React.FC = () => {
   const { templates, isLoading, error, fetchTemplates, selectTemplate } = useTemplateStore();
   const setScreen = useGameStore((state) => state.setScreen);
+  const setSelectedTemplate = useGameStore((state) => state.setSelectedTemplate);
 
   useEffect(() => {
     fetchTemplates();
@@ -22,9 +23,9 @@ export const TemplateSelect: React.FC = () => {
 
   const handleSelect = useCallback((template: StoryTemplate) => {
     selectTemplate(template);
-    // 选择模板后进入游戏界面
-    setScreen('game');
-  }, [selectTemplate, setScreen]);
+    setSelectedTemplate(template);
+    setScreen('character-creation');
+  }, [selectTemplate, setScreen, setSelectedTemplate]);
 
   const handleBack = useCallback(() => {
     setScreen('menu');
