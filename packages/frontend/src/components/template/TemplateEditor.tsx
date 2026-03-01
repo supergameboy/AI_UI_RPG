@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
 import { useTemplateStore } from '../../stores/templateStore';
-import type { StoryTemplate, RaceDefinition, ClassDefinition, BackgroundDefinition } from '@ai-rpg/shared';
+import { templateService } from '../../services/templateService';
+import type { StoryTemplate, RaceDefinition, ClassDefinition, BackgroundDefinition, AttributeDefinition, NumericalComplexity, SpecialRules, WorldSetting } from '@ai-rpg/shared';
 import {
   BasicInfoEditor,
   WorldSettingEditor,
@@ -11,14 +12,18 @@ import {
   RulesEditor,
   AIConstraintsEditor,
   StartingSceneEditor,
+  UIThemeEditor,
+  UILayoutEditor,
+  AttributeEditor,
 } from './editors';
+import { TemplatePreview } from './TemplatePreview';
 import styles from './TemplateEditor.module.css';
 
 export interface TemplateEditorProps {
   onBack: () => void;
 }
 
-export type EditorModule = 'basic' | 'world' | 'race' | 'class' | 'background' | 'rules' | 'ai' | 'scene';
+export type EditorModule = 'basic' | 'world' | 'race' | 'class' | 'background' | 'attributes' | 'rules' | 'ai' | 'scene' | 'uiTheme' | 'uiLayout';
 
 interface NavItem {
   id: EditorModule;
@@ -32,14 +37,18 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'race', label: '种族编辑', icon: 'character' },
   { id: 'class', label: '职业编辑', icon: 'skills' },
   { id: 'background', label: '背景编辑', icon: 'quests' },
+  { id: 'attributes', label: '属性编辑', icon: 'skills' },
   { id: 'rules', label: '规则配置', icon: 'settings' },
   { id: 'ai', label: 'AI约束', icon: 'developer' },
   { id: 'scene', label: '初始场景', icon: 'play' },
+  { id: 'uiTheme', label: 'UI主题', icon: 'palette' },
+  { id: 'uiLayout', label: '界面布局', icon: 'layout' },
 ];
 
 export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
   const [activeModule, setActiveModule] = useState<EditorModule>('basic');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const originalTemplateRef = useRef<string>('');
 
@@ -151,6 +160,17 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
     [updateEditingTemplate]
   );
 
+  const handleUpdateAttributes = useCallback(
+    (attributes: AttributeDefinition[]) => {
+      const template = useTemplateStore.getState().editingTemplate;
+      if (!template) return;
+      updateEditingTemplate({
+        characterCreation: { ...template.characterCreation, attributes },
+      });
+    },
+    [updateEditingTemplate]
+  );
+
   const handleUpdateRules = useCallback(
     (updates: Partial<StoryTemplate['gameRules']>) => {
       const template = useTemplateStore.getState().editingTemplate;
@@ -184,6 +204,86 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
     [updateEditingTemplate]
   );
 
+  const handleUpdateUITheme = useCallback(
+    (updates: Partial<StoryTemplate['uiTheme']>) => {
+      const template = useTemplateStore.getState().editingTemplate;
+      if (!template) return;
+      updateEditingTemplate({
+        uiTheme: { ...template.uiTheme, ...updates },
+      });
+    },
+    [updateEditingTemplate]
+  );
+
+  const handleUpdateUILayout = useCallback(
+    (updates: Partial<StoryTemplate['uiLayout']>) => {
+      const template = useTemplateStore.getState().editingTemplate;
+      if (!template) return;
+      updateEditingTemplate({
+        uiLayout: { ...template.uiLayout, ...updates },
+      });
+    },
+    [updateEditingTemplate]
+  );
+
+  const handleUpdateNumericalComplexity = useCallback(
+    (value: NumericalComplexity) => {
+      updateEditingTemplate({ numericalComplexity: value });
+    },
+    [updateEditingTemplate]
+  );
+
+  const handleUpdateSpecialRules = useCallback(
+    (updates: Partial<SpecialRules>) => {
+      const template = useTemplateStore.getState().editingTemplate;
+      if (!template) return;
+      updateEditingTemplate({
+        specialRules: { ...template.specialRules, ...updates },
+      });
+    },
+    [updateEditingTemplate]
+  );
+
+  const handleGenerateRace = useCallback(async (prompt: string): Promise<RaceDefinition | null> => {
+    if (!editingTemplate) return null;
+    try {
+      return await templateService.generateRace({ template: editingTemplate, prompt });
+    } catch (error) {
+      console.error('Failed to generate race:', error);
+      return null;
+    }
+  }, [editingTemplate]);
+
+  const handleGenerateClass = useCallback(async (prompt: string): Promise<ClassDefinition | null> => {
+    if (!editingTemplate) return null;
+    try {
+      return await templateService.generateClass({ template: editingTemplate, prompt });
+    } catch (error) {
+      console.error('Failed to generate class:', error);
+      return null;
+    }
+  }, [editingTemplate]);
+
+  const handleGenerateBackground = useCallback(async (prompt: string): Promise<BackgroundDefinition | null> => {
+    if (!editingTemplate) return null;
+    try {
+      return await templateService.generateBackground({ template: editingTemplate, prompt });
+    } catch (error) {
+      console.error('Failed to generate background:', error);
+      return null;
+    }
+  }, [editingTemplate]);
+
+  const handleGenerateWorldSetting = useCallback(async (prompt: string): Promise<WorldSetting | null> => {
+    if (!editingTemplate) return null;
+    try {
+      return await templateService.generateWorldSetting({ template: editingTemplate, prompt });
+    } catch (error) {
+      console.error('Failed to generate world setting:', error);
+      return null;
+    }
+  }, [editingTemplate]);
+
   const renderContent = () => {
     if (!editingTemplate) {
       return (
@@ -209,6 +309,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
             worldSetting={editingTemplate.worldSetting}
             readOnly={isReadOnly}
             onUpdate={handleUpdateWorldSetting}
+            onAIGenerate={handleGenerateWorldSetting}
           />
         );
       case 'race':
@@ -216,16 +317,22 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
           <RaceEditor
             races={editingTemplate.characterCreation.races}
             classes={editingTemplate.characterCreation.classes}
+            attributes={editingTemplate.characterCreation?.attributes}
             readOnly={isReadOnly}
             onUpdate={handleUpdateRaces}
+            template={editingTemplate}
+            onAIGenerate={handleGenerateRace}
           />
         );
       case 'class':
         return (
           <ClassEditor
             classes={editingTemplate.characterCreation.classes}
+            attributes={editingTemplate.characterCreation?.attributes}
             readOnly={isReadOnly}
             onUpdate={handleUpdateClasses}
+            template={editingTemplate}
+            onAIGenerate={handleGenerateClass}
           />
         );
       case 'background':
@@ -234,14 +341,28 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
             backgrounds={editingTemplate.characterCreation.backgrounds}
             readOnly={isReadOnly}
             onUpdate={handleUpdateBackgrounds}
+            template={editingTemplate}
+            onAIGenerate={handleGenerateBackground}
+          />
+        );
+      case 'attributes':
+        return (
+          <AttributeEditor
+            attributes={editingTemplate.characterCreation?.attributes || []}
+            readOnly={isReadOnly}
+            onUpdate={handleUpdateAttributes}
           />
         );
       case 'rules':
         return (
           <RulesEditor
             gameRules={editingTemplate.gameRules}
+            numericalComplexity={editingTemplate.numericalComplexity}
+            specialRules={editingTemplate.specialRules}
             readOnly={isReadOnly}
             onUpdate={handleUpdateRules}
+            onUpdateNumericalComplexity={handleUpdateNumericalComplexity}
+            onUpdateSpecialRules={handleUpdateSpecialRules}
           />
         );
       case 'ai':
@@ -258,6 +379,23 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
             startingScene={editingTemplate.startingScene}
             readOnly={isReadOnly}
             onUpdate={handleUpdateStartingScene}
+            template={editingTemplate}
+          />
+        );
+      case 'uiTheme':
+        return (
+          <UIThemeEditor
+            uiTheme={editingTemplate.uiTheme}
+            readOnly={isReadOnly}
+            onUpdate={handleUpdateUITheme}
+          />
+        );
+      case 'uiLayout':
+        return (
+          <UILayoutEditor
+            uiLayout={editingTemplate.uiLayout}
+            readOnly={isReadOnly}
+            onUpdate={handleUpdateUILayout}
           />
         );
       default:
@@ -297,6 +435,13 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
           )}
         </div>
         <div className={styles.headerRight}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowPreview(true)}
+            icon={<Icon name="play" size={16} />}
+          >
+            预览测试
+          </Button>
           {!isReadOnly && (
             <Button
               variant="primary"
@@ -348,6 +493,13 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
         onConfirm={handleConfirmDiscard}
         onCancel={handleCancelDiscard}
       />
+
+      {showPreview && editingTemplate && (
+        <TemplatePreview
+          template={editingTemplate}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 };

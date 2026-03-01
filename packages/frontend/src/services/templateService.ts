@@ -1,4 +1,4 @@
-import type { StoryTemplate } from '@ai-rpg/shared';
+import type { StoryTemplate, NPCDefinition, ItemDefinition, QuestDefinition, StartingScene, RaceDefinition, ClassDefinition, BackgroundDefinition, WorldSetting } from '@ai-rpg/shared';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:6756';
 
@@ -15,6 +15,11 @@ export interface TemplateQueryOptions {
 export type CreateTemplateData = Omit<StoryTemplate, 'id'>;
 
 export type UpdateTemplateData = Partial<StoryTemplate>;
+
+export interface AIGenerateRequest {
+  template: Partial<StoryTemplate>;
+  prompt: string;
+}
 
 class TemplateService {
   private async request<T>(
@@ -70,6 +75,62 @@ class TemplateService {
   async deleteTemplate(id: string): Promise<void> {
     await this.request<void>(`/api/templates/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async generateNPC(request: AIGenerateRequest): Promise<NPCDefinition> {
+    return this.request<NPCDefinition>('/api/templates/generate/npc', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateItem(request: AIGenerateRequest): Promise<ItemDefinition> {
+    return this.request<ItemDefinition>('/api/templates/generate/item', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateQuest(request: AIGenerateRequest): Promise<QuestDefinition> {
+    return this.request<QuestDefinition>('/api/templates/generate/quest', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateScene(request: AIGenerateRequest): Promise<StartingScene> {
+    return this.request<StartingScene>('/api/templates/generate/scene', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateRace(request: AIGenerateRequest): Promise<RaceDefinition> {
+    return this.request<RaceDefinition>('/api/templates/generate/race', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateClass(request: AIGenerateRequest): Promise<ClassDefinition> {
+    return this.request<ClassDefinition>('/api/templates/generate/class', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateBackground(request: AIGenerateRequest): Promise<BackgroundDefinition> {
+    return this.request<BackgroundDefinition>('/api/templates/generate/background', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async generateWorldSetting(request: AIGenerateRequest): Promise<WorldSetting> {
+    return this.request<WorldSetting>('/api/templates/generate/worldSetting', {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   }
 }

@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
 import { getTemplateService } from '../services/TemplateService';
 import type { CreateTemplateInput, UpdateTemplateInput } from '../services/TemplateService';
+import { getAIGenerateService } from '../services/AIGenerateService';
+import type { StoryTemplate } from '@ai-rpg/shared';
 
 const router: RouterType = Router();
 
@@ -217,6 +219,390 @@ router.delete('/:id', async (req: Request, res: Response) => {
     res.status(status).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete template',
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/npc
+ * AI 生成 NPC
+ * Body: { template: Partial<StoryTemplate>, prompt: string }
+ */
+router.post('/generate/npc', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const npc = await aiService.generateNPC({
+      template: template || {},
+      targetType: 'npc',
+      userPrompt: prompt,
+    });
+
+    if (!npc) {
+      return res.status(500).json({
+        success: false,
+        error: '生成 NPC 失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: npc,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating NPC:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate NPC';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/item
+ * AI 生成物品
+ * Body: { template: Partial<StoryTemplate>, prompt: string }
+ */
+router.post('/generate/item', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const item = await aiService.generateItem({
+      template: template || {},
+      targetType: 'item',
+      userPrompt: prompt,
+    });
+
+    if (!item) {
+      return res.status(500).json({
+        success: false,
+        error: '生成物品失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: item,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating item:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate item';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/quest
+ * AI 生成任务
+ * Body: { template: Partial<StoryTemplate>, prompt: string }
+ */
+router.post('/generate/quest', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const quest = await aiService.generateQuest({
+      template: template || {},
+      targetType: 'quest',
+      userPrompt: prompt,
+    });
+
+    if (!quest) {
+      return res.status(500).json({
+        success: false,
+        error: '生成任务失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: quest,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating quest:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate quest';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/scene
+ * AI 生成起始场景
+ * Body: { template: Partial<StoryTemplate>, prompt?: string }
+ */
+router.post('/generate/scene', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const scene = await aiService.generateScene({
+      template: template || {},
+      targetType: 'scene',
+      userPrompt: prompt,
+    });
+
+    if (!scene) {
+      return res.status(500).json({
+        success: false,
+        error: '生成起始场景失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: scene,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating scene:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate scene';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/race
+ * AI 生成种族
+ * Body: { template: Partial<StoryTemplate>, prompt?: string }
+ */
+router.post('/generate/race', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const race = await aiService.generateRace({
+      template: template || {},
+      targetType: 'race',
+      userPrompt: prompt,
+    });
+
+    if (!race) {
+      return res.status(500).json({
+        success: false,
+        error: '生成种族失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: race,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating race:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate race';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/class
+ * AI 生成职业
+ * Body: { template: Partial<StoryTemplate>, prompt?: string }
+ */
+router.post('/generate/class', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const classDef = await aiService.generateClass({
+      template: template || {},
+      targetType: 'class',
+      userPrompt: prompt,
+    });
+
+    if (!classDef) {
+      return res.status(500).json({
+        success: false,
+        error: '生成职业失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: classDef,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating class:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate class';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/background
+ * AI 生成背景
+ * Body: { template: Partial<StoryTemplate>, prompt?: string }
+ */
+router.post('/generate/background', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const background = await aiService.generateBackground({
+      template: template || {},
+      targetType: 'background',
+      userPrompt: prompt,
+    });
+
+    if (!background) {
+      return res.status(500).json({
+        success: false,
+        error: '生成背景失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: background,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating background:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate background';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/templates/generate/worldSetting
+ * AI 生成世界观
+ * Body: { template: Partial<StoryTemplate>, prompt?: string }
+ */
+router.post('/generate/worldSetting', async (req: Request, res: Response) => {
+  try {
+    const { template, prompt } = req.body as { template: Partial<StoryTemplate>; prompt?: string };
+
+    const aiService = getAIGenerateService();
+    if (!aiService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AI 服务未初始化',
+        hint: '请确保后端服务正确启动',
+      });
+    }
+
+    const worldSetting = await aiService.generateWorldSetting({
+      template: template || {},
+      targetType: 'worldSetting',
+      userPrompt: prompt,
+    });
+
+    if (!worldSetting) {
+      return res.status(500).json({
+        success: false,
+        error: '生成世界观失败',
+        hint: '请检查 LLM API Key 是否正确配置',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: worldSetting,
+    });
+  } catch (error) {
+    console.error('[TemplateRoutes] Error generating world setting:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate world setting';
+    const isConfigError = errorMessage.includes('Adapter not found') || errorMessage.includes('not configured');
+    res.status(isConfigError ? 503 : 500).json({
+      success: false,
+      error: isConfigError ? 'AI 服务未配置' : errorMessage,
+      hint: isConfigError ? '请先在设置页面配置 LLM API Key（如 DeepSeek、GLM、Kimi 等）' : undefined,
     });
   }
 });

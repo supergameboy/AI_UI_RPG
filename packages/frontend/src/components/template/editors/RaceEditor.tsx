@@ -1,21 +1,24 @@
-import React, { useState, useCallback } from 'react';
-import type { RaceDefinition, ClassDefinition } from '@ai-rpg/shared';
+import React, { useState, useCallback, useMemo } from 'react';
+import type { RaceDefinition, ClassDefinition, StoryTemplate, AttributeDefinition } from '@ai-rpg/shared';
 import { Button, Icon, Input, TextArea, ConfirmDialog } from '../../common';
 
 export interface RaceEditorProps {
   races: RaceDefinition[];
   classes: ClassDefinition[];
+  attributes?: AttributeDefinition[];
   readOnly: boolean;
+  template?: Partial<StoryTemplate>;
   onUpdate: (races: RaceDefinition[]) => void;
+  onAIGenerate?: (prompt: string, template?: Partial<StoryTemplate>) => Promise<RaceDefinition | null>;
 }
 
-const ATTRIBUTES = [
-  { key: 'strength', label: '力量' },
-  { key: 'dexterity', label: '敏捷' },
-  { key: 'constitution', label: '体质' },
-  { key: 'intelligence', label: '智力' },
-  { key: 'wisdom', label: '感知' },
-  { key: 'charisma', label: '魅力' },
+const DEFAULT_ATTRIBUTES: AttributeDefinition[] = [
+  { id: 'strength', name: '力量', abbreviation: 'STR', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'dexterity', name: '敏捷', abbreviation: 'DEX', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'constitution', name: '体质', abbreviation: 'CON', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'intelligence', name: '智力', abbreviation: 'INT', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'wisdom', name: '感知', abbreviation: 'WIS', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'charisma', name: '魅力', abbreviation: 'CHA', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
 ];
 
 const createEmptyRace = (): RaceDefinition => ({
@@ -31,13 +34,29 @@ const createEmptyRace = (): RaceDefinition => ({
 export const RaceEditor: React.FC<RaceEditorProps> = ({
   races,
   classes,
+  attributes = DEFAULT_ATTRIBUTES,
   readOnly,
+  template,
   onUpdate,
+  onAIGenerate,
 }) => {
   const [editingRace, setEditingRace] = useState<RaceDefinition | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [newAbility, setNewAbility] = useState('');
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiPreview, setAiPreview] = useState<RaceDefinition | null>(null);
+
+  // 将 attributes 转换为选择器格式
+  const attributeOptions = useMemo(() => 
+    attributes.map(attr => ({
+      key: attr.id,
+      label: attr.name,
+    })),
+    [attributes]
+  );
 
   const handleAddNew = useCallback(() => {
     setEditingRace(createEmptyRace());
@@ -126,6 +145,32 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
     setEditingRace({ ...editingRace, availableClasses: newClasses });
   }, [editingRace]);
 
+  const handleAIGenerate = useCallback(async () => {
+    if (!onAIGenerate) return;
+    setIsGenerating(true);
+    try {
+      const result = await onAIGenerate(aiPrompt, template);
+      if (result) {
+        setAiPreview(result);
+      }
+    } catch (err) {
+      console.error('AI generation failed:', err);
+      const error = err as Error;
+      alert(error.message || 'AI 生成失败');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [onAIGenerate, aiPrompt, template]);
+
+  const handleAcceptAIPreview = useCallback(() => {
+    if (aiPreview) {
+      onUpdate([...races, aiPreview]);
+      setAiPreview(null);
+      setShowAIDialog(false);
+      setAiPrompt('');
+    }
+  }, [aiPreview, races, onUpdate]);
+
   const getClassName = (classId: string): string => {
     const cls = classes.find(c => c.id === classId);
     return cls?.name || classId;
@@ -146,14 +191,26 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
       <div style={styles.header}>
         <h3 style={styles.title}>种族列表</h3>
         {!readOnly && (
-          <Button
-            variant="primary"
-            size="small"
-            onClick={handleAddNew}
-            icon={<Icon name="plus" size={16} />}
-          >
-            添加种族
-          </Button>
+          <div style={styles.headerActions}>
+            {onAIGenerate && (
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => setShowAIDialog(true)}
+                icon={<Icon name="sparkles" size={16} />}
+              >
+                AI 生成
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              size="small"
+              onClick={handleAddNew}
+              icon={<Icon name="plus" size={16} />}
+            >
+              添加种族
+            </Button>
+          </div>
         )}
       </div>
 
@@ -194,7 +251,7 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
             <div style={styles.section}>
               <h5 style={styles.sectionTitle}>属性加成</h5>
               <div style={styles.attributeGrid}>
-                {ATTRIBUTES.map(attr => (
+                {attributeOptions.map(attr => (
                   <div key={attr.key} style={styles.attributeRow}>
                     <span style={styles.attributeLabel}>{attr.label}</span>
                     <input
@@ -213,7 +270,7 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
             <div style={styles.section}>
               <h5 style={styles.sectionTitle}>属性惩罚</h5>
               <div style={styles.attributeGrid}>
-                {ATTRIBUTES.map(attr => (
+                {attributeOptions.map(attr => (
                   <div key={attr.key} style={styles.attributeRow}>
                     <span style={styles.attributeLabel}>{attr.label}</span>
                     <input
@@ -323,7 +380,7 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
                   <div style={styles.statGroup}>
                     <span style={styles.statLabel}>属性调整：</span>
                     <div style={styles.statValues}>
-                      {ATTRIBUTES.map(attr => {
+                      {attributeOptions.map(attr => {
                         const bonuses = race.bonuses || {};
                         const penalties = race.penalties || {};
                         const total = (bonuses[attr.key] || 0) + (penalties[attr.key] || 0);
@@ -376,6 +433,95 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {/* AI 生成对话框 */}
+      {showAIDialog && (
+        <div style={styles.aiDialogOverlay}>
+          <div style={styles.aiDialog}>
+            <h3 style={styles.aiDialogTitle}>AI 生成种族</h3>
+            
+            {!aiPreview ? (
+              <>
+                <div style={styles.aiDialogSection}>
+                  <label style={styles.aiDialogLabel}>描述你想要的种族（可选）</label>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    rows={4}
+                    placeholder="留空将根据世界观自动生成，或输入描述如：一个生活在高山上的强壮种族，擅长锻造..."
+                    style={styles.aiDialogTextarea}
+                  />
+                </div>
+                <div style={styles.aiDialogActions}>
+                  <Button variant="ghost" onClick={() => { setShowAIDialog(false); setAiPrompt(''); }}>
+                    取消
+                  </Button>
+                  <Button variant="primary" onClick={handleAIGenerate} loading={isGenerating}>
+                    {aiPrompt.trim() ? '根据描述生成' : '自动生成'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={styles.aiPreview}>
+                  <h4 style={styles.aiPreviewTitle}>{aiPreview.name}</h4>
+                  <p style={styles.aiPreviewDescription}>{aiPreview.description}</p>
+                  <div style={styles.aiPreviewStats}>
+                    <div style={styles.aiPreviewSection}>
+                      <span style={styles.aiPreviewLabel}>属性加成：</span>
+                      <div style={styles.aiPreviewValues}>
+                        {attributeOptions.map(attr => {
+                          const bonus = (aiPreview.bonuses || {})[attr.key] || 0;
+                          if (bonus === 0) return null;
+                          return (
+                            <span key={attr.key} style={styles.aiPreviewBonus}>
+                              {attr.label}: +{bonus}
+                            </span>
+                          );
+                        })}
+                        {Object.keys(aiPreview.bonuses || {}).length === 0 && (
+                          <span style={styles.aiPreviewEmpty}>无</span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={styles.aiPreviewSection}>
+                      <span style={styles.aiPreviewLabel}>属性惩罚：</span>
+                      <div style={styles.aiPreviewValues}>
+                        {attributeOptions.map(attr => {
+                          const penalty = (aiPreview.penalties || {})[attr.key] || 0;
+                          if (penalty === 0) return null;
+                          return (
+                            <span key={attr.key} style={styles.aiPreviewPenalty}>
+                              {attr.label}: {penalty}
+                            </span>
+                          );
+                        })}
+                        {Object.keys(aiPreview.penalties || {}).length === 0 && (
+                          <span style={styles.aiPreviewEmpty}>无</span>
+                        )}
+                      </div>
+                    </div>
+                    {(aiPreview.abilities || []).length > 0 && (
+                      <div style={styles.aiPreviewSection}>
+                        <span style={styles.aiPreviewLabel}>特殊能力：</span>
+                        <span style={styles.aiPreviewText}>{(aiPreview.abilities || []).join('、')}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={styles.aiDialogActions}>
+                  <Button variant="ghost" onClick={() => setAiPreview(null)}>
+                    重新生成
+                  </Button>
+                  <Button variant="primary" onClick={handleAcceptAIPreview}>
+                    添加到列表
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -614,6 +760,118 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     color: 'var(--color-text-tertiary)',
     margin: 0,
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
+  },
+  aiDialogOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  aiDialog: {
+    background: 'var(--color-surface)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--spacing-lg)',
+    maxWidth: '500px',
+    width: '90%',
+    maxHeight: '80vh',
+    overflow: 'auto',
+  },
+  aiDialogTitle: {
+    margin: '0 0 var(--spacing-md) 0',
+    fontSize: '18px',
+    fontWeight: 600,
+    color: 'var(--color-text-primary)',
+  },
+  aiDialogSection: {
+    marginBottom: 'var(--spacing-md)',
+  },
+  aiDialogLabel: {
+    display: 'block',
+    marginBottom: 'var(--spacing-xs)',
+    fontWeight: 500,
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-text-secondary)',
+  },
+  aiDialogTextarea: {
+    width: '100%',
+    padding: 'var(--spacing-sm)',
+    background: 'var(--color-background)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--color-text-primary)',
+    resize: 'vertical',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+  },
+  aiDialogActions: {
+    display: 'flex',
+    gap: 'var(--spacing-sm)',
+    justifyContent: 'flex-end',
+  },
+  aiPreview: {
+    marginBottom: 'var(--spacing-md)',
+    padding: 'var(--spacing-md)',
+    background: 'var(--color-background)',
+    borderRadius: 'var(--radius-md)',
+  },
+  aiPreviewTitle: {
+    margin: '0 0 var(--spacing-sm) 0',
+    fontSize: '16px',
+    fontWeight: 600,
+    color: 'var(--color-text-primary)',
+  },
+  aiPreviewDescription: {
+    margin: '0 0 var(--spacing-md) 0',
+    fontSize: '14px',
+    color: 'var(--color-text-secondary)',
+    lineHeight: 1.5,
+  },
+  aiPreviewStats: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-sm)',
+  },
+  aiPreviewSection: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 'var(--spacing-xs)',
+    fontSize: '13px',
+  },
+  aiPreviewLabel: {
+    color: 'var(--color-text-tertiary)',
+    flexShrink: 0,
+    minWidth: '70px',
+  },
+  aiPreviewValues: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+  aiPreviewBonus: {
+    color: '#22c55e',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+  },
+  aiPreviewPenalty: {
+    color: '#ef4444',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+  },
+  aiPreviewEmpty: {
+    color: 'var(--color-text-tertiary)',
+  },
+  aiPreviewText: {
+    color: 'var(--color-text-secondary)',
   },
 };
 

@@ -9,3 +9,6 @@ export { StartingSceneEditor } from './StartingSceneEditor';
 export { NPCEditor } from './NPCEditor';
 export { ItemEditor } from './ItemEditor';
 export { QuestEditor } from './QuestEditor';
+export { UIThemeEditor } from './UIThemeEditor';
+export { UILayoutEditor } from './UILayoutEditor';
+export { AttributeEditor } from './AttributeEditor';

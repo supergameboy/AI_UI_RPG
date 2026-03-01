@@ -76,7 +76,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   );
 
   const handleAIGenerate = useCallback(async () => {
-    if (!onAIGenerate || !aiPrompt.trim()) return;
+    if (!onAIGenerate) return;
     setIsGenerating(true);
     try {
       const result = await onAIGenerate(aiPrompt);
@@ -85,6 +85,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       }
     } catch (err) {
       console.error('AI generation failed:', err);
+      const error = err as Error;
+      alert(error.message || 'AI 生成失败');
     } finally {
       setIsGenerating(false);
     }
@@ -314,12 +316,12 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
             {!aiPreview ? (
               <>
                 <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                  <label style={labelStyle}>描述你想要的物品</label>
+                  <label style={labelStyle}>描述你想要的物品（可选）</label>
                   <textarea
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     rows={4}
-                    placeholder="例如：一把锋利的铁剑，剑身刻有古老的符文..."
+                    placeholder="留空将根据世界观自动生成，或输入描述如：一把锋利的铁剑..."
                     style={{ ...inputStyle, resize: 'vertical' }}
                   />
                 </div>
@@ -327,8 +329,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                   <Button variant="ghost" onClick={() => { setShowAIDialog(false); setAiPrompt(''); }}>
                     取消
                   </Button>
-                  <Button variant="primary" onClick={handleAIGenerate} loading={isGenerating} disabled={!aiPrompt.trim()}>
-                    生成
+                  <Button variant="primary" onClick={handleAIGenerate} loading={isGenerating}>
+                    {aiPrompt.trim() ? '根据描述生成' : '自动生成'}
                   </Button>
                 </div>
               </>

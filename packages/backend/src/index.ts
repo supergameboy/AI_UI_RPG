@@ -10,6 +10,7 @@ import { initializePromptService } from './services/PromptService';
 import { getWebSocketService } from './services/WebSocketService';
 import { getDeveloperLogService } from './services/DeveloperLogService';
 import { getTemplateService } from './services/TemplateService';
+import { initializeAIGenerateService } from './services/AIGenerateService';
 import agentRoutes from './routes/agentRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import promptRoutes from './routes/promptRoutes';
@@ -475,6 +476,9 @@ async function initializeApp() {
       providers: {},
     });
     console.log('LLM Service initialized');
+    
+    initializeAIGenerateService(getLLMService());
+    console.log('AI Generate Service initialized');
   } catch (error) {
     console.error('Failed to initialize LLM service:', error);
   }

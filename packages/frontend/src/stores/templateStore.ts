@@ -22,7 +22,14 @@ const createEmptyTemplate = (): StoryTemplate => ({
     races: [],
     classes: [],
     backgrounds: [],
-    attributes: [],
+    attributes: [
+      { id: 'strength', name: '力量', abbreviation: 'STR', description: '角色的身体力量', defaultValue: 10, minValue: 1, maxValue: 20 },
+      { id: 'dexterity', name: '敏捷', abbreviation: 'DEX', description: '角色的灵活性和反应速度', defaultValue: 10, minValue: 1, maxValue: 20 },
+      { id: 'constitution', name: '体质', abbreviation: 'CON', description: '角色的健康和耐力', defaultValue: 10, minValue: 1, maxValue: 20 },
+      { id: 'intelligence', name: '智力', abbreviation: 'INT', description: '角色的思维能力和记忆力', defaultValue: 10, minValue: 1, maxValue: 20 },
+      { id: 'wisdom', name: '感知', abbreviation: 'WIS', description: '角色的洞察力和判断力', defaultValue: 10, minValue: 1, maxValue: 20 },
+      { id: 'charisma', name: '魅力', abbreviation: 'CHA', description: '角色的个人魅力和影响力', defaultValue: 10, minValue: 1, maxValue: 20 },
+    ],
   },
   gameRules: {
     combatSystem: {
@@ -52,6 +59,11 @@ const createEmptyTemplate = (): StoryTemplate => ({
     contentRating: 'everyone',
     prohibitedTopics: [],
     requiredElements: [],
+    aiBehavior: {
+      responseStyle: 'adaptive',
+      detailLevel: 'normal',
+      playerAgency: 'balanced',
+    },
   },
   startingScene: {
     location: '',
@@ -59,6 +71,24 @@ const createEmptyTemplate = (): StoryTemplate => ({
     npcs: [],
     items: [],
     quests: [],
+  },
+  uiTheme: {
+    primaryColor: '#4a90d9',
+    fontFamily: 'system-ui',
+    backgroundStyle: 'default',
+  },
+  uiLayout: {
+    showMinimap: true,
+    showCombatPanel: true,
+    showSkillBar: true,
+    showPartyPanel: false,
+  },
+  numericalComplexity: 'medium',
+  specialRules: {
+    hasKP: false,
+    permadeath: false,
+    saveRestriction: 'none',
+    customRules: [],
   },
 });
 

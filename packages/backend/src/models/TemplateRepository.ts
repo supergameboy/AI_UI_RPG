@@ -6,6 +6,9 @@ import {
   GameRules,
   AIConstraints,
   StartingScene,
+  UITheme,
+  UILayout,
+  SpecialRules,
 } from '@ai-rpg/shared';
 
 /**
@@ -53,6 +56,10 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
       gameRules: this.parseJSON<GameRules>(record.game_rules, this.getDefaultGameRules()),
       aiConstraints: this.parseJSON<AIConstraints>(record.ai_constraints, this.getDefaultAIConstraints()),
       startingScene: this.parseJSON<StartingScene>(record.starting_scene, this.getDefaultStartingScene()),
+      uiTheme: this.parseJSON<UITheme>(record.ui_theme, this.getDefaultUITheme()),
+      uiLayout: this.getDefaultUILayout(),
+      numericalComplexity: 'medium',
+      specialRules: this.getDefaultSpecialRules(),
     };
   }
 
@@ -390,6 +397,11 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
       contentRating: 'teen',
       prohibitedTopics: [],
       requiredElements: [],
+      aiBehavior: {
+        responseStyle: 'narrative',
+        detailLevel: 'normal',
+        playerAgency: 'balanced',
+      },
     };
   }
 
@@ -400,6 +412,32 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
       npcs: [],
       items: [],
       quests: [],
+    };
+  }
+
+  private getDefaultUITheme(): UITheme {
+    return {
+      primaryColor: '#4a90d9',
+      fontFamily: 'Arial, sans-serif',
+      backgroundStyle: 'dark',
+    };
+  }
+
+  private getDefaultUILayout(): UILayout {
+    return {
+      showMinimap: false,
+      showCombatPanel: true,
+      showSkillBar: true,
+      showPartyPanel: false,
+    };
+  }
+
+  private getDefaultSpecialRules(): SpecialRules {
+    return {
+      hasKP: false,
+      permadeath: false,
+      saveRestriction: '',
+      customRules: [],
     };
   }
 }

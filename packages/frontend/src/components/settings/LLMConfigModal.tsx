@@ -120,8 +120,24 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose 
         defaultModel: model || currentProvider?.models[0],
       };
 
+      // 更新本地状态
       updateProvider(selectedProvider, config);
       setDefaultProvider(selectedProvider);
+
+      // 同步到后端
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:6756';
+      await fetch(`${API_BASE}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ai: {
+            defaultProvider: selectedProvider,
+            providers: {
+              [selectedProvider]: config,
+            },
+          },
+        }),
+      });
 
       setTestResult({ success: true, message: '保存成功！' });
       

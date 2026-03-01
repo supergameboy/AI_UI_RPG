@@ -17,6 +17,11 @@ export interface StoryTemplate {
   aiConstraints: AIConstraints;
 
   startingScene: StartingScene;
+
+  uiTheme: UITheme;
+  uiLayout: UILayout;
+  numericalComplexity: NumericalComplexity;
+  specialRules: SpecialRules;
 }
 
 export interface WorldSetting {
@@ -93,7 +98,7 @@ export interface GameRules {
 }
 
 export interface CombatRuleSet {
-  type: 'turn_based' | 'real_time' | 'hybrid';
+  type: 'narrative' | 'turn_based' | 'real_time' | 'hybrid';
   initiativeType: 'dexterity' | 'random' | 'custom';
   actionPoints: number;
   criticalHit: {
@@ -135,6 +140,7 @@ export interface AIConstraints {
   contentRating: 'everyone' | 'teen' | 'mature';
   prohibitedTopics: string[];
   requiredElements: string[];
+  aiBehavior: AIBehavior;
 }
 
 export interface StartingScene {
@@ -206,3 +212,33 @@ export interface QuestDefinition {
   timeLimit?: number;
   customData?: Record<string, unknown>;
 }
+
+export interface AIBehavior {
+  responseStyle: 'narrative' | 'mechanical' | 'adaptive';
+  detailLevel: 'brief' | 'normal' | 'detailed';
+  playerAgency: 'guided' | 'balanced' | 'freeform';
+}
+
+export interface UITheme {
+  primaryColor: string;
+  fontFamily: string;
+  backgroundStyle: string;
+  customCSS?: string;
+}
+
+export interface UILayout {
+  showMinimap: boolean;
+  showCombatPanel: boolean;
+  showSkillBar: boolean;
+  showPartyPanel: boolean;
+  customLayout?: string;
+}
+
+export interface SpecialRules {
+  hasKP: boolean;
+  permadeath: boolean;
+  saveRestriction: string;
+  customRules: string[];
+}
+
+export type NumericalComplexity = 'simple' | 'medium' | 'complex';

@@ -1,26 +1,25 @@
-import React, { useState, useCallback } from 'react';
-import type { ClassDefinition } from '@ai-rpg/shared';
+import React, { useState, useCallback, useMemo } from 'react';
+import type { ClassDefinition, StoryTemplate, AttributeDefinition } from '@ai-rpg/shared';
 import { Button, Icon, ConfirmDialog } from '../../common';
 
-const ATTRIBUTE_OPTIONS = [
-  { value: 'strength', label: '力量' },
-  { value: 'dexterity', label: '敏捷' },
-  { value: 'constitution', label: '体质' },
-  { value: 'intelligence', label: '智力' },
-  { value: 'wisdom', label: '感知' },
-  { value: 'charisma', label: '魅力' },
+const DEFAULT_ATTRIBUTES: AttributeDefinition[] = [
+  { id: 'strength', name: '力量', abbreviation: 'STR', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'dexterity', name: '敏捷', abbreviation: 'DEX', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'constitution', name: '体质', abbreviation: 'CON', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'intelligence', name: '智力', abbreviation: 'INT', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'wisdom', name: '感知', abbreviation: 'WIS', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
+  { id: 'charisma', name: '魅力', abbreviation: 'CHA', description: '', defaultValue: 10, minValue: 1, maxValue: 20 },
 ];
 
 const HIT_DIE_OPTIONS = ['d4', 'd6', 'd8', 'd10', 'd12'];
 
-const getAttributeLabel = (value: string): string => {
-  return ATTRIBUTE_OPTIONS.find((a) => a.value === value)?.label || value;
-};
-
 interface ClassEditorProps {
   classes: ClassDefinition[];
+  attributes?: AttributeDefinition[];
   readOnly: boolean;
   onUpdate: (classes: ClassDefinition[]) => void;
+  onAIGenerate?: (prompt: string) => Promise<ClassDefinition | null>;
+  template?: Partial<StoryTemplate>;
 }
 
 const createEmptyClass = (): ClassDefinition => ({
@@ -35,11 +34,32 @@ const createEmptyClass = (): ClassDefinition => ({
 
 export const ClassEditor: React.FC<ClassEditorProps> = ({
   classes,
+  attributes = DEFAULT_ATTRIBUTES,
   readOnly,
   onUpdate,
+  onAIGenerate,
+  template: _template,
 }) => {
   const [editingClass, setEditingClass] = useState<ClassDefinition | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiPrompt, setAIPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiPreview, setAIPreview] = useState<ClassDefinition | null>(null);
+
+  // 将 attributes 转换为选择器格式
+  const attributeOptions = useMemo(
+    () => attributes.map((attr) => ({ value: attr.id, label: attr.name })),
+    [attributes]
+  );
+
+  // 获取属性标签
+  const getAttributeLabel = useCallback(
+    (value: string): string => {
+      return attributes.find((a) => a.id === value)?.name || value;
+    },
+    [attributes]
+  );
 
   const handleAdd = useCallback(() => {
     const newClass = createEmptyClass();
@@ -73,6 +93,38 @@ export const ClassEditor: React.FC<ClassEditorProps> = ({
     },
     [editingClass]
   );
+
+  const handleAIGenerate = useCallback(async () => {
+    if (!onAIGenerate) return;
+    
+    setIsGenerating(true);
+    setAIPreview(null);
+    
+    try {
+      const result = await onAIGenerate(aiPrompt);
+      if (result) {
+        setAIPreview(result);
+      }
+    } catch (error) {
+      console.error('AI generation failed:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [onAIGenerate, aiPrompt]);
+
+  const handleAddAIPreview = useCallback(() => {
+    if (aiPreview) {
+      onUpdate([...classes, aiPreview]);
+      setAIPreview(null);
+      setAIPrompt('');
+      setShowAIDialog(false);
+    }
+  }, [aiPreview, classes, onUpdate]);
+
+  const handleRegenerate = useCallback(() => {
+    setAIPreview(null);
+    handleAIGenerate();
+  }, [handleAIGenerate]);
 
   if (editingClass) {
     return (
@@ -160,7 +212,7 @@ export const ClassEditor: React.FC<ClassEditorProps> = ({
               主属性
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
-              {ATTRIBUTE_OPTIONS.map((attr) => (
+              {attributeOptions.map((attr) => (
                 <button
                   key={attr.value}
                   type="button"
@@ -209,9 +261,21 @@ export const ClassEditor: React.FC<ClassEditorProps> = ({
       >
         <h3 style={{ margin: 0 }}>职业列表</h3>
         {!readOnly && (
-          <Button variant="secondary" size="small" onClick={handleAdd} icon={<Icon name="plus" size={16} />}>
-            添加职业
-          </Button>
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+            {onAIGenerate && (
+              <Button 
+                variant="secondary" 
+                size="small" 
+                onClick={() => setShowAIDialog(true)} 
+                icon={<Icon name="sparkles" size={16} />}
+              >
+                AI 生成
+              </Button>
+            )}
+            <Button variant="secondary" size="small" onClick={handleAdd} icon={<Icon name="plus" size={16} />}>
+              添加职业
+            </Button>
+          </div>
         )}
       </div>
 
@@ -287,6 +351,135 @@ export const ClassEditor: React.FC<ClassEditorProps> = ({
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {/* AI 生成对话框 */}
+      {showAIDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => !isGenerating && setShowAIDialog(false)}
+        >
+          <div
+            style={{
+              background: 'var(--color-surface)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--spacing-lg)',
+              width: '500px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 'var(--spacing-lg)',
+              }}
+            >
+              <h3 style={{ margin: 0 }}>AI 生成职业</h3>
+              <Button variant="ghost" size="small" onClick={() => !isGenerating && setShowAIDialog(false)}>
+                <Icon name="close" size={16} />
+              </Button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: 'var(--spacing-xs)', fontWeight: 500 }}>
+                  描述提示词（可选）
+                </label>
+                <textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAIPrompt(e.target.value)}
+                  placeholder="例如：一个擅长远程攻击的精灵弓箭手职业..."
+                  rows={3}
+                  disabled={isGenerating}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--spacing-sm)',
+                    background: 'var(--color-background)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-text-primary)',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                <Button
+                  variant="primary"
+                  onClick={handleAIGenerate}
+                  disabled={isGenerating}
+                  icon={<Icon name="sparkles" size={16} />}
+                >
+                  {isGenerating ? '生成中...' : (aiPrompt ? '根据描述生成' : '自动生成')}
+                </Button>
+              </div>
+
+              {/* AI 预览 */}
+              {aiPreview && (
+                <div
+                  style={{
+                    marginTop: 'var(--spacing-md)',
+                    padding: 'var(--spacing-md)',
+                    background: 'var(--color-background)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <h4 style={{ margin: '0 0 var(--spacing-sm) 0', color: 'var(--color-primary)' }}>
+                    生成预览
+                  </h4>
+                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    <strong>名称：</strong>{aiPreview.name}
+                  </div>
+                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    <strong>描述：</strong>{aiPreview.description || '暂无描述'}
+                  </div>
+                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    <strong>生命骰：</strong>{aiPreview.hitDie}
+                  </div>
+                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    <strong>主属性：</strong>{(aiPreview.primaryAttributes || []).map(getAttributeLabel).join('、') || '无'}
+                  </div>
+                  {(aiPreview.skillProficiencies?.length ?? 0) > 0 && (
+                    <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                      <strong>技能熟练：</strong>{aiPreview.skillProficiencies?.join('、')}
+                    </div>
+                  )}
+                  {(aiPreview.startingEquipment?.length ?? 0) > 0 && (
+                    <div>
+                      <strong>初始装备：</strong>{aiPreview.startingEquipment?.join('、')}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                    <Button variant="primary" onClick={handleAddAIPreview}>
+                      添加到列表
+                    </Button>
+                    <Button variant="secondary" onClick={handleRegenerate} disabled={isGenerating}>
+                      重新生成
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

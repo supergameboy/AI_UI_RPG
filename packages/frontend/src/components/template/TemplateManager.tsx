@@ -13,7 +13,14 @@ const GAME_MODE_LABELS: Record<string, string> = {
   dynamic_combat: '动态战斗',
 };
 
-const isPresetTemplate = (id: string) => id.startsWith('preset-');
+const PRESET_TEMPLATE_IDS = [
+  'template-medieval-fantasy',
+  'template-modern-romance',
+  'template-lovecraft-horror',
+  'template-cyberpunk-mercenary',
+];
+
+const isPresetTemplate = (id: string) => PRESET_TEMPLATE_IDS.includes(id);
 
 export const TemplateManager: React.FC = () => {
   const {

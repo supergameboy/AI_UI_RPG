@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { AIConstraints } from '@ai-rpg/shared';
+import type { AIConstraints, AIBehavior } from '@ai-rpg/shared';
 import { Button, Icon } from '../../common';
 
 interface AIConstraintsEditorProps {
@@ -22,6 +22,24 @@ const CONTENT_RATING_OPTIONS = [
   { value: 'mature', label: '成人' },
 ];
 
+const RESPONSE_STYLE_OPTIONS = [
+  { value: 'narrative', label: '叙事风格', description: 'AI 以故事叙述的方式回应，注重情节和氛围' },
+  { value: 'mechanical', label: '机械风格', description: 'AI 以简洁、直接的方式回应，注重游戏机制' },
+  { value: 'adaptive', label: '自适应', description: 'AI 根据情境自动调整回应风格' },
+];
+
+const DETAIL_LEVEL_OPTIONS = [
+  { value: 'brief', label: '简略', description: '简洁的描述，快速推进剧情' },
+  { value: 'normal', label: '正常', description: '适中的详细程度，平衡叙事和节奏' },
+  { value: 'detailed', label: '详细', description: '丰富的细节描写，沉浸式体验' },
+];
+
+const PLAYER_AGENCY_OPTIONS = [
+  { value: 'guided', label: '引导式', description: 'AI 提供明确的选项和建议，引导玩家决策' },
+  { value: 'balanced', label: '平衡', description: 'AI 提供适度的引导，同时保持玩家自由度' },
+  { value: 'freeform', label: '自由形式', description: 'AI 给予玩家最大的自由，不提供明确引导' },
+];
+
 export const AIConstraintsEditor: React.FC<AIConstraintsEditorProps> = ({
   aiConstraints,
   readOnly,
@@ -32,6 +50,20 @@ export const AIConstraintsEditor: React.FC<AIConstraintsEditorProps> = ({
 
   const prohibitedTopics = aiConstraints.prohibitedTopics || [];
   const requiredElements = aiConstraints.requiredElements || [];
+  const aiBehavior = aiConstraints.aiBehavior || {
+    responseStyle: 'narrative' as const,
+    detailLevel: 'normal' as const,
+    playerAgency: 'balanced' as const,
+  };
+
+  const updateAIBehavior = useCallback(
+    (updates: Partial<AIBehavior>) => {
+      onUpdate({
+        aiBehavior: { ...aiBehavior, ...updates },
+      });
+    },
+    [aiBehavior, onUpdate]
+  );
 
   const handleAddProhibited = useCallback(() => {
     const trimmed = newProhibited.trim();
@@ -159,6 +191,169 @@ export const AIConstraintsEditor: React.FC<AIConstraintsEditorProps> = ({
                 </option>
               ))}
             </select>
+          )}
+        </div>
+      </div>
+
+      {/* AI行为配置 */}
+      <div style={sectionStyle}>
+        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
+          🤖 AI行为配置
+        </h3>
+        <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+          配置 AI 的回应风格和行为模式
+        </p>
+
+        {/* 回应风格 */}
+        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+          <label style={labelStyle}>回应风格</label>
+          {readOnly ? (
+            <div style={{ marginTop: 'var(--spacing-xs)' }}>
+              <span style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                {RESPONSE_STYLE_OPTIONS.find((o) => o.value === aiBehavior.responseStyle)?.label}
+              </span>
+              <p style={{ margin: 'var(--spacing-xs) 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                {RESPONSE_STYLE_OPTIONS.find((o) => o.value === aiBehavior.responseStyle)?.description}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
+              {RESPONSE_STYLE_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 'var(--spacing-sm)',
+                    padding: 'var(--spacing-sm)',
+                    background: aiBehavior.responseStyle === option.value ? 'var(--color-primary-light)' : 'var(--color-background)',
+                    border: `1px solid ${aiBehavior.responseStyle === option.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="responseStyle"
+                    value={option.value}
+                    checked={aiBehavior.responseStyle === option.value}
+                    onChange={() => updateAIBehavior({ responseStyle: option.value as AIBehavior['responseStyle'] })}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                      {option.label}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 详细程度 */}
+        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+          <label style={labelStyle}>详细程度</label>
+          {readOnly ? (
+            <div style={{ marginTop: 'var(--spacing-xs)' }}>
+              <span style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                {DETAIL_LEVEL_OPTIONS.find((o) => o.value === aiBehavior.detailLevel)?.label}
+              </span>
+              <p style={{ margin: 'var(--spacing-xs) 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                {DETAIL_LEVEL_OPTIONS.find((o) => o.value === aiBehavior.detailLevel)?.description}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
+              {DETAIL_LEVEL_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 'var(--spacing-sm)',
+                    padding: 'var(--spacing-sm)',
+                    background: aiBehavior.detailLevel === option.value ? 'var(--color-primary-light)' : 'var(--color-background)',
+                    border: `1px solid ${aiBehavior.detailLevel === option.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="detailLevel"
+                    value={option.value}
+                    checked={aiBehavior.detailLevel === option.value}
+                    onChange={() => updateAIBehavior({ detailLevel: option.value as AIBehavior['detailLevel'] })}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                      {option.label}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 玩家主导权 */}
+        <div>
+          <label style={labelStyle}>玩家主导权</label>
+          {readOnly ? (
+            <div style={{ marginTop: 'var(--spacing-xs)' }}>
+              <span style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                {PLAYER_AGENCY_OPTIONS.find((o) => o.value === aiBehavior.playerAgency)?.label}
+              </span>
+              <p style={{ margin: 'var(--spacing-xs) 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                {PLAYER_AGENCY_OPTIONS.find((o) => o.value === aiBehavior.playerAgency)?.description}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
+              {PLAYER_AGENCY_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 'var(--spacing-sm)',
+                    padding: 'var(--spacing-sm)',
+                    background: aiBehavior.playerAgency === option.value ? 'var(--color-primary-light)' : 'var(--color-background)',
+                    border: `1px solid ${aiBehavior.playerAgency === option.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="playerAgency"
+                    value={option.value}
+                    checked={aiBehavior.playerAgency === option.value}
+                    onChange={() => updateAIBehavior({ playerAgency: option.value as AIBehavior['playerAgency'] })}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                      {option.label}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
           )}
         </div>
       </div>

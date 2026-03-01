@@ -1,13 +1,19 @@
-import React, { useCallback } from 'react';
-import type { GameRules } from '@ai-rpg/shared';
+import React, { useState, useCallback } from 'react';
+import type { GameRules, NumericalComplexity, SpecialRules } from '@ai-rpg/shared';
+import { Button, Icon } from '../../common';
 
 interface RulesEditorProps {
   gameRules: GameRules;
+  numericalComplexity: NumericalComplexity;
+  specialRules: SpecialRules;
   readOnly: boolean;
   onUpdate: (updates: Partial<GameRules>) => void;
+  onUpdateNumericalComplexity: (value: NumericalComplexity) => void;
+  onUpdateSpecialRules: (updates: Partial<SpecialRules>) => void;
 }
 
 const COMBAT_TYPES = [
+  { value: 'narrative', label: '叙事型' },
   { value: 'turn_based', label: '回合制' },
   { value: 'real_time', label: '实时' },
   { value: 'hybrid', label: '混合' },
@@ -25,20 +31,33 @@ const COOLDOWN_SYSTEMS = [
   { value: 'none', label: '无冷却' },
 ];
 
+const NUMERICAL_COMPLEXITY_OPTIONS = [
+  { value: 'simple', label: '简单', description: '简化的数值系统，适合新手玩家' },
+  { value: 'medium', label: '中等', description: '平衡的数值复杂度，兼顾深度和易用性' },
+  { value: 'complex', label: '复杂', description: '详细的数值系统，适合硬核玩家' },
+];
+
 const DEFAULT_CRITICAL_HIT = { threshold: 20, multiplier: 2 };
 const DEFAULT_UPGRADE_COST = { base: 1, multiplier: 1.5 };
 
 export const RulesEditor: React.FC<RulesEditorProps> = ({
   gameRules,
+  numericalComplexity,
+  specialRules,
   readOnly,
   onUpdate,
+  onUpdateNumericalComplexity,
+  onUpdateSpecialRules,
 }) => {
+  const [newCustomRule, setNewCustomRule] = useState('');
+  
   const combatSystem = gameRules.combatSystem || {};
   const skillSystem = gameRules.skillSystem || {};
   const inventorySystem = gameRules.inventorySystem || {};
   const questSystem = gameRules.questSystem || {};
   const criticalHit = combatSystem.criticalHit || DEFAULT_CRITICAL_HIT;
   const upgradeCost = skillSystem.upgradeCost || DEFAULT_UPGRADE_COST;
+  const customRules = specialRules.customRules || [];
 
   const updateCombat = useCallback(
     (updates: Partial<GameRules['combatSystem']>) => {
@@ -74,6 +93,25 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
       });
     },
     [questSystem, onUpdate]
+  );
+
+  const handleAddCustomRule = useCallback(() => {
+    const trimmed = newCustomRule.trim();
+    if (trimmed && !customRules.includes(trimmed)) {
+      onUpdateSpecialRules({
+        customRules: [...customRules, trimmed],
+      });
+      setNewCustomRule('');
+    }
+  }, [newCustomRule, customRules, onUpdateSpecialRules]);
+
+  const handleRemoveCustomRule = useCallback(
+    (rule: string) => {
+      onUpdateSpecialRules({
+        customRules: customRules.filter((r) => r !== rule),
+      });
+    },
+    [customRules, onUpdateSpecialRules]
   );
 
   const inputStyle = {
@@ -387,6 +425,242 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
               </label>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 数值复杂度 */}
+      <div style={sectionStyle}>
+        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
+          🔢 数值复杂度
+        </h3>
+        <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+          设置游戏数值系统的复杂程度
+        </p>
+        {readOnly ? (
+          <div style={{ marginTop: 'var(--spacing-xs)' }}>
+            <span style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+              {NUMERICAL_COMPLEXITY_OPTIONS.find((o) => o.value === numericalComplexity)?.label}
+            </span>
+            <p style={{ margin: 'var(--spacing-xs) 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+              {NUMERICAL_COMPLEXITY_OPTIONS.find((o) => o.value === numericalComplexity)?.description}
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
+            {NUMERICAL_COMPLEXITY_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 'var(--spacing-sm)',
+                  padding: 'var(--spacing-sm)',
+                  background: numericalComplexity === option.value ? 'var(--color-primary-light)' : 'var(--color-background)',
+                  border: `1px solid ${numericalComplexity === option.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="numericalComplexity"
+                  value={option.value}
+                  checked={numericalComplexity === option.value}
+                  onChange={() => onUpdateNumericalComplexity(option.value as NumericalComplexity)}
+                  style={{ marginTop: '2px' }}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                    {option.label}
+                  </div>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                    {option.description}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 特殊规则 */}
+      <div style={sectionStyle}>
+        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
+          ⚡ 特殊规则
+        </h3>
+        <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+          配置游戏的特殊规则和限制
+        </p>
+
+        <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+          {/* KP系统 */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 'var(--spacing-md)',
+              background: 'var(--color-background)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                🎲 KP（守密人）系统
+              </div>
+              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                启用守密人系统，由AI扮演KP角色
+              </div>
+            </div>
+            {readOnly ? (
+              <span
+                style={{
+                  padding: 'var(--spacing-xs) var(--spacing-sm)',
+                  background: specialRules.hasKP ? 'var(--color-primary-light)' : 'var(--color-background)',
+                  border: `1px solid ${specialRules.hasKP ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-sm)',
+                  color: specialRules.hasKP ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
+                  fontSize: 'var(--font-size-sm)',
+                }}
+              >
+                {specialRules.hasKP ? '已启用' : '已禁用'}
+              </span>
+            ) : (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={specialRules.hasKP || false}
+                  onChange={(e) => onUpdateSpecialRules({ hasKP: e.target.checked })}
+                />
+                <span>启用</span>
+              </label>
+            )}
+          </div>
+
+          {/* 永久死亡 */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 'var(--spacing-md)',
+              background: 'var(--color-background)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                💀 永久死亡
+              </div>
+              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-tertiary)' }}>
+                角色死亡后无法复活，增加游戏紧张感
+              </div>
+            </div>
+            {readOnly ? (
+              <span
+                style={{
+                  padding: 'var(--spacing-xs) var(--spacing-sm)',
+                  background: specialRules.permadeath ? 'var(--color-danger-light)' : 'var(--color-background)',
+                  border: `1px solid ${specialRules.permadeath ? 'var(--color-danger)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-sm)',
+                  color: specialRules.permadeath ? 'var(--color-danger)' : 'var(--color-text-tertiary)',
+                  fontSize: 'var(--font-size-sm)',
+                }}
+              >
+                {specialRules.permadeath ? '已启用' : '已禁用'}
+              </span>
+            ) : (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={specialRules.permadeath || false}
+                  onChange={(e) => onUpdateSpecialRules({ permadeath: e.target.checked })}
+                />
+                <span>启用</span>
+              </label>
+            )}
+          </div>
+
+          {/* 存档限制 */}
+          <div>
+            <label style={labelStyle}>存档限制</label>
+            {readOnly ? (
+              <span style={{ color: 'var(--color-text-primary)' }}>
+                {specialRules.saveRestriction || '无限制'}
+              </span>
+            ) : (
+              <select
+                value={specialRules.saveRestriction || 'none'}
+                onChange={(e) => onUpdateSpecialRules({ saveRestriction: e.target.value })}
+                style={inputStyle}
+              >
+                <option value="none">无限制</option>
+                <option value="checkpoint">仅检查点存档</option>
+                <option value="manual">仅手动存档</option>
+                <option value="ironman">铁人模式（仅一个存档）</option>
+              </select>
+            )}
+          </div>
+        </div>
+
+        {/* 自定义规则 */}
+        <div style={{ marginTop: 'var(--spacing-lg)' }}>
+          <label style={labelStyle}>自定义规则</label>
+          <p style={{ margin: '0 0 var(--spacing-sm) 0', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
+            添加游戏特定的自定义规则
+          </p>
+          
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+            {customRules.length === 0 ? (
+              <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
+                暂无自定义规则
+              </span>
+            ) : (
+              customRules.map((rule) => (
+                <span
+                  key={rule}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 'var(--spacing-xs)',
+                    padding: 'var(--spacing-xs) var(--spacing-sm)',
+                    background: 'var(--color-background)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--font-size-sm)',
+                  }}
+                >
+                  {rule}
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCustomRule(rule)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <Icon name="close" size={12} />
+                    </button>
+                  )}
+                </span>
+              ))
+            )}
+          </div>
+
+          {!readOnly && (
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+              <input
+                type="text"
+                value={newCustomRule}
+                onChange={(e) => setNewCustomRule(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCustomRule()}
+                placeholder="输入自定义规则"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <Button variant="secondary" size="small" onClick={handleAddCustomRule}>
+                添加
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
