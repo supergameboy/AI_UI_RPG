@@ -6,6 +6,7 @@ export interface AttributeEditorProps {
   attributes: AttributeDefinition[];
   readOnly: boolean;
   onUpdate: (attributes: AttributeDefinition[]) => void;
+  onDeleteAttribute?: (attributeId: string) => void;
 }
 
 const createEmptyAttribute = (): AttributeDefinition => ({
@@ -22,6 +23,7 @@ export const AttributeEditor: React.FC<AttributeEditorProps> = ({
   attributes: propAttributes,
   readOnly,
   onUpdate,
+  onDeleteAttribute,
 }) => {
   const attributes = propAttributes || [];
   const [editingAttribute, setEditingAttribute] = useState<AttributeDefinition | null>(null);
@@ -78,9 +80,12 @@ export const AttributeEditor: React.FC<AttributeEditorProps> = ({
   }, [editingAttribute, isAddingNew, attributes, onUpdate]);
 
   const handleDelete = useCallback((id: string) => {
+    if (onDeleteAttribute) {
+      onDeleteAttribute(id);
+    }
     onUpdate(attributes.filter(a => a.id !== id));
     setDeleteConfirm(null);
-  }, [attributes, onUpdate]);
+  }, [attributes, onUpdate, onDeleteAttribute]);
 
   const handleFieldChange = useCallback((field: keyof AttributeDefinition, value: string | number) => {
     if (!editingAttribute) return;

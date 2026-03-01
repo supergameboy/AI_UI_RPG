@@ -75,13 +75,17 @@ const createEmptyTemplate = (): StoryTemplate => ({
   uiTheme: {
     primaryColor: '#4a90d9',
     fontFamily: 'system-ui',
-    backgroundStyle: 'default',
+    backgroundStyle: 'solid',
   },
   uiLayout: {
     showMinimap: true,
     showCombatPanel: true,
     showSkillBar: true,
     showPartyPanel: false,
+    minimapPosition: 'top-right',
+    minimapSize: 'medium',
+    partyPanelPosition: 'left',
+    skillBarSlots: 4,
   },
   numericalComplexity: 'medium',
   specialRules: {
@@ -193,6 +197,10 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
       set({ error: '没有正在编辑的模板' });
       return;
     }
+
+    console.log('[templateStore] saveTemplate - editingTemplate:', JSON.stringify(editingTemplate, null, 2));
+    console.log('[templateStore] saveTemplate - uiTheme:', editingTemplate.uiTheme);
+    console.log('[templateStore] saveTemplate - uiLayout:', editingTemplate.uiLayout);
 
     set({ isLoading: true, error: null });
     try {

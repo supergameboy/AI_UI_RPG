@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { GameRules, NumericalComplexity, SpecialRules } from '@ai-rpg/shared';
+import type { GameRules, NumericalComplexity, SpecialRules, CombatRuleSet } from '@ai-rpg/shared';
 import { Button, Icon } from '../../common';
 
 interface RulesEditorProps {
@@ -95,6 +95,37 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
     [questSystem, onUpdate]
   );
 
+  const handleCombatTypeChange = useCallback(
+    (newType: CombatRuleSet['type']) => {
+      const updates: Partial<CombatRuleSet> = { type: newType };
+
+      switch (newType) {
+        case 'narrative':
+          updates.actionPoints = 1;
+          updates.initiativeType = 'random';
+          break;
+        case 'turn_based':
+          updates.actionPoints = 3;
+          break;
+        case 'real_time':
+          updates.actionPoints = 0;
+          break;
+        case 'hybrid':
+          updates.actionPoints = 3;
+          break;
+      }
+
+      onUpdate({
+        combatSystem: { ...combatSystem, ...updates },
+        skillSystem: {
+          ...skillSystem,
+          cooldownSystem: newType === 'real_time' ? 'time' : 'turn',
+        },
+      });
+    },
+    [combatSystem, skillSystem, onUpdate]
+  );
+
   const handleAddCustomRule = useCallback(() => {
     const trimmed = newCustomRule.trim();
     if (trimmed && !customRules.includes(trimmed)) {
@@ -156,7 +187,7 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
             ) : (
               <select
                 value={combatSystem.type || 'turn_based'}
-                onChange={(e) => updateCombat({ type: e.target.value as GameRules['combatSystem']['type'] })}
+                onChange={(e) => handleCombatTypeChange(e.target.value as CombatRuleSet['type'])}
                 style={inputStyle}
               >
                 {COMBAT_TYPES.map((t) => (
@@ -175,35 +206,49 @@ export const RulesEditor: React.FC<RulesEditorProps> = ({
                 {INITIATIVE_TYPES.find((t) => t.value === combatSystem.initiativeType)?.label || '敏捷'}
               </span>
             ) : (
-              <select
-                value={combatSystem.initiativeType || 'dexterity'}
-                onChange={(e) => updateCombat({ initiativeType: e.target.value as GameRules['combatSystem']['initiativeType'] })}
-                style={inputStyle}
-              >
-                {INITIATIVE_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  value={combatSystem.initiativeType || 'dexterity'}
+                  onChange={(e) => updateCombat({ initiativeType: e.target.value as GameRules['combatSystem']['initiativeType'] })}
+                  style={inputStyle}
+                >
+                  {INITIATIVE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                {combatSystem.initiativeType === 'custom' && (
+                  <input
+                    type="text"
+                    value={combatSystem.customInitiative || ''}
+                    onChange={(e) => updateCombat({ customInitiative: e.target.value })}
+                    placeholder="请输入自定义先攻规则"
+                    style={{ ...inputStyle, marginTop: 'var(--spacing-xs)' }}
+                  />
+                )}
+              </>
             )}
           </div>
 
-          <div>
-            <label style={labelStyle}>行动点数</label>
-            {readOnly ? (
-              <span style={{ color: 'var(--color-text-primary)' }}>{combatSystem.actionPoints || 3}</span>
-            ) : (
-              <input
-                type="number"
-                min={1}
-                max={10}
-                value={combatSystem.actionPoints || 3}
-                onChange={(e) => updateCombat({ actionPoints: parseInt(e.target.value, 10) || 3 })}
-                style={inputStyle}
-              />
-            )}
-          </div>
+          {(combatSystem.type !== 'real_time' || readOnly) && (
+            <div>
+              <label style={labelStyle}>行动点数</label>
+              {readOnly ? (
+                <span style={{ color: 'var(--color-text-primary)' }}>{combatSystem.actionPoints || 3}</span>
+              ) : (
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={combatSystem.actionPoints || 3}
+                  onChange={(e) => updateCombat({ actionPoints: parseInt(e.target.value, 10) || 3 })}
+                  style={inputStyle}
+                  disabled={combatSystem.type === 'narrative'}
+                />
+              )}
+            </div>
+          )}
 
           <div>
             <label style={labelStyle}>暴击阈值</label>

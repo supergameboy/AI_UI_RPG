@@ -444,22 +444,39 @@ packages/backend/src/prompts/
 - 后端路由: `packages/backend/src/routes/templateRoutes.ts`
 - 前端 Service: `packages/frontend/src/services/templateService.ts`
 - 前端 Store: `packages/frontend/src/stores/templateStore.ts`
-- 前端组件: `packages/frontend/src/components/template/TemplateSelect.tsx`
+- 前端组件: `packages/frontend/src/components/template/`
 
 #### 14.1 功能概述
 
 故事模板定义了游戏的世界观、种族、职业、背景等核心规则，是角色创建流程的前置依赖。
 
-#### 14.2 预设模板
+#### 14.2 编辑器模块
+
+| 模块 | 功能描述 |
+|------|----------|
+| 基础信息编辑 | 模板名称、描述、版本、作者、标签、游戏模式 |
+| 世界观构建器 | 可视化编辑世界设定，支持自定义字段，支持 AI 自动生成 |
+| 种族编辑器 | 定义种族属性加成/惩罚、特性、可选职业，支持 AI 自动生成 |
+| 职业编辑器 | 定义职业主属性、生命骰、技能熟练、初始装备，支持 AI 自动生成 |
+| 背景编辑器 | 定义背景故事、技能熟练、语言、背景特性，支持 AI 自动生成 |
+| 属性编辑器 | 自定义角色属性系统，支持添加/编辑/删除属性 |
+| 规则配置器 | 配置战斗规则、技能规则、物品规则、任务规则、数值复杂度、特殊规则 |
+| AI约束设置 | 设置AI行为边界、内容过滤、风格指导、AI行为配置（响应风格/详细程度/玩家自由度） |
+| 场景设计器 | 设计初始场景、NPC布局、物品、任务，支持 AI 自动生成完整场景 |
+| UI主题定制 | 自定义UI颜色、字体、背景样式、自定义CSS |
+| 界面布局 | 小地图、战斗面板、技能栏、队伍面板显示控制 |
+| 预览测试 | 实时预览角色创建流程和初始场景，快速测试模板效果 |
+
+#### 14.3 预设模板
 
 | 模板名称 | 游戏模式 | 特色 |
 |----------|----------|------|
-| 中世纪奇幻冒险 | 回合制RPG | 种族：人类/精灵/矮人，职业：战士/法师/盗贼 |
-| 现代都市恋爱 | 视觉小说 | 职业：学生/上班族/自由职业者，好感度系统 |
-| 克苏鲁恐怖调查 | 文字冒险 | 职业：侦探/记者/学者，SAN值系统 |
-| 赛博朋克佣兵 | 动态战斗 | 种族：自然人/改造人/仿生人，职业：黑客/佣兵/医生 |
+| 中世纪奇幻冒险 | 回合制RPG | 种族：人类/精灵/矮人，职业：战士/法师/盗贼/圣骑士/游侠，背景：贵族后裔/农夫之子/流浪孤儿 |
+| 现代都市恋爱 | 视觉小说 | 职业：学生/上班族/自由职业者，好感度系统，叙事型战斗 |
+| 克苏鲁恐怖调查 | 文字冒险 | 职业：侦探/记者/医生/学者，SAN值系统，KP模式，永久死亡 |
+| 赛博朋克佣兵 | 动态战斗 | 种族：自然人/改造人/仿生人，职业：黑客/佣兵/医生/商人，义体系统 |
 
-#### 14.3 API 路由
+#### 14.4 API 路由
 
 | 路由 | 方法 | 功能 |
 |------|------|------|
@@ -468,8 +485,16 @@ packages/backend/src/prompts/
 | `/api/templates` | POST | 创建新模板 |
 | `/api/templates/:id` | PUT | 更新模板 |
 | `/api/templates/:id` | DELETE | 删除模板 |
+| `/api/templates/generate/npc` | POST | AI生成NPC |
+| `/api/templates/generate/item` | POST | AI生成物品 |
+| `/api/templates/generate/quest` | POST | AI生成任务 |
+| `/api/templates/generate/scene` | POST | AI生成场景 |
+| `/api/templates/generate/race` | POST | AI生成种族 |
+| `/api/templates/generate/class` | POST | AI生成职业 |
+| `/api/templates/generate/background` | POST | AI生成背景 |
+| `/api/templates/generate/worldSetting` | POST | AI生成世界观 |
 
-#### 14.4 模板数据结构
+#### 14.5 模板数据结构
 
 ```typescript
 interface StoryTemplate {
@@ -485,15 +510,67 @@ interface StoryTemplate {
   gameRules: GameRules;
   aiConstraints: AIConstraints;
   startingScene: StartingScene;
+  uiTheme: UITheme;
+  uiLayout: UILayout;
+  numericalComplexity: 'simple' | 'medium' | 'complex';
+  specialRules: SpecialRules;
+}
+
+interface AIBehavior {
+  responseStyle: 'narrative' | 'mechanical' | 'adaptive';
+  detailLevel: 'brief' | 'normal' | 'detailed';
+  playerAgency: 'guided' | 'balanced' | 'freeform';
+}
+
+interface AttributeDefinition {
+  id: string;
+  name: string;
+  abbreviation: string;
+  description: string;
+  defaultValue: number;
+  minValue: number;
+  maxValue: number;
 }
 ```
 
-#### 14.5 初始化流程
+#### 14.6 初始化流程
 
 后端启动时自动初始化预设模板：
 1. 检查数据库中是否存在内置模板
-2. 跳过已存在的模板
-3. 插入新模板并标记为 `is_builtin = 1`
+2. 使用 `INSERT OR REPLACE` 更新已存在的模板
+3. 插入新模板并标记为内置模板
+
+---
+
+### 15. 模板编辑器增强功能
+
+**实现时间**: 第三阶段  
+**文件位置**: 
+- 前端编辑器: `packages/frontend/src/components/template/editors/`
+- 后端 AI 服务: `packages/backend/src/services/AIGenerateService.ts`
+
+#### 15.1 AI 辅助生成功能
+
+支持 AI 自动生成以下内容：
+- 世界观设定：根据模板名称和描述自动生成完整世界观
+- 种族定义：根据世界观生成种族（含属性加成、特殊能力）
+- 职业定义：根据世界观和种族生成职业（含主属性、技能、装备）
+- 背景定义：根据世界观、种族、职业生成背景故事
+- 起始场景：生成完整起始场景（含NPC、物品、任务）
+
+#### 15.2 属性系统
+
+支持自定义角色属性系统：
+- 默认 6 种属性：力量(STR)、敏捷(DEX)、体质(CON)、智力(INT)、感知(WIS)、魅力(CHA)
+- 可添加自定义属性
+- 属性 ID 用于种族加成和职业主属性配置
+- 支持动态属性传递给种族/职业编辑器
+
+#### 15.3 预览测试功能
+
+- 角色创建流程预览：显示种族、职业、背景选项
+- 初始场景预览：显示地点、NPC、物品、任务
+- 快速验证模板效果
 
 ---
 
@@ -520,7 +597,7 @@ ComponentName/
 
 ---
 
-*文档版本: v1.2*
+*文档版本: v1.3*
 *创建日期: 2025-02-28*
-*最后更新: 2026-02-28*
-*项目版本: 0.2.0*
+*最后更新: 2026-03-01*
+*项目版本: 0.3.0*

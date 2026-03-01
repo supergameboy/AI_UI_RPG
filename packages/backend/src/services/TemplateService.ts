@@ -305,7 +305,7 @@ const PRESET_TEMPLATES: CreateTemplateInput[] = [
     uiTheme: {
       primaryColor: '#8B4513',
       fontFamily: 'Georgia, "Times New Roman", serif',
-      backgroundStyle: 'parchment',
+      backgroundStyle: 'gradient',
       customCSS: `
         .game-container { background: linear-gradient(to bottom, #f4e4bc, #e8d4a8); }
         .text-panel { border: 2px solid #8B4513; background: rgba(255,248,220,0.95); }
@@ -558,7 +558,7 @@ const PRESET_TEMPLATES: CreateTemplateInput[] = [
     uiTheme: {
       primaryColor: '#FFB6C1',
       fontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
-      backgroundStyle: 'light',
+      backgroundStyle: 'solid',
       customCSS: `
         .game-container { background: linear-gradient(135deg, #fff5f8 0%, #ffe4e9 100%); }
         .text-panel { background: rgba(255,255,255,0.95); border-radius: 15px; }
@@ -842,7 +842,7 @@ const PRESET_TEMPLATES: CreateTemplateInput[] = [
     uiTheme: {
       primaryColor: '#1a1a2e',
       fontFamily: '"Courier New", "Lucida Console", monospace',
-      backgroundStyle: 'dark',
+      backgroundStyle: 'solid',
       customCSS: `
         .game-container { 
           background: linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%); 
@@ -1184,7 +1184,7 @@ const PRESET_TEMPLATES: CreateTemplateInput[] = [
     uiTheme: {
       primaryColor: '#00ffff',
       fontFamily: '"Orbitron", "Rajdhani", "Share Tech Mono", sans-serif',
-      backgroundStyle: 'neon',
+      backgroundStyle: 'animated',
       customCSS: `
         .game-container { 
           background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a1a2e 100%); 

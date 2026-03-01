@@ -271,13 +271,23 @@ const SEED_TEMPLATES = [
     ui_theme: JSON.stringify({
       primaryColor: '#8B4513',
       fontFamily: 'Georgia, "Times New Roman", serif',
-      backgroundStyle: 'parchment',
+      backgroundStyle: 'gradient',
       customCSS: `
         .game-container { background: linear-gradient(to bottom, #f4e4bc, #e8d4a8); }
         .text-panel { border: 2px solid #8B4513; background: rgba(255,248,220,0.95); }
         .choice-button { background: #d4a574; border: 1px solid #8B4513; }
         .choice-button:hover { background: #c49464; }
       `,
+    }),
+    ui_layout: JSON.stringify({
+      showMinimap: true,
+      showCombatPanel: true,
+      showSkillBar: true,
+      showPartyPanel: false,
+      minimapPosition: 'top-right',
+      minimapSize: 'medium',
+      partyPanelPosition: 'left',
+      skillBarSlots: 4,
     }),
     is_builtin: 1,
   },
@@ -513,7 +523,7 @@ const SEED_TEMPLATES = [
     ui_theme: JSON.stringify({
       primaryColor: '#FFB6C1',
       fontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
-      backgroundStyle: 'light',
+      backgroundStyle: 'solid',
       customCSS: `
         .game-container { background: linear-gradient(135deg, #fff5f8 0%, #ffe4e9 100%); }
         .text-panel { background: rgba(255,255,255,0.95); border-radius: 15px; }
@@ -529,6 +539,16 @@ const SEED_TEMPLATES = [
         }
         .affection-heart { color: #FF69B4; }
       `,
+    }),
+    ui_layout: JSON.stringify({
+      showMinimap: false,
+      showCombatPanel: false,
+      showSkillBar: false,
+      showPartyPanel: false,
+      minimapPosition: 'top-right',
+      minimapSize: 'small',
+      partyPanelPosition: 'right',
+      skillBarSlots: 4,
     }),
     is_builtin: 1,
   },
@@ -785,7 +805,7 @@ const SEED_TEMPLATES = [
     ui_theme: JSON.stringify({
       primaryColor: '#1a1a2e',
       fontFamily: '"Courier New", "Lucida Console", monospace',
-      backgroundStyle: 'dark',
+      backgroundStyle: 'solid',
       customCSS: `
         .game-container { 
           background: linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%); 
@@ -813,6 +833,16 @@ const SEED_TEMPLATES = [
           text-shadow: 0 0 5px #4a0000;
         }
       `,
+    }),
+    ui_layout: JSON.stringify({
+      showMinimap: false,
+      showCombatPanel: true,
+      showSkillBar: false,
+      showPartyPanel: false,
+      minimapPosition: 'top-right',
+      minimapSize: 'small',
+      partyPanelPosition: 'left',
+      skillBarSlots: 4,
     }),
     is_builtin: 1,
   },
@@ -1110,7 +1140,7 @@ const SEED_TEMPLATES = [
     ui_theme: JSON.stringify({
       primaryColor: '#00ffff',
       fontFamily: '"Orbitron", "Rajdhani", "Share Tech Mono", sans-serif',
-      backgroundStyle: 'neon',
+      backgroundStyle: 'animated',
       customCSS: `
         .game-container { 
           background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a1a2e 100%); 
@@ -1142,6 +1172,16 @@ const SEED_TEMPLATES = [
         }
       `,
     }),
+    ui_layout: JSON.stringify({
+      showMinimap: true,
+      showCombatPanel: true,
+      showSkillBar: true,
+      showPartyPanel: true,
+      minimapPosition: 'top-right',
+      minimapSize: 'medium',
+      partyPanelPosition: 'left',
+      skillBarSlots: 6,
+    }),
     is_builtin: 1,
   },
 ];
@@ -1167,6 +1207,7 @@ export class DatabaseInitializer {
     console.log('Initializing database...');
     
     this.createTables();
+    this.runMigrations();
     this.seedData();
     
     console.log('Database initialization complete.');
@@ -1182,6 +1223,21 @@ export class DatabaseInitializer {
     console.log('Tables created successfully.');
   }
 
+  private runMigrations(): void {
+    const db = this.getDb();
+    
+    try {
+      const result = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('templates') WHERE name = 'ui_layout'").get();
+      if (!result) {
+        console.log('Running migration: Adding ui_layout column to templates...');
+        db.exec('ALTER TABLE templates ADD COLUMN ui_layout TEXT DEFAULT "{}"');
+        console.log('Migration completed: ui_layout column added');
+      }
+    } catch (error) {
+      console.log('Migration check skipped (table may not exist yet)');
+    }
+  }
+
   private seedData(): void {
     this.seedTemplates();
     this.seedSettings();
@@ -1193,11 +1249,11 @@ export class DatabaseInitializer {
       INSERT OR REPLACE INTO templates (
         id, name, description, version, author, tags, game_mode,
         world_setting, character_creation, game_rules, ai_constraints,
-        starting_scene, ui_theme, is_builtin
+        starting_scene, ui_theme, ui_layout, is_builtin
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
-        ?, ?, ?
+        ?, ?, ?, ?
       )
     `);
 
@@ -1216,6 +1272,7 @@ export class DatabaseInitializer {
         template.ai_constraints,
         template.starting_scene,
         template.ui_theme,
+        template.ui_layout,
         template.is_builtin
       );
     }

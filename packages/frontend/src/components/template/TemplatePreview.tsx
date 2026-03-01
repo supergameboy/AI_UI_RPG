@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { StoryTemplate } from '@ai-rpg/shared';
 import { Button, Icon } from '../common';
 import styles from './TemplatePreview.module.css';
@@ -45,12 +45,69 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
   misc: '杂项',
 };
 
+const DEFAULT_SKILL_LABELS: Record<string, string> = {
+  firearms: '枪械',
+  melee: '近战',
+  tactics: '战术',
+  intimidation: '威吓',
+  netrunning: '网络入侵',
+  programming: '编程',
+  electronics: '电子学',
+  stealth: '潜行',
+  medicine: '医疗',
+  cybertech: '义体技术',
+  chemistry: '化学',
+  first_aid: '急救',
+  lockpicking: '开锁',
+  perception: '感知',
+  persuasion: '说服',
+  deception: '欺骗',
+  streetwise: '街头智慧',
+  investigation: '调查',
+  survival: '生存',
+  improvisation: '即兴发挥',
+  corporate_knowledge: '企业知识',
+  technology: '技术',
+  negotiation: '谈判',
+};
+
 export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onClose }) => {
   const [activeTab, setActiveTab] = useState<PreviewTab>('character');
 
   const { characterCreation, startingScene } = template;
-  const { races, classes, backgrounds } = characterCreation;
+  const { races, classes, backgrounds, attributes } = characterCreation;
   const { npcs, items, quests } = startingScene;
+
+  const attributeNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    attributes.forEach(attr => {
+      map[attr.id] = attr.name;
+      if (attr.abbreviation) {
+        map[attr.abbreviation] = attr.name;
+      }
+    });
+    return map;
+  }, [attributes]);
+
+  const getAttributeName = (attrId: string): string => {
+    return attributeNameMap[attrId] || attrId;
+  };
+
+  const getSkillName = (skillId: string): string => {
+    return DEFAULT_SKILL_LABELS[skillId] || skillId;
+  };
+
+  const getStatName = (statId: string): string => {
+    const statLabels: Record<string, string> = {
+      attack: '攻击',
+      critical: '暴击',
+      energy_damage: '能量伤害',
+      hacking_bonus: '黑客加成',
+      interface_speed: '接口速度',
+      ...attributeNameMap,
+    };
+    return statLabels[statId] || statId;
+  };
 
   return (
     <div className={styles.overlay}>
@@ -108,7 +165,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
                             <span className={styles.tagLabel}>加成:</span>
                             {Object.entries(race.bonuses).map(([attr, value]) => (
                               <span key={attr} className={`${styles.tag} ${styles.tagPositive}`}>
-                                {attr} +{value}
+                                {getAttributeName(attr)} +{value}
                               </span>
                             ))}
                           </div>
@@ -151,7 +208,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
                             <span className={styles.tagLabel}>主属性:</span>
                             {cls.primaryAttributes.map((attr) => (
                               <span key={attr} className={`${styles.tag} ${styles.tagPrimary}`}>
-                                {attr}
+                                {getAttributeName(attr)}
                               </span>
                             ))}
                           </div>
@@ -161,7 +218,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
                             <span className={styles.tagLabel}>技能:</span>
                             {cls.skillProficiencies.slice(0, 4).map((skill) => (
                               <span key={skill} className={styles.tag}>
-                                {skill}
+                                {getSkillName(skill)}
                               </span>
                             ))}
                             {cls.skillProficiencies.length > 4 && (
@@ -202,7 +259,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
                             <span className={styles.tagLabel}>技能:</span>
                             {bg.skillProficiencies.map((skill) => (
                               <span key={skill} className={styles.tag}>
-                                {skill}
+                                {getSkillName(skill)}
                               </span>
                             ))}
                           </div>
@@ -318,7 +375,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
                           <div className={styles.statsRow}>
                             {Object.entries(item.stats).map(([stat, value]) => (
                               <span key={stat} className={`${styles.stat} ${styles.statPositive}`}>
-                                {stat} +{value}
+                                {getStatName(stat)} +{value}
                               </span>
                             ))}
                           </div>

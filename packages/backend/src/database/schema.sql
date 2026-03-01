@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS templates (
   ai_constraints TEXT DEFAULT '{}',
   starting_scene TEXT DEFAULT '{}',
   ui_theme TEXT DEFAULT '{}',
+  ui_layout TEXT DEFAULT '{}',
   is_builtin INTEGER DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))

@@ -171,6 +171,37 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
     [updateEditingTemplate]
   );
 
+  const handleDeleteAttribute = useCallback(
+    (attributeId: string) => {
+      const template = useTemplateStore.getState().editingTemplate;
+      if (!template) return;
+
+      const updatedRaces = template.characterCreation.races.map((race) => ({
+        ...race,
+        bonuses: Object.fromEntries(
+          Object.entries(race.bonuses || {}).filter(([key]) => key !== attributeId)
+        ),
+        penalties: Object.fromEntries(
+          Object.entries(race.penalties || {}).filter(([key]) => key !== attributeId)
+        ),
+      }));
+
+      const updatedClasses = template.characterCreation.classes.map((cls) => ({
+        ...cls,
+        primaryAttributes: (cls.primaryAttributes || []).filter((attr) => attr !== attributeId),
+      }));
+
+      updateEditingTemplate({
+        characterCreation: {
+          ...template.characterCreation,
+          races: updatedRaces,
+          classes: updatedClasses,
+        },
+      });
+    },
+    [updateEditingTemplate]
+  );
+
   const handleUpdateRules = useCallback(
     (updates: Partial<StoryTemplate['gameRules']>) => {
       const template = useTemplateStore.getState().editingTemplate;
@@ -208,8 +239,12 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
     (updates: Partial<StoryTemplate['uiTheme']>) => {
       const template = useTemplateStore.getState().editingTemplate;
       if (!template) return;
+      console.log('[TemplateEditor] handleUpdateUITheme:', updates);
+      console.log('[TemplateEditor] current uiTheme:', template.uiTheme);
+      const newUITheme = { ...template.uiTheme, ...updates };
+      console.log('[TemplateEditor] new uiTheme:', newUITheme);
       updateEditingTemplate({
-        uiTheme: { ...template.uiTheme, ...updates },
+        uiTheme: newUITheme,
       });
     },
     [updateEditingTemplate]
@@ -219,8 +254,12 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
     (updates: Partial<StoryTemplate['uiLayout']>) => {
       const template = useTemplateStore.getState().editingTemplate;
       if (!template) return;
+      console.log('[TemplateEditor] handleUpdateUILayout:', updates);
+      console.log('[TemplateEditor] current uiLayout:', template.uiLayout);
+      const newUILayout = { ...template.uiLayout, ...updates };
+      console.log('[TemplateEditor] new uiLayout:', newUILayout);
       updateEditingTemplate({
-        uiLayout: { ...template.uiLayout, ...updates },
+        uiLayout: newUILayout,
       });
     },
     [updateEditingTemplate]
@@ -351,6 +390,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
             attributes={editingTemplate.characterCreation?.attributes || []}
             readOnly={isReadOnly}
             onUpdate={handleUpdateAttributes}
+            onDeleteAttribute={handleDeleteAttribute}
           />
         );
       case 'rules':

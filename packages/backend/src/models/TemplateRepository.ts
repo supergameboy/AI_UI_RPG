@@ -27,6 +27,7 @@ export interface TemplateRecord extends BaseEntity {
   ai_constraints: string; // JSON string
   starting_scene: string; // JSON string
   ui_theme: string; // JSON string
+  ui_layout: string; // JSON string
   is_builtin: number; // 0 or 1
 }
 
@@ -57,7 +58,7 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
       aiConstraints: this.parseJSON<AIConstraints>(record.ai_constraints, this.getDefaultAIConstraints()),
       startingScene: this.parseJSON<StartingScene>(record.starting_scene, this.getDefaultStartingScene()),
       uiTheme: this.parseJSON<UITheme>(record.ui_theme, this.getDefaultUITheme()),
-      uiLayout: this.getDefaultUILayout(),
+      uiLayout: this.parseJSON<UILayout>(record.ui_layout, this.getDefaultUILayout()),
       numericalComplexity: 'medium',
       specialRules: this.getDefaultSpecialRules(),
     };
@@ -85,8 +86,8 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
       INSERT INTO templates (
         id, name, description, version, author, tags, game_mode,
         world_setting, character_creation, game_rules, ai_constraints,
-        starting_scene, ui_theme, is_builtin, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        starting_scene, ui_theme, ui_layout, is_builtin, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -102,7 +103,8 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
       JSON.stringify(template.gameRules ?? {}),
       JSON.stringify(template.aiConstraints ?? {}),
       JSON.stringify(template.startingScene ?? {}),
-      JSON.stringify({}),
+      JSON.stringify(template.uiTheme ?? {}),
+      JSON.stringify(template.uiLayout ?? {}),
       0, // is_builtin = false
       now,
       now
@@ -194,6 +196,14 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
     if (template.startingScene !== undefined) {
       fields.push('starting_scene = ?');
       values.push(JSON.stringify(template.startingScene));
+    }
+    if (template.uiTheme !== undefined) {
+      fields.push('ui_theme = ?');
+      values.push(JSON.stringify(template.uiTheme));
+    }
+    if (template.uiLayout !== undefined) {
+      fields.push('ui_layout = ?');
+      values.push(JSON.stringify(template.uiLayout));
     }
 
     if (fields.length === 0) {
@@ -419,7 +429,7 @@ export class TemplateRepository extends BaseRepository<TemplateRecord> {
     return {
       primaryColor: '#4a90d9',
       fontFamily: 'Arial, sans-serif',
-      backgroundStyle: 'dark',
+      backgroundStyle: 'solid',
     };
   }
 

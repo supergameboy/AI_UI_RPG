@@ -100,6 +100,7 @@ export interface GameRules {
 export interface CombatRuleSet {
   type: 'narrative' | 'turn_based' | 'real_time' | 'hybrid';
   initiativeType: 'dexterity' | 'random' | 'custom';
+  customInitiative?: string;
   actionPoints: number;
   criticalHit: {
     threshold: number;
@@ -222,8 +223,16 @@ export interface AIBehavior {
 export interface UITheme {
   primaryColor: string;
   fontFamily: string;
-  backgroundStyle: string;
+  backgroundStyle: 'solid' | 'gradient' | 'image' | 'pattern' | 'animated';
   customCSS?: string;
+  gradientColors?: {
+    start: string;
+    end: string;
+    direction?: string;
+  };
+  backgroundImage?: string;
+  patternType?: string;
+  animatedType?: string;
 }
 
 export interface UILayout {
@@ -232,6 +241,10 @@ export interface UILayout {
   showSkillBar: boolean;
   showPartyPanel: boolean;
   customLayout?: string;
+  minimapPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  minimapSize?: 'small' | 'medium' | 'large';
+  partyPanelPosition?: 'left' | 'right';
+  skillBarSlots?: number;
 }
 
 export interface SpecialRules {

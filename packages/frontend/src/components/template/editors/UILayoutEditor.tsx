@@ -15,10 +15,22 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
   const handleToggle = useCallback(
     (field: keyof UILayout) => {
       if (typeof uiLayout[field] === 'boolean') {
+        console.log('[UILayoutEditor] handleToggle:', field, !uiLayout[field]);
         onUpdate({ [field]: !uiLayout[field] });
       }
     },
     [uiLayout, onUpdate]
+  );
+
+  const handleSelectChange = useCallback(
+    (field: keyof UILayout, value: string) => {
+      if (field === 'skillBarSlots') {
+        onUpdate({ [field]: parseInt(value, 10) });
+      } else {
+        onUpdate({ [field]: value });
+      }
+    },
+    [onUpdate]
   );
 
   const handleCustomLayoutChange = useCallback(
@@ -77,6 +89,16 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   });
 
+  const selectStyle = {
+    padding: 'var(--spacing-xs) var(--spacing-sm)',
+    background: 'var(--color-background)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--color-text-primary)',
+    fontSize: 'var(--font-size-sm)',
+    cursor: readOnly ? 'default' : 'pointer',
+  };
+
   const panelOptions = [
     {
       field: 'showMinimap' as const,
@@ -103,6 +125,80 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
       icon: '👥',
     },
   ];
+
+  const minimapPositions = [
+    { value: 'top-left', label: '左上' },
+    { value: 'top-right', label: '右上' },
+    { value: 'bottom-left', label: '左下' },
+    { value: 'bottom-right', label: '右下' },
+  ];
+
+  const minimapSizes = [
+    { value: 'small', label: '小' },
+    { value: 'medium', label: '中' },
+    { value: 'large', label: '大' },
+  ];
+
+  const partyPanelPositions = [
+    { value: 'left', label: '左侧' },
+    { value: 'right', label: '右侧' },
+  ];
+
+  const getMinimapPreviewPosition = () => {
+    const position = uiLayout.minimapPosition || 'top-right';
+    const baseStyle: React.CSSProperties = {
+      position: 'absolute',
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius-sm)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 'var(--font-size-xs)',
+      color: 'var(--color-text-tertiary)',
+    };
+
+    const sizeMap = {
+      small: { width: '60px', height: '60px' },
+      medium: { width: '80px', height: '80px' },
+      large: { width: '100px', height: '100px' },
+    };
+    const size = sizeMap[uiLayout.minimapSize || 'medium'];
+
+    switch (position) {
+      case 'top-left':
+        return { ...baseStyle, ...size, top: 'var(--spacing-sm)', left: 'var(--spacing-sm)' };
+      case 'top-right':
+        return { ...baseStyle, ...size, top: 'var(--spacing-sm)', right: 'var(--spacing-sm)' };
+      case 'bottom-left':
+        return { ...baseStyle, ...size, bottom: 'var(--spacing-sm)', left: 'var(--spacing-sm)' };
+      case 'bottom-right':
+        return { ...baseStyle, ...size, bottom: 'var(--spacing-sm)', right: 'var(--spacing-sm)' };
+      default:
+        return { ...baseStyle, ...size, top: 'var(--spacing-sm)', right: 'var(--spacing-sm)' };
+    }
+  };
+
+  const getPartyPanelPreviewPosition = () => {
+    const position = uiLayout.partyPanelPosition || 'left';
+    return {
+      position: 'absolute' as const,
+      top: 'var(--spacing-sm)',
+      [position]: 'var(--spacing-sm)',
+      width: '120px',
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius-sm)',
+      padding: 'var(--spacing-xs)',
+      fontSize: 'var(--font-size-xs)',
+      color: 'var(--color-text-tertiary)',
+    };
+  };
+
+  const getSkillBarSlots = () => {
+    const slots = uiLayout.skillBarSlots || 4;
+    return Array.from({ length: slots }, (_, i) => i + 1);
+  };
 
   return (
     <div style={{ padding: 'var(--spacing-lg)', overflowY: 'auto' }}>
@@ -181,6 +277,197 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
         </div>
       </div>
 
+      {/* 详细配置 */}
+      <div style={sectionStyle}>
+        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
+          ⚙️ 详细配置
+        </h3>
+
+        {/* 小地图配置 */}
+        {uiLayout.showMinimap && (
+          <div
+            style={{
+              padding: 'var(--spacing-md)',
+              background: 'var(--color-background)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--spacing-md)',
+            }}
+          >
+            <h4
+              style={{
+                margin: '0 0 var(--spacing-md) 0',
+                fontSize: 'var(--font-size-md)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              🗺️ 小地图设置
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: 'var(--spacing-xs)',
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  位置
+                </label>
+                {readOnly ? (
+                  <span style={{ color: 'var(--color-text-primary)' }}>
+                    {minimapPositions.find((p) => p.value === (uiLayout.minimapPosition || 'top-right'))?.label || '右上'}
+                  </span>
+                ) : (
+                  <select
+                    value={uiLayout.minimapPosition || 'top-right'}
+                    onChange={(e) => handleSelectChange('minimapPosition', e.target.value)}
+                    style={selectStyle}
+                  >
+                    {minimapPositions.map((pos) => (
+                      <option key={pos.value} value={pos.value}>
+                        {pos.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: 'var(--spacing-xs)',
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  大小
+                </label>
+                {readOnly ? (
+                  <span style={{ color: 'var(--color-text-primary)' }}>
+                    {minimapSizes.find((s) => s.value === (uiLayout.minimapSize || 'medium'))?.label || '中'}
+                  </span>
+                ) : (
+                  <select
+                    value={uiLayout.minimapSize || 'medium'}
+                    onChange={(e) => handleSelectChange('minimapSize', e.target.value)}
+                    style={selectStyle}
+                  >
+                    {minimapSizes.map((size) => (
+                      <option key={size.value} value={size.value}>
+                        {size.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 队伍面板配置 */}
+        {uiLayout.showPartyPanel && (
+          <div
+            style={{
+              padding: 'var(--spacing-md)',
+              background: 'var(--color-background)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--spacing-md)',
+            }}
+          >
+            <h4
+              style={{
+                margin: '0 0 var(--spacing-md) 0',
+                fontSize: 'var(--font-size-md)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              👥 队伍面板设置
+            </h4>
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: 'var(--spacing-xs)',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                位置
+              </label>
+              {readOnly ? (
+                <span style={{ color: 'var(--color-text-primary)' }}>
+                  {partyPanelPositions.find((p) => p.value === (uiLayout.partyPanelPosition || 'left'))?.label || '左侧'}
+                </span>
+              ) : (
+                <select
+                  value={uiLayout.partyPanelPosition || 'left'}
+                  onChange={(e) => handleSelectChange('partyPanelPosition', e.target.value)}
+                  style={selectStyle}
+                >
+                  {partyPanelPositions.map((pos) => (
+                    <option key={pos.value} value={pos.value}>
+                      {pos.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 技能栏配置 */}
+        {uiLayout.showSkillBar && (
+          <div
+            style={{
+              padding: 'var(--spacing-md)',
+              background: 'var(--color-background)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--spacing-md)',
+            }}
+          >
+            <h4
+              style={{
+                margin: '0 0 var(--spacing-md) 0',
+                fontSize: 'var(--font-size-md)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              ✨ 技能栏设置
+            </h4>
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: 'var(--spacing-xs)',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                快捷键数量 (1-10)
+              </label>
+              {readOnly ? (
+                <span style={{ color: 'var(--color-text-primary)' }}>
+                  {uiLayout.skillBarSlots || 4} 个
+                </span>
+              ) : (
+                <select
+                  value={uiLayout.skillBarSlots || 4}
+                  onChange={(e) => handleSelectChange('skillBarSlots', e.target.value)}
+                  style={selectStyle}
+                >
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+                    <option key={num} value={num}>
+                      {num} 个
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 布局预览 */}
       <div style={sectionStyle}>
         <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
@@ -198,43 +485,14 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
         >
           {/* 小地图预览 */}
           {uiLayout.showMinimap && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'var(--spacing-sm)',
-                right: 'var(--spacing-sm)',
-                width: '80px',
-                height: '80px',
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 'var(--font-size-xs)',
-                color: 'var(--color-text-tertiary)',
-              }}
-            >
+            <div style={getMinimapPreviewPosition()}>
               小地图
             </div>
           )}
 
           {/* 队伍面板预览 */}
           {uiLayout.showPartyPanel && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'var(--spacing-sm)',
-                left: 'var(--spacing-sm)',
-                width: '120px',
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
-                padding: 'var(--spacing-xs)',
-                fontSize: 'var(--font-size-xs)',
-                color: 'var(--color-text-tertiary)',
-              }}
-            >
+            <div style={getPartyPanelPreviewPosition()}>
               队伍面板
             </div>
           )}
@@ -242,9 +500,10 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
           {/* 主内容区 */}
           <div
             style={{
-              marginTop: uiLayout.showPartyPanel ? '60px' : 0,
-              marginRight: uiLayout.showMinimap ? '100px' : 0,
-              marginBottom: uiLayout.showSkillBar ? '60px' : 0,
+              marginTop: uiLayout.showPartyPanel || (uiLayout.showMinimap && (uiLayout.minimapPosition?.includes('top') ?? true)) ? '60px' : 0,
+              marginRight: uiLayout.showMinimap && (uiLayout.minimapPosition?.includes('right') ?? true) ? '110px' : 0,
+              marginLeft: uiLayout.showPartyPanel && uiLayout.partyPanelPosition === 'left' ? '130px' : 0,
+              marginBottom: uiLayout.showSkillBar || (uiLayout.showMinimap && (uiLayout.minimapPosition?.includes('bottom') ?? false)) ? '60px' : 0,
               padding: 'var(--spacing-md)',
               textAlign: 'center',
               color: 'var(--color-text-tertiary)',
@@ -262,7 +521,6 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
                 bottom: 'var(--spacing-sm)',
                 left: '50%',
                 transform: 'translateX(-50%)',
-                width: '200px',
                 background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-sm)',
@@ -272,7 +530,7 @@ export const UILayoutEditor: React.FC<UILayoutEditorProps> = ({
                 gap: 'var(--spacing-xs)',
               }}
             >
-              {[1, 2, 3, 4].map((i) => (
+              {getSkillBarSlots().map((i) => (
                 <div
                   key={i}
                   style={{
