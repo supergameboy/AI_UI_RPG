@@ -140,7 +140,69 @@ export interface AIConstraints {
 export interface StartingScene {
   location: string;
   description: string;
-  npcs: string[];
-  items: string[];
-  quests: string[];
+  npcs: NPCDefinition[];
+  items: ItemDefinition[];
+  quests: QuestDefinition[];
+}
+
+export interface NPCDefinition {
+  id: string;
+  name: string;
+  title?: string;
+  description: string;
+  role: 'merchant' | 'quest_giver' | 'enemy' | 'ally' | 'neutral' | 'custom';
+  personality?: string;
+  dialogue?: string[];
+  stats?: {
+    level?: number;
+    hp?: number;
+    attack?: number;
+    defense?: number;
+    [key: string]: number | undefined;
+  };
+  services?: ('shop' | 'inn' | 'blacksmith' | 'healer' | 'training')[];
+  customData?: Record<string, unknown>;
+}
+
+export interface ItemDefinition {
+  id: string;
+  name: string;
+  description: string;
+  type: 'weapon' | 'armor' | 'accessory' | 'consumable' | 'material' | 'quest' | 'misc';
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'unique';
+  stats?: Record<string, number>;
+  effects?: {
+    type: string;
+    value: number;
+    duration?: number;
+  }[];
+  value?: {
+    buy: number;
+    sell: number;
+    currency: string;
+  };
+  quantity?: number;
+  customData?: Record<string, unknown>;
+}
+
+export interface QuestDefinition {
+  id: string;
+  name: string;
+  description: string;
+  type: 'main' | 'side' | 'daily' | 'hidden';
+  objectives: {
+    id: string;
+    description: string;
+    type: 'kill' | 'collect' | 'talk' | 'explore' | 'custom';
+    target: string;
+    required: number;
+  }[];
+  rewards?: {
+    type: 'experience' | 'currency' | 'item' | 'skill' | 'reputation' | 'custom';
+    value: number | string;
+    quantity?: number;
+  }[];
+  giver?: string;
+  timeLimit?: number;
+  customData?: Record<string, unknown>;
 }

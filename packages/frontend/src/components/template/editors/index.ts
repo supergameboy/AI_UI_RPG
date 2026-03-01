@@ -6,3 +6,6 @@ export { BackgroundEditor } from './BackgroundEditor';
 export { RulesEditor } from './RulesEditor';
 export { AIConstraintsEditor } from './AIConstraintsEditor';
 export { StartingSceneEditor } from './StartingSceneEditor';
+export { NPCEditor } from './NPCEditor';
+export { ItemEditor } from './ItemEditor';
+export { QuestEditor } from './QuestEditor';

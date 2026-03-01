@@ -1,6 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import type { StartingScene } from '@ai-rpg/shared';
-import { Button, Icon } from '../../common';
+import type { StartingScene, NPCDefinition, ItemDefinition, QuestDefinition } from '@ai-rpg/shared';
+import { Icon } from '../../common';
+import { NPCEditor } from './NPCEditor';
+import { ItemEditor } from './ItemEditor';
+import { QuestEditor } from './QuestEditor';
 
 interface StartingSceneEditorProps {
   startingScene: StartingScene;
@@ -8,62 +11,44 @@ interface StartingSceneEditorProps {
   onUpdate: (updates: Partial<StartingScene>) => void;
 }
 
+type TabType = 'npcs' | 'items' | 'quests';
+
+const TABS: { id: TabType; label: string; icon: string }[] = [
+  { id: 'npcs', label: 'NPC', icon: 'character' },
+  { id: 'items', label: '物品', icon: 'inventory' },
+  { id: 'quests', label: '任务', icon: 'quests' },
+];
+
 export const StartingSceneEditor: React.FC<StartingSceneEditorProps> = ({
   startingScene,
   readOnly,
   onUpdate,
 }) => {
-  const [newNpc, setNewNpc] = useState('');
-  const [newItem, setNewItem] = useState('');
-  const [newQuest, setNewQuest] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>('npcs');
 
   const npcs = startingScene.npcs || [];
   const items = startingScene.items || [];
   const quests = startingScene.quests || [];
 
-  const handleAddNpc = useCallback(() => {
-    const trimmed = newNpc.trim();
-    if (trimmed && !npcs.includes(trimmed)) {
-      onUpdate({ npcs: [...npcs, trimmed] });
-      setNewNpc('');
-    }
-  }, [newNpc, npcs, onUpdate]);
-
-  const handleRemoveNpc = useCallback(
-    (npc: string) => {
-      onUpdate({ npcs: npcs.filter((n) => n !== npc) });
+  const handleUpdateNPCs = useCallback(
+    (newNpcs: NPCDefinition[]) => {
+      onUpdate({ npcs: newNpcs });
     },
-    [npcs, onUpdate]
+    [onUpdate]
   );
 
-  const handleAddItem = useCallback(() => {
-    const trimmed = newItem.trim();
-    if (trimmed && !items.includes(trimmed)) {
-      onUpdate({ items: [...items, trimmed] });
-      setNewItem('');
-    }
-  }, [newItem, items, onUpdate]);
-
-  const handleRemoveItem = useCallback(
-    (item: string) => {
-      onUpdate({ items: items.filter((i) => i !== item) });
+  const handleUpdateItems = useCallback(
+    (newItems: ItemDefinition[]) => {
+      onUpdate({ items: newItems });
     },
-    [items, onUpdate]
+    [onUpdate]
   );
 
-  const handleAddQuest = useCallback(() => {
-    const trimmed = newQuest.trim();
-    if (trimmed && !quests.includes(trimmed)) {
-      onUpdate({ quests: [...quests, trimmed] });
-      setNewQuest('');
-    }
-  }, [newQuest, quests, onUpdate]);
-
-  const handleRemoveQuest = useCallback(
-    (quest: string) => {
-      onUpdate({ quests: quests.filter((q) => q !== quest) });
+  const handleUpdateQuests = useCallback(
+    (newQuests: QuestDefinition[]) => {
+      onUpdate({ quests: newQuests });
     },
-    [quests, onUpdate]
+    [onUpdate]
   );
 
   const inputStyle = {
@@ -83,227 +68,107 @@ export const StartingSceneEditor: React.FC<StartingSceneEditorProps> = ({
     color: 'var(--color-text-secondary)',
   };
 
-  const sectionStyle = {
-    padding: 'var(--spacing-lg)',
-    background: 'var(--color-surface)',
+  const tabStyle = (isActive: boolean): React.CSSProperties => ({
+    padding: 'var(--spacing-sm) var(--spacing-md)',
+    background: isActive ? 'var(--color-primary)' : 'var(--color-background)',
+    color: isActive ? 'white' : 'var(--color-text-primary)',
     border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-lg)',
-    marginBottom: 'var(--spacing-lg)',
-  };
-
-  const tagStyle = {
-    display: 'inline-flex',
+    borderRadius: 'var(--radius-md)',
+    cursor: 'pointer',
+    display: 'flex',
     alignItems: 'center',
     gap: 'var(--spacing-xs)',
-    padding: 'var(--spacing-xs) var(--spacing-sm)',
-    background: 'var(--color-background)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-sm)',
-    fontSize: 'var(--font-size-sm)',
-  };
+  });
 
   return (
-    <div style={{ padding: 'var(--spacing-lg)', overflowY: 'auto' }}>
-      {/* 起始地点 */}
-      <div style={sectionStyle}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* 起始地点信息 */}
+      <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border)' }}>
         <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
           📍 起始地点
         </h3>
-        <div style={{ marginBottom: 'var(--spacing-md)' }}>
-          <label style={labelStyle}>地点名称</label>
-          {readOnly ? (
-            <span style={{ color: 'var(--color-text-primary)' }}>
-              {startingScene.location || '未设置'}
-            </span>
-          ) : (
-            <input
-              type="text"
-              value={startingScene.location}
-              onChange={(e) => onUpdate({ location: e.target.value })}
-              placeholder="例如：新手村"
-              style={inputStyle}
-            />
-          )}
-        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+          <div>
+            <label style={labelStyle}>地点名称</label>
+            {readOnly ? (
+              <span style={{ color: 'var(--color-text-primary)' }}>
+                {startingScene.location || '未设置'}
+              </span>
+            ) : (
+              <input
+                type="text"
+                value={startingScene.location || ''}
+                onChange={(e) => onUpdate({ location: e.target.value })}
+                placeholder="例如：新手村"
+                style={inputStyle}
+              />
+            )}
+          </div>
 
-        <div>
-          <label style={labelStyle}>场景描述</label>
-          {readOnly ? (
-            <p style={{ color: 'var(--color-text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>
-              {startingScene.description || '暂无描述'}
-            </p>
-          ) : (
-            <textarea
-              value={startingScene.description}
-              onChange={(e) => onUpdate({ description: e.target.value })}
-              placeholder="描述玩家开始游戏时的场景..."
-              rows={4}
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
-          )}
+          <div>
+            <label style={labelStyle}>场景描述</label>
+            {readOnly ? (
+              <p style={{ color: 'var(--color-text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                {startingScene.description || '暂无描述'}
+              </p>
+            ) : (
+              <textarea
+                value={startingScene.description || ''}
+                onChange={(e) => onUpdate({ description: e.target.value })}
+                placeholder="描述玩家开始游戏时的场景..."
+                rows={4}
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 初始NPC */}
-      <div style={sectionStyle}>
-        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
-          👥 初始NPC
-        </h3>
-        <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-          玩家开始游戏时遇到的NPC
-        </p>
-        
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}>
-          {npcs.length === 0 ? (
-            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-              暂无NPC
+      {/* 标签页切换 */}
+      <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: 'var(--spacing-sm)' }}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            style={tabStyle(activeTab === tab.id)}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <Icon name={tab.icon as any} size={16} />
+            <span>{tab.label}</span>
+            <span style={{
+              background: activeTab === tab.id ? 'rgba(255,255,255,0.2)' : 'var(--color-primary-light)',
+              padding: 'var(--spacing-xs) var(--spacing-xs)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 'var(--font-size-xs)',
+            }}>
+              {tab.id === 'npcs' ? npcs.length : tab.id === 'items' ? items.length : quests.length}
             </span>
-          ) : (
-            npcs.map((npc) => (
-              <span key={npc} style={tagStyle}>
-                {npc}
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveNpc(npc)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Icon name="close" size={12} />
-                  </button>
-                )}
-              </span>
-            ))
-          )}
-        </div>
+          </button>
+        ))}
+      </div>
 
-        {!readOnly && (
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <input
-              type="text"
-              value={newNpc}
-              onChange={(e) => setNewNpc(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddNpc()}
-              placeholder="输入NPC名称"
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <Button variant="secondary" size="small" onClick={handleAddNpc}>
-              添加
-            </Button>
-          </div>
+      {/* 内容区域 */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {activeTab === 'npcs' && (
+          <NPCEditor
+            npcs={npcs}
+            readOnly={readOnly}
+            onUpdate={handleUpdateNPCs}
+          />
         )}
-      </div>
-
-      {/* 初始物品 */}
-      <div style={sectionStyle}>
-        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
-          🎒 初始物品
-        </h3>
-        <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-          玩家开始游戏时拥有的物品
-        </p>
-        
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}>
-          {items.length === 0 ? (
-            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-              暂无物品
-            </span>
-          ) : (
-            items.map((item) => (
-              <span
-                key={item}
-                style={{
-                  ...tagStyle,
-                  background: 'var(--color-primary-light)',
-                  borderColor: 'var(--color-primary)',
-                  color: 'var(--color-primary)',
-                }}
-              >
-                {item}
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(item)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Icon name="close" size={12} />
-                  </button>
-                )}
-              </span>
-            ))
-          )}
-        </div>
-
-        {!readOnly && (
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <input
-              type="text"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-              placeholder="输入物品名称"
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <Button variant="secondary" size="small" onClick={handleAddItem}>
-              添加
-            </Button>
-          </div>
+        {activeTab === 'items' && (
+          <ItemEditor
+            items={items}
+            readOnly={readOnly}
+            onUpdate={handleUpdateItems}
+          />
         )}
-      </div>
-
-      {/* 初始任务 */}
-      <div style={sectionStyle}>
-        <h3 style={{ margin: '0 0 var(--spacing-lg) 0', fontSize: 'var(--font-size-lg)' }}>
-          📜 初始任务
-        </h3>
-        <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-          玩家开始游戏时可接取的任务
-        </p>
-        
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}>
-          {quests.length === 0 ? (
-            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-              暂无任务
-            </span>
-          ) : (
-            quests.map((quest) => (
-              <span
-                key={quest}
-                style={{
-                  ...tagStyle,
-                  background: 'rgba(255, 193, 7, 0.1)',
-                  borderColor: '#ffc107',
-                  color: '#ffc107',
-                }}
-              >
-                {quest}
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveQuest(quest)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Icon name="close" size={12} />
-                  </button>
-                )}
-              </span>
-            ))
-          )}
-        </div>
-
-        {!readOnly && (
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <input
-              type="text"
-              value={newQuest}
-              onChange={(e) => setNewQuest(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()}
-              placeholder="输入任务名称"
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <Button variant="secondary" size="small" onClick={handleAddQuest}>
-              添加
-            </Button>
-          </div>
+        {activeTab === 'quests' && (
+          <QuestEditor
+            quests={quests}
+            readOnly={readOnly}
+            onUpdate={handleUpdateQuests}
+          />
         )}
       </div>
     </div>
