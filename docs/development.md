@@ -435,6 +435,68 @@ packages/backend/src/prompts/
 
 ---
 
+### 14. 故事模板系统
+
+**实现时间**: 第二阶段  
+**文件位置**: 
+- 后端 Repository: `packages/backend/src/models/TemplateRepository.ts`
+- 后端 Service: `packages/backend/src/services/TemplateService.ts`
+- 后端路由: `packages/backend/src/routes/templateRoutes.ts`
+- 前端 Service: `packages/frontend/src/services/templateService.ts`
+- 前端 Store: `packages/frontend/src/stores/templateStore.ts`
+- 前端组件: `packages/frontend/src/components/template/TemplateSelect.tsx`
+
+#### 14.1 功能概述
+
+故事模板定义了游戏的世界观、种族、职业、背景等核心规则，是角色创建流程的前置依赖。
+
+#### 14.2 预设模板
+
+| 模板名称 | 游戏模式 | 特色 |
+|----------|----------|------|
+| 中世纪奇幻冒险 | 回合制RPG | 种族：人类/精灵/矮人，职业：战士/法师/盗贼 |
+| 现代都市恋爱 | 视觉小说 | 职业：学生/上班族/自由职业者，好感度系统 |
+| 克苏鲁恐怖调查 | 文字冒险 | 职业：侦探/记者/学者，SAN值系统 |
+| 赛博朋克佣兵 | 动态战斗 | 种族：自然人/改造人/仿生人，职业：黑客/佣兵/医生 |
+
+#### 14.3 API 路由
+
+| 路由 | 方法 | 功能 |
+|------|------|------|
+| `/api/templates` | GET | 获取模板列表 |
+| `/api/templates/:id` | GET | 获取单个模板 |
+| `/api/templates` | POST | 创建新模板 |
+| `/api/templates/:id` | PUT | 更新模板 |
+| `/api/templates/:id` | DELETE | 删除模板 |
+
+#### 14.4 模板数据结构
+
+```typescript
+interface StoryTemplate {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  tags: string[];
+  gameMode: 'text_adventure' | 'turn_based_rpg' | 'visual_novel' | 'dynamic_combat';
+  worldSetting: WorldSetting;
+  characterCreation: CharacterCreationRules;
+  gameRules: GameRules;
+  aiConstraints: AIConstraints;
+  startingScene: StartingScene;
+}
+```
+
+#### 14.5 初始化流程
+
+后端启动时自动初始化预设模板：
+1. 检查数据库中是否存在内置模板
+2. 跳过已存在的模板
+3. 插入新模板并标记为 `is_builtin = 1`
+
+---
+
 ## 开发规范
 
 ### 代码风格

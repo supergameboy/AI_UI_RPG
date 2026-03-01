@@ -5,7 +5,7 @@ import { useGameStore, useThemeStore } from '../../stores';
 import styles from './MainMenu.module.css';
 
 export const MainMenu: React.FC = () => {
-  const { startNewGame, openSettings, saves, fetchSaves, loadGame, setScreen } = useGameStore();
+  const { startNewGame, openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
   const [showSaveManager, setShowSaveManager] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -63,6 +63,16 @@ export const MainMenu: React.FC = () => {
             icon={<Icon name="load" size={20} />}
           >
             继续游戏
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            size="large" 
+            fullWidth 
+            onClick={openTemplateManager}
+            icon={<Icon name="folder" size={20} />}
+          >
+            模板管理
           </Button>
           
           <Button 

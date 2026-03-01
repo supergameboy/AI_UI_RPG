@@ -5,10 +5,13 @@ import { LeftSidebar } from './LeftSidebar';
 import { PanelContainer } from './PanelContainer';
 import { StoryDisplay, QuickOptions, ChatInput } from '../game';
 import { DeveloperPanel } from '../developer';
+import { TemplateSelect } from '../template';
 import { useDeveloperStore } from '../../stores/developerStore';
+import { useGameStore } from '../../stores';
 import styles from './GameLayout.module.css';
 
 export const GameLayout: React.FC = () => {
+  const screen = useGameStore((state) => state.screen);
   const connectWebSocket = useDeveloperStore((state) => state.connectWebSocket);
   const disconnectWebSocket = useDeveloperStore((state) => state.disconnectWebSocket);
   
@@ -19,6 +22,19 @@ export const GameLayout: React.FC = () => {
       disconnectWebSocket();
     };
   }, [connectWebSocket, disconnectWebSocket]);
+
+  if (screen === 'template-select') {
+    return (
+      <div className={styles.layout}>
+        <Header />
+        <main className={styles.main} style={{ padding: 'var(--spacing-lg)' }}>
+          <TemplateSelect />
+        </main>
+        <Footer />
+        <DeveloperPanel />
+      </div>
+    );
+  }
   
   return (
     <div className={styles.layout}>

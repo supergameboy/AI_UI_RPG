@@ -2,6 +2,7 @@ import { useGameStore } from './stores';
 import { MainMenu, Settings } from './components/menu';
 import { GameLayout } from './components/layout';
 import { SaveManager } from './components/save';
+import { TemplateManager } from './components/template';
 import { Icon } from './components/common';
 import './styles/global.css';
 
@@ -12,6 +13,7 @@ function App() {
     <>
       {screen === 'menu' && <MainMenu />}
       {(screen === 'game' || screen === 'template-select') && <GameLayout />}
+      {screen === 'template-manager' && <TemplateManager />}
       {showSettings && <Settings />}
       
       {showSaveManager && (

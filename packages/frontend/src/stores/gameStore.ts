@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { saveService, Save, CreateSaveData } from '../services/saveService';
 
-export type GameScreen = 'menu' | 'game' | 'template-select' | 'save-load';
+export type GameScreen = 'menu' | 'game' | 'template-select' | 'save-load' | 'template-manager';
 
 export interface SaveInfo {
   id: string;
@@ -71,6 +71,7 @@ export interface GameState {
   
   openSaveManager: () => void;
   closeSaveManager: () => void;
+  openTemplateManager: () => void;
   saveGame: (name: string) => Promise<void>;
   quickSave: () => Promise<void>;
   autoSave: () => Promise<void>;
@@ -223,6 +224,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   closeSaveManager: () => {
     set({ showSaveManager: false });
+  },
+  
+  openTemplateManager: () => {
+    set({ screen: 'template-manager' });
   },
   
   saveGame: async (name: string) => {

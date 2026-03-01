@@ -9,9 +9,11 @@ import { initializeAgentService } from './services/AgentService';
 import { initializePromptService } from './services/PromptService';
 import { getWebSocketService } from './services/WebSocketService';
 import { getDeveloperLogService } from './services/DeveloperLogService';
+import { getTemplateService } from './services/TemplateService';
 import agentRoutes from './routes/agentRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import promptRoutes from './routes/promptRoutes';
+import templateRoutes from './routes/templateRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 
 const app = express();
@@ -404,6 +406,7 @@ app.post('/api/llm/chat/stream', async (req, res) => {
 app.use('/api/agents', agentRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/prompts', promptRoutes);
+app.use('/api/templates', templateRoutes);
 
 app.get('/api/logs/llm', (_req, res) => {
   try {
@@ -495,6 +498,14 @@ async function initializeApp() {
   
   getDeveloperLogService();
   console.log('Developer Log Service initialized');
+
+  try {
+    const templateService = getTemplateService();
+    await templateService.initializePresetTemplates();
+    console.log('Preset templates initialized');
+  } catch (error) {
+    console.error('Failed to initialize preset templates:', error);
+  }
 }
 
 initializeApp().then(() => {

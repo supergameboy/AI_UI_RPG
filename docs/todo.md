@@ -8,111 +8,8 @@
 
 这些功能已经实现了基础框架，但需要在其他系统完成后进行集成。
 
-### 1.1 开发者工具集成
-
-**相关文件**: 
-- `packages/frontend/src/components/developer/RequestMonitor.tsx`
-- `packages/frontend/src/components/developer/AgentCommunication.tsx`
-
-**待集成任务**:
-
-| 任务 | 描述 | 依赖 |
-|------|------|------|
-| LLM请求记录 | 在LLM服务调用时记录请求到developerStore | LLM服务运行 |
-| 智能体消息日志 | 在AgentBase中添加消息日志记录 | 智能体系统运行 |
-| 请求详情展示 | 显示完整的Prompt和Response | LLM请求记录 |
-
-**实现方式**:
-```typescript
-// 在 LLMService.ts 中添加
-import { useDeveloperStore } from './stores';
-
-async chat(messages: LLMMessage[], options?: LLMChatOptions): Promise<LLMChatResponse> {
-  const requestId = generateId();
-  const startTime = Date.now();
-  
-  // 记录请求开始
-  useDeveloperStore.getState().addLLMRequest({
-    id: requestId,
-    timestamp: startTime,
-    agentType: options?.agentType || 'unknown',
-    provider: this.defaultProvider,
-    model: options?.model || 'default',
-    status: 'pending',
-    duration: 0,
-    promptTokens: 0,
-    completionTokens: 0,
-    prompt: JSON.stringify(messages),
-  });
-  
-  try {
-    const response = await this.doChat(messages, options);
-    
-    // 更新请求记录
-    useDeveloperStore.getState().updateLLMRequest(requestId, {
-      status: 'success',
-      duration: Date.now() - startTime,
-      promptTokens: response.usage.prompt_tokens,
-      completionTokens: response.usage.completion_tokens,
-      response: response.content,
-    });
-    
-    return response;
-  } catch (error) {
-    // 记录错误
-    useDeveloperStore.getState().updateLLMRequest(requestId, {
-      status: 'error',
-      duration: Date.now() - startTime,
-      error: error.message,
-    });
-    throw error;
-  }
-}
-```
-
----
-
-### 1.2 智能体系统日志集成
-
-**相关文件**: `packages/backend/src/agents/AgentBase.ts`
-
-**待集成任务**:
-
-| 任务 | 描述 | 状态 |
-|------|------|------|
-| 消息发送日志 | 记录智能体发送的消息 | 待集成 |
-| 消息接收日志 | 记录智能体接收的消息 | 待集成 |
-| 状态变更日志 | 记录智能体状态变化 | 待集成 |
-
-**实现方式**:
-```typescript
-// 在 AgentBase.ts 中添加
-import { logService } from '../services/logService';
-import { useDeveloperStore } from '../../frontend/src/stores';
-
-async sendMessage(to: AgentType, action: string, payload?: unknown): Promise<void> {
-  const message: AgentMessage = {
-    id: generateId(),
-    from: this.type,
-    to,
-    action,
-    payload,
-    timestamp: Date.now(),
-    status: 'pending',
-  };
-  
-  // 记录日志
-  logService.info('agent', `[${this.type}] Sending message to ${to}`, { action, payload });
-  
-  // 记录到开发者面板
-  useDeveloperStore.getState().addAgentMessage({
-    ...message,
-    status: 'sent',
-  });
-  
-  await agentCommunication.send(message);
-}
-```
+*（开发者工具日志集成已完成，通过 WebSocket 实现实时推送）*
+*（故事模板系统已完成，包含 4 个预设模板）*
 
 ---
 
@@ -216,14 +113,13 @@ interface APIResponse<T> {
 
 按优先级排序的下一步开发任务：
 
-1. **集成开发者工具日志** - 完善开发者工具的日志记录功能
-2. **实现角色创建流程** - 让玩家能够创建角色
-3. **实现对话系统** - 与NPC交互
-4. **实现任务系统** - 任务生成和追踪
-5. **实现背包系统** - 物品管理
+1. **实现角色创建流程** - 让玩家能够创建角色
+2. **实现对话系统** - 与NPC交互
+3. **实现任务系统** - 任务生成和追踪
+4. **实现背包系统** - 物品管理
 
 ---
 
-*文档版本: v1.0*
+*文档版本: v1.1*
 *创建日期: 2026-02-28*
 *最后更新: 2026-02-28*
