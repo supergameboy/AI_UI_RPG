@@ -63,6 +63,12 @@ AI_UI_RPG/
 **实现时间**: 第一阶段  
 **文件位置**: `packages/backend/src/services/DatabaseService.ts`
 
+**数据存储位置**: `packages/backend/game_data/`
+- 数据库文件: `ai-rpg.db`
+- 设置文件: `settings.json`
+
+> 注：数据存储位置已从系统 AppData 目录迁移到游戏目录下的 `game_data/` 文件夹，便于便携式使用和备份。
+
 **核心表结构**:
 
 | 表名 | 用途 | 关键字段 |
@@ -84,6 +90,7 @@ AI_UI_RPG/
 - DatabaseService 封装所有数据库操作
 - 支持事务和批量操作
 - 自动初始化表结构
+- 数据库迁移系统支持表结构升级
 
 ---
 
@@ -435,6 +442,397 @@ interface GameSettings {
 
 ---
 
+### 14. 数值系统 (Numerical System)
+
+**实现时间**: 第四阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/numerical.ts`
+- 后端服务: `packages/backend/src/services/NumericalService.ts`
+- 后端路由: `packages/backend/src/routes/numericalRoutes.ts`
+- 智能体: `packages/backend/src/agents/NumericalAgent.ts`
+
+#### 14.1 核心功能
+
+- **属性计算**: 基础属性 + 种族加成 + 职业加成 + 装备加成
+- **派生属性**: HP/MP/攻击/防御/速度/暴击率/闪避率/格挡率
+- **伤害计算**: 物理/魔法/真实伤害，支持暴击、闪避、格挡
+- **治疗计算**: 基础治疗 + 属性加成 + 过量治疗
+- **等级系统**: 经验值曲线（线性/指数/自定义）、升级奖励
+
+#### 14.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/numerical/attributes/calculate` | POST | 计算基础属性 |
+| `/api/numerical/attributes/derived` | POST | 计算派生属性 |
+| `/api/numerical/damage/calculate` | POST | 计算伤害 |
+| `/api/numerical/healing/calculate` | POST | 计算治疗 |
+| `/api/numerical/experience/add` | POST | 添加经验值 |
+| `/api/numerical/level/set` | POST | 设置等级 |
+
+---
+
+### 15. 背包系统 (Inventory System)
+
+**实现时间**: 第四阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/item.ts`
+- 数据仓库: `packages/backend/src/models/ItemRepository.ts`
+- 后端服务: `packages/backend/src/services/InventoryService.ts`
+- 后端路由: `packages/backend/src/routes/inventoryRoutes.ts`
+- 智能体: `packages/backend/src/agents/InventoryAgent.ts`
+
+#### 15.1 核心功能
+
+- **物品管理**: 添加/移除/使用/丢弃物品
+- **堆叠系统**: 相同物品自动堆叠，支持拆分和合并
+- **装备系统**: 穿戴/卸下装备，装备槽位管理
+- **交易系统**: 购买/出售物品，价格计算
+- **容量管理**: 背包容量限制，扩展功能
+
+#### 15.2 物品类型
+
+- 武器 (weapon)
+- 防具 (armor)
+- 饰品 (accessory)
+- 消耗品 (consumable)
+- 材料 (material)
+- 任务物品 (quest)
+- 其他 (other)
+
+#### 15.3 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/inventory/:saveId/:characterId` | GET | 获取背包状态 |
+| `/api/inventory/:saveId/:characterId/items` | POST | 添加物品 |
+| `/api/inventory/:saveId/:characterId/items/:itemId` | DELETE | 移除物品 |
+| `/api/inventory/:saveId/:characterId/items/:itemId/use` | POST | 使用物品 |
+| `/api/inventory/:saveId/:characterId/equipment/equip` | POST | 装备物品 |
+| `/api/inventory/:saveId/:characterId/trade/buy` | POST | 购买物品 |
+
+---
+
+### 16. 技能系统 (Skill System)
+
+**实现时间**: 第四阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/skill.ts`
+- 数据仓库: `packages/backend/src/models/SkillRepository.ts`
+- 后端服务: `packages/backend/src/services/SkillService.ts`
+- 后端路由: `packages/backend/src/routes/skillRoutes.ts`
+- 智能体: `packages/backend/src/agents/SkillAgent.ts`
+
+#### 16.1 核心功能
+
+- **技能学习**: 条件检查、技能点消耗
+- **技能升级**: 提升技能等级和效果
+- **技能使用**: 消耗资源、应用效果
+- **冷却管理**: 回合制冷却系统
+- **模板系统**: 预定义技能模板
+
+#### 16.2 技能类型
+
+- 主动技能 (active)
+- 被动技能 (passive)
+- 切换技能 (toggle)
+
+#### 16.3 技能分类
+
+- 战斗 (combat)
+- 魔法 (magic)
+- 工艺 (craft)
+- 社交 (social)
+- 探索 (exploration)
+
+#### 16.4 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/skills/:characterId` | GET | 获取角色技能 |
+| `/api/skills/learn` | POST | 学习技能 |
+| `/api/skills/upgrade` | POST | 升级技能 |
+| `/api/skills/use` | POST | 使用技能 |
+| `/api/skills/:characterId/cooldowns/all` | GET | 获取冷却状态 |
+
+---
+
+### 17. 前端面板组件
+
+**实现时间**: 第四阶段  
+**文件位置**: `packages/frontend/src/components/panels/`
+
+#### 17.1 CharacterPanel
+
+- 显示角色基础信息（名称、种族、职业、等级）
+- 经验值进度条
+- HP/MP 状态条
+- 基础属性显示（力量、敏捷、体质、智力、感知、魅力）
+- 派生属性计算显示
+
+#### 17.2 InventoryPanel
+
+- 背包容量显示
+- 物品分类筛选（全部、武器、防具、消耗品、材料、任务物品）
+- 网格/列表视图切换
+- 物品详情悬浮显示
+- 使用/丢弃按钮
+- 稀有度颜色标识
+
+#### 17.3 SkillsPanel
+
+- 技能统计显示
+- 技能分类标签（战斗、魔法、工艺、社交、探索）
+- 技能卡片列表
+- 技能详情面板（描述、消耗、冷却、效果）
+- 技能使用按钮
+
+---
+
+### 18. 装备系统 (Equipment System)
+
+**实现时间**: 第五阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/item.ts` (EquipmentState, EquipResult)
+- 后端服务: `packages/backend/src/services/EquipmentService.ts`
+- 后端路由: `packages/backend/src/routes/equipmentRoutes.ts`
+
+#### 18.1 核心功能
+
+- **装备槽位**: weapon(武器)、head(头部)、body(身体)、feet(脚部)、accessory(饰品，支持多个)
+- **装备穿戴**: 检查需求、处理替换、从背包移除
+- **装备卸下**: 检查背包空间、返回背包
+- **属性加成**: 计算所有装备的属性总计
+
+#### 18.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/equipment/:characterId` | GET | 获取装备信息 |
+| `/api/equipment/:characterId/stats` | GET | 计算装备属性加成 |
+| `/api/equipment/:characterId/equip` | POST | 穿戴装备 |
+| `/api/equipment/:characterId/unequip` | POST | 卸下装备 |
+| `/api/equipment/:characterId/check/:itemId` | GET | 检查装备需求 |
+
+---
+
+### 19. 任务系统 (Quest System)
+
+**实现时间**: 第五阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/quest.ts`
+- 数据仓库: `packages/backend/src/models/QuestRepository.ts`
+- 后端服务: `packages/backend/src/services/QuestService.ts`
+- 后端路由: `packages/backend/src/routes/questRoutes.ts`
+
+#### 19.1 核心功能
+
+- **任务类型**: main(主线)、side(支线)、hidden(隐藏)、daily(日常)、chain(任务链)
+- **任务状态**: locked、available、in_progress、completed、failed
+- **目标追踪**: kill(击杀)、collect(收集)、talk(对话)、explore(探索)、custom(自定义)
+- **奖励系统**: 经验、金币、物品、声望
+- **任务链**: 前置任务解锁后续任务
+
+#### 19.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/quests/:characterId` | GET | 获取任务列表 |
+| `/api/quests/:characterId/:questId` | GET | 获取任务详情 |
+| `/api/quests/:characterId/available` | GET | 获取可接取任务 |
+| `/api/quests/:characterId/accept` | POST | 接取任务 |
+| `/api/quests/:characterId/complete` | POST | 完成任务 |
+| `/api/quests/:characterId/progress` | POST | 更新进度 |
+| `/api/quests/:characterId/abandon` | POST | 放弃任务 |
+
+---
+
+### 20. 前端面板组件 (Phase 2)
+
+**实现时间**: 第五阶段  
+**文件位置**: `packages/frontend/src/components/panels/`
+
+#### 20.1 EquipmentPanel
+
+- 装备槽位布局（左侧/中间/右侧）
+- 已装备物品显示（名称、稀有度颜色）
+- 空槽位状态显示
+- 卸下装备按钮
+- 属性加成总计显示
+
+#### 20.2 QuestPanel
+
+- 任务统计栏（进行中/可接取/已完成）
+- 按类型/状态筛选
+- 任务列表（名称、类型图标、进度）
+- 任务详情（目标进度条、奖励预览）
+- 操作按钮（接取/放弃/完成）
+
+---
+
+### 21. 世界系统 (World System) - Phase 3
+
+**实现时间**: 第六阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/world.ts`
+- 数据仓库: `packages/backend/src/models/MapRepository.ts`
+- 后端服务: `packages/backend/src/services/MapService.ts`
+- 后端路由: `packages/backend/src/routes/mapRoutes.ts`
+
+#### 21.1 核心功能
+
+- **世界层级**: World(世界) → Region(区域) → Location(地点)
+- **地点类型**: city、village、dungeon、wilderness、building
+- **移动系统**: 条件检查、移动时间、事件触发
+- **探索系统**: 发现特征、事件、物品、NPC
+- **场景事件**: 进入/离开/探索事件触发
+
+#### 21.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/map/:characterId` | GET | 获取地图状态 |
+| `/api/map/:characterId/location` | GET | 获取当前位置 |
+| `/api/map/:characterId/move` | POST | 移动到目标地点 |
+| `/api/map/:characterId/explore` | POST | 探索当前区域 |
+| `/api/map/:characterId/connections` | GET | 获取可用连接 |
+| `/api/map/worlds` | POST | 创建世界 |
+| `/api/map/worlds/:worldId` | GET | 获取世界详情 |
+| `/api/map/worlds/:worldId/regions` | GET | 获取区域列表 |
+| `/api/map/regions` | POST | 创建区域 |
+| `/api/map/regions/:regionId/locations` | GET | 获取地点列表 |
+| `/api/map/locations` | POST | 创建地点 |
+| `/api/map/locations/:locationId` | GET | 获取地点详情 |
+| `/api/map/connections` | POST | 创建地点连接 |
+
+---
+
+### 22. NPC系统 (NPC System) - Phase 3
+
+**实现时间**: 第六阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/npc.ts`
+- 数据仓库: `packages/backend/src/models/NPCRepository.ts`
+- 后端服务: `packages/backend/src/services/NPCService.ts`
+- 后端路由: `packages/backend/src/routes/npcRoutes.ts`
+
+#### 22.1 核心功能
+
+- **NPC数据**: 基本信息、性格、外观、状态、属性
+- **关系系统**: 类型(友好/敌对/浪漫)、好感度(-100~100)、信任度
+- **互动系统**: 对话、交易、送礼、招募、攻击
+- **队伍系统**: 队员管理、角色分配、跟随移动
+
+#### 22.2 NPC角色类型
+
+- merchant (商人)
+- quest_giver (任务发布者)
+- enemy (敌人)
+- ally (盟友)
+- neutral (中立)
+- romance (恋爱对象)
+- companion (同伴)
+
+#### 22.3 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/npc/:characterId` | GET | 获取NPC列表 |
+| `/api/npc/:characterId/:npcId` | GET | 获取NPC详情 |
+| `/api/npc/:characterId/:npcId/relationship` | GET | 获取关系状态 |
+| `/api/npc/:characterId/:npcId/interact` | POST | 与NPC互动 |
+| `/api/npc/:characterId/party` | GET | 获取队伍状态 |
+| `/api/npc/:characterId/party/add` | POST | 添加队员 |
+| `/api/npc/:characterId/party/remove` | POST | 移除队员 |
+| `/api/npc` | POST | 创建NPC |
+| `/api/npc/:npcId` | PUT | 更新NPC |
+| `/api/npc/:npcId` | DELETE | 删除NPC |
+
+---
+
+### 23. 面板组件集成修复
+
+**实现时间**: 第六阶段  
+**文件位置**: `packages/frontend/src/components/layout/PanelContainer.tsx`
+
+#### 23.1 问题描述
+
+EquipmentPanel 和 QuestPanel 组件已实现完成，但 PanelContainer.tsx 未导入和使用它们，导致用户看到的是占位符文本。
+
+#### 23.2 修复内容
+
+- 导入 EquipmentPanel 和 QuestPanel 组件
+- 替换 equipment case 的占位符为 `<EquipmentPanel />`
+- 替换 quests case 的占位符为 `<QuestPanel />`
+
+#### 23.3 当前状态
+
+- 装备面板：显示装备槽位、已装备物品、属性加成（使用模拟数据）
+- 任务面板：显示任务列表、筛选器、任务详情（使用模拟数据）
+- 后续工作：连接后端API获取真实数据
+
+---
+
+### 24. 对话系统 (Dialogue System)
+
+**实现时间**: 第七阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/dialogue.ts`
+- 后端路由: `packages/backend/src/routes/dialogueRoutes.ts`
+- 前端服务: `packages/frontend/src/services/dialogueService.ts`
+- 前端组件: `packages/frontend/src/components/game/StoryDisplay.tsx`, `QuickOptions.tsx`, `ChatInput.tsx`
+
+#### 24.1 核心功能
+
+- **初始场景生成**: 角色创建后自动调用 LLM 生成开场场景
+- **玩家输入处理**: 发送玩家行动到后端，获取叙事响应
+- **快速选项**: 动态生成 2-5 个行动选项
+- **状态变化**: 支持健康、魔力、金币、经验等状态变化
+
+#### 24.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/dialogue/initial` | POST | 生成初始场景 |
+| `/api/dialogue/send` | POST | 发送玩家输入 |
+| `/api/dialogue/options` | POST | 获取当前选项 |
+| `/api/dialogue/history/:characterId` | GET | 获取对话历史 |
+
+#### 24.3 类型定义
+
+```typescript
+interface DialogueMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'narrator';
+  content: string;
+  type: 'normal' | 'quest' | 'trade' | 'combat' | 'romance' | 'system';
+  timestamp: number;
+}
+
+interface DialogueOption {
+  id: string;
+  text: string;
+  type: DialogueType;
+  disabled?: boolean;
+}
+```
+
+#### 24.4 前端集成
+
+- gameStore 新增 `dialogueOptions`、`isLoadingDialogue` 状态
+- `onCharacterCreated` 自动调用 `generateInitialScene`
+- StoryDisplay 从 gameStore 读取消息并渲染
+- QuickOptions 显示动态选项，点击发送选项内容
+- ChatInput 支持自由输入，发送到后端
+
+#### 24.5 API 密钥安全
+
+- `game_data/settings.json` 已在 `.gitignore` 中，不会上传到 GitHub
+- 提供了 `settings.example.json` 示例配置文件
+- 支持多个 LLM 提供商：DeepSeek、GLM、Kimi、OpenAI
+
+---
+
 ## 开发规范
 
 ### 代码风格
@@ -466,7 +864,7 @@ ComponentName/
 
 ---
 
-*文档版本: v1.6*
+*文档版本: v2.3*
 *创建日期: 2025-02-28*
 *最后更新: 2026-03-02*
-*项目版本: 0.4.0*
+*项目版本: 0.7.0*

@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Button, Icon } from '../common';
+import { useGameStore } from '../../stores';
 import styles from './ChatInput.module.css';
 
 export const ChatInput: React.FC = () => {
   const [input, setInput] = useState('');
+  const isLoading = useGameStore((state) => state.isLoadingDialogue);
+  const sendPlayerInput = useGameStore((state) => state.sendPlayerInput);
 
   const handleSend = () => {
-    if (input.trim()) {
-      console.log('Send:', input);
+    if (input.trim() && !isLoading) {
+      sendPlayerInput(input.trim());
       setInput('');
     }
   };
@@ -29,11 +32,12 @@ export const ChatInput: React.FC = () => {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
+          disabled={isLoading}
         />
-        <Button 
-          variant="primary" 
+        <Button
+          variant="primary"
           onClick={handleSend}
-          disabled={!input.trim()}
+          disabled={!input.trim() || isLoading}
           icon={<Icon name="send" size={18} />}
         >
           发送

@@ -1,21 +1,60 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import { useGameStore } from '../../stores';
 import styles from './StoryDisplay.module.css';
 
 export const StoryDisplay: React.FC = () => {
+  const messages = useGameStore((state) => state.messages);
+  const isLoading = useGameStore((state) => state.isLoadingDialogue);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  if (messages.length === 0 && !isLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.content}>
+          <div className={styles.empty}>
+            <p>冒险即将开始...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.content}>
         <div className={styles.narrative}>
-          <p className={styles.scene}>
-            你走进了一座古老的城堡，石墙上爬满了藤蔓。月光透过破碎的窗户洒在地面上，形成斑驳的光影。
-          </p>
-          <p className={styles.dialogue}>
-            <span className={styles.speaker}>神秘骑士：</span>
-            <span className={styles.text}>"欢迎来到艾尔德里克城堡，旅行者。"</span>
-          </p>
-          <p className={styles.scene}>
-            一位身穿银色铠甲的骑士从阴影中走出，他的目光锐利而警惕。
-          </p>
+          {messages.map((msg, index) => (
+            <div 
+              key={`${msg.timestamp}-${index}`} 
+              className={`${styles.message} ${styles[msg.role] || styles.narrator}`}
+            >
+              {msg.role === 'user' ? (
+                <p className={styles.userAction}>
+                  <span className={styles.actionLabel}>【你的行动】</span>
+                  {msg.content}
+                </p>
+              ) : msg.role === 'narrator' ? (
+                <p className={styles.scene}>{msg.content}</p>
+              ) : (
+                <p className={styles.dialogue}>
+                  <span className={styles.speaker}>
+                    {msg.role === 'assistant' ? '叙事者' : msg.role}：
+                  </span>
+                  <span className={styles.text}>{msg.content}</span>
+                </p>
+              )}
+            </div>
+          ))}
+          {isLoading && (
+            <div className={styles.loading}>
+              <span className={styles.loadingDots}>...</span>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
       </div>
     </div>

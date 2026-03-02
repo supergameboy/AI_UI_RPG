@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { saveService, Save, CreateSaveData } from '../services/saveService';
-import type { StoryTemplate, Character } from '@ai-rpg/shared';
+import { dialogueService } from '../services/dialogueService';
+import type { StoryTemplate, Character, DialogueOption } from '@ai-rpg/shared';
 
 export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
 
@@ -57,6 +58,8 @@ export interface GameState {
   sessionStartTime: number | null;
   
   messages: Array<{ role: string; content: string; timestamp: number }>;
+  dialogueOptions: DialogueOption[];
+  isLoadingDialogue: boolean;
   autoSaveEnabled: boolean;
   lastAutoSaveTime: number;
   
@@ -92,6 +95,9 @@ export interface GameState {
   
   addMessage: (role: string, content: string) => void;
   clearMessages: () => void;
+  setDialogueOptions: (options: DialogueOption[]) => void;
+  sendPlayerInput: (input: string, optionId?: string) => Promise<void>;
+  generateInitialScene: () => Promise<void>;
   
   markUnsaved: () => void;
   setAutoSaveEnabled: (enabled: boolean) => void;
@@ -136,6 +142,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   sessionStartTime: null,
   
   messages: [],
+  dialogueOptions: [],
+  isLoadingDialogue: false,
   autoSaveEnabled: true,
   lastAutoSaveTime: 0,
   
@@ -397,6 +405,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
       sessionStartTime: Date.now(),
     });
+    
+    setTimeout(() => {
+      get().generateInitialScene();
+    }, 100);
   },
   
   setCharacter: (character: Partial<CharacterState>) => {
@@ -456,6 +468,101 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   clearMessages: () => {
     set({ messages: [], hasUnsavedChanges: true });
+  },
+  
+  setDialogueOptions: (options: DialogueOption[]) => {
+    set({ dialogueOptions: options });
+  },
+  
+  sendPlayerInput: async (input: string, optionId?: string) => {
+    const state = get();
+    if (!state.character.id) return;
+    
+    set({ isLoadingDialogue: true });
+    
+    get().addMessage('user', input);
+    
+    try {
+      const response = await dialogueService.sendPlayerInput({
+        characterId: state.character.id,
+        saveId: state.currentSaveId ?? undefined,
+        message: input,
+        optionId,
+        context: {
+          location: state.currentLocation,
+          recentMessages: state.messages.slice(-5),
+        },
+      });
+      
+      if (response.success) {
+        get().addMessage(response.message.role, response.message.content);
+        set({ dialogueOptions: response.options });
+        
+        if (response.stateChanges) {
+          const changes = response.stateChanges;
+          if (changes.health !== undefined || changes.mana !== undefined) {
+            set((s) => ({
+              character: {
+                ...s.character,
+                health: changes.health !== undefined 
+                  ? Math.min(s.character.maxHealth, Math.max(0, s.character.health + changes.health))
+                  : s.character.health,
+                mana: changes.mana !== undefined 
+                  ? Math.min(s.character.maxMana, Math.max(0, s.character.mana + changes.mana))
+                  : s.character.mana,
+              },
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send player input:', error);
+      get().setNotification({ 
+        message: '发送失败，请重试', 
+        type: 'error' 
+      });
+    } finally {
+      set({ isLoadingDialogue: false });
+    }
+  },
+  
+  generateInitialScene: async () => {
+    const state = get();
+    if (!state.character.id || !state.templateId) return;
+    
+    set({ isLoadingDialogue: true });
+    
+    try {
+      const response = await dialogueService.generateInitialScene({
+        characterId: state.character.id,
+        saveId: state.currentSaveId ?? undefined,
+        templateId: state.templateId,
+        characterName: state.character.name,
+        characterRace: state.character.race,
+        characterClass: state.character.class,
+        worldSetting: state.selectedTemplate?.worldSetting,
+      });
+      
+      if (response.success) {
+        get().addMessage(response.message.role, response.message.content);
+        set({ 
+          dialogueOptions: response.options,
+          currentLocation: response.context?.location ?? '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to generate initial scene:', error);
+      get().addMessage('narrator', '你的冒险即将开始...');
+      set({
+        dialogueOptions: [
+          { id: 'opt_1', text: '四处看看', type: 'normal' },
+          { id: 'opt_2', text: '检查自己的装备', type: 'normal' },
+          { id: 'opt_3', text: '向前走去', type: 'normal' },
+        ],
+      });
+    } finally {
+      set({ isLoadingDialogue: false });
+    }
   },
   
   markUnsaved: () => {

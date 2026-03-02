@@ -157,6 +157,25 @@ export interface RequirementCheckResult {
 }
 
 /**
+ * 需求检查结果（别名）
+ * @deprecated 使用 RequirementCheckResult 代替
+ */
+export type CheckRequirementsResult = RequirementCheckResult;
+
+/**
+ * 装备状态
+ * 管理角色所有已装备物品的状态
+ */
+export interface EquipmentState {
+  weapon?: EquippedItem;
+  head?: EquippedItem;
+  body?: EquippedItem;
+  feet?: EquippedItem;
+  accessories: EquippedItem[];
+  customSlots?: Record<string, EquippedItem>;
+}
+
+/**
  * 属性加成计算结果
  */
 export interface StatBonus {

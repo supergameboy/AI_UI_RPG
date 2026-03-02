@@ -2,6 +2,11 @@ import React from 'react';
 import { Panel } from '../common';
 import { useUIStore } from '../../stores';
 import { useResizable } from '../../hooks/useResizable';
+import { CharacterPanel } from '../panels/CharacterPanel';
+import { InventoryPanel } from '../panels/InventoryPanel';
+import { SkillsPanel } from '../panels/SkillsPanel';
+import { EquipmentPanel } from '../panels/EquipmentPanel';
+import { QuestPanel } from '../panels/QuestPanel';
 import styles from './PanelContainer.module.css';
 
 export const PanelContainer: React.FC = () => {
@@ -22,40 +27,15 @@ export const PanelContainer: React.FC = () => {
   const renderPanelContent = () => {
     switch (activePanel) {
       case 'character':
-        return (
-          <div className={styles.placeholder}>
-            <h3>角色信息</h3>
-            <p>角色属性、状态、背景等信息将在这里显示</p>
-          </div>
-        );
+        return <CharacterPanel />;
       case 'skills':
-        return (
-          <div className={styles.placeholder}>
-            <h3>技能列表</h3>
-            <p>已学习的技能和技能树将在这里显示</p>
-          </div>
-        );
+        return <SkillsPanel />;
       case 'equipment':
-        return (
-          <div className={styles.placeholder}>
-            <h3>装备管理</h3>
-            <p>装备槽位和装备详情将在这里显示</p>
-          </div>
-        );
+        return <EquipmentPanel />;
       case 'inventory':
-        return (
-          <div className={styles.placeholder}>
-            <h3>背包</h3>
-            <p>物品列表和背包管理将在这里显示</p>
-          </div>
-        );
+        return <InventoryPanel />;
       case 'quests':
-        return (
-          <div className={styles.placeholder}>
-            <h3>任务日志</h3>
-            <p>当前任务和已完成任务将在这里显示</p>
-          </div>
-        );
+        return <QuestPanel />;
       case 'npc':
         return (
           <div className={styles.placeholder}>

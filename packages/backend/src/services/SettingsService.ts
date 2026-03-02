@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 
 export interface GameSettings {
   ai: {
@@ -35,24 +34,13 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 
 function getSettingsFilePath(): string {
-  const platform = process.platform;
-  let baseDir: string;
+  const gameDataPath = path.join(process.cwd(), 'game_data');
 
-  if (platform === 'win32') {
-    baseDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-  } else if (platform === 'darwin') {
-    baseDir = path.join(os.homedir(), 'Library', 'Application Support');
-  } else {
-    baseDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  if (!fs.existsSync(gameDataPath)) {
+    fs.mkdirSync(gameDataPath, { recursive: true });
   }
 
-  const appDataPath = path.join(baseDir, 'ai-rpg-engine');
-
-  if (!fs.existsSync(appDataPath)) {
-    fs.mkdirSync(appDataPath, { recursive: true });
-  }
-
-  return path.join(appDataPath, 'settings.json');
+  return path.join(gameDataPath, 'settings.json');
 }
 
 class SettingsService {

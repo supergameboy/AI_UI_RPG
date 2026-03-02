@@ -1,3 +1,5 @@
+import type { SkillEffect, SkillRequirement } from './skill';
+
 export interface Character {
   id: string;
   name: string;
@@ -76,17 +78,8 @@ export interface Skill {
   requirements?: SkillRequirement[];
 }
 
-export interface SkillEffect {
-  type: string;
-  value: number;
-  duration?: number;
-  condition?: string;
-}
-
-export interface SkillRequirement {
-  type: 'level' | 'attribute' | 'skill' | 'item';
-  value: number | string;
-}
+// Re-export SkillEffect and SkillRequirement for backward compatibility
+export type { SkillEffect, SkillRequirement } from './skill';
 
 export interface StatusEffect {
   id: string;

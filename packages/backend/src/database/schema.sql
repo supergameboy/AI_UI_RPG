@@ -47,22 +47,25 @@ CREATE TABLE IF NOT EXISTS characters (
 -- 任务表
 CREATE TABLE IF NOT EXISTS quests (
   id TEXT PRIMARY KEY,
-  save_id TEXT NOT NULL,
-  template_id TEXT,
+  character_id TEXT NOT NULL,
+  quest_id TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
-  type TEXT DEFAULT 'side' CHECK(type IN ('main', 'side', 'daily', 'hidden')),
+  type TEXT DEFAULT 'side' CHECK(type IN ('main', 'side', 'daily', 'hidden', 'chain')),
   status TEXT DEFAULT 'available' CHECK(status IN ('locked', 'available', 'in_progress', 'completed', 'failed')),
   objectives TEXT DEFAULT '[]',
-  rewards TEXT DEFAULT '[]',
-  giver_id TEXT,
-  location TEXT,
+  prerequisites TEXT DEFAULT '[]',
+  rewards TEXT DEFAULT '{}',
   time_limit INTEGER,
-  custom_data TEXT DEFAULT '{}',
+  log TEXT DEFAULT '[]',
   created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  FOREIGN KEY (save_id) REFERENCES saves(id) ON DELETE CASCADE
+  UNIQUE(character_id, quest_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_quests_character ON quests(character_id);
+CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
+CREATE INDEX IF NOT EXISTS idx_quests_type ON quests(type);
 
 -- 地图表
 CREATE TABLE IF NOT EXISTS maps (
@@ -106,15 +109,57 @@ CREATE TABLE IF NOT EXISTS skills (
   character_id TEXT NOT NULL,
   skill_id TEXT,
   name TEXT NOT NULL,
-  type TEXT DEFAULT 'active' CHECK(type IN ('active', 'passive')),
+  description TEXT,
+  type TEXT DEFAULT 'active' CHECK(type IN ('active', 'passive', 'toggle')),
+  category TEXT DEFAULT 'combat' CHECK(category IN ('combat', 'magic', 'craft', 'social', 'exploration', 'custom')),
   level INTEGER DEFAULT 1,
   max_level INTEGER DEFAULT 10,
   cooldown INTEGER DEFAULT 0,
-  cost TEXT DEFAULT '{}',
+  costs TEXT DEFAULT '[]',
   effects TEXT DEFAULT '[]',
-  unlocked INTEGER DEFAULT 0,
+  requirements TEXT DEFAULT '[]',
+  target_type TEXT DEFAULT 'single_enemy',
+  range TEXT DEFAULT '{}',
+  cast_time INTEGER,
+  channel_time INTEGER,
+  is_toggle_on INTEGER DEFAULT 0,
+  tags TEXT DEFAULT '[]',
+  unlocked INTEGER DEFAULT 1,
   custom_data TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+);
+
+-- 技能模板表
+CREATE TABLE IF NOT EXISTS skill_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  type TEXT DEFAULT 'active' CHECK(type IN ('active', 'passive', 'toggle')),
+  category TEXT DEFAULT 'combat' CHECK(category IN ('combat', 'magic', 'craft', 'social', 'exploration', 'custom')),
+  base_costs TEXT DEFAULT '[]',
+  base_cooldown INTEGER DEFAULT 0,
+  base_effects TEXT DEFAULT '[]',
+  requirements TEXT DEFAULT '[]',
+  max_level INTEGER DEFAULT 10,
+  scaling_per_level TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+-- 技能冷却表
+CREATE TABLE IF NOT EXISTS skill_cooldowns (
+  id TEXT PRIMARY KEY,
+  character_id TEXT NOT NULL,
+  skill_id TEXT NOT NULL,
+  remaining_turns INTEGER DEFAULT 0,
+  total_cooldown INTEGER DEFAULT 0,
+  last_used_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+  UNIQUE(character_id, skill_id)
 );
 
 -- NPC表
@@ -357,3 +402,5 @@ CREATE INDEX IF NOT EXISTS idx_prompt_test_results_template ON prompt_test_resul
 
 -- 数据库版本更新
 INSERT OR IGNORE INTO db_version (version, description) VALUES (3, 'Added prompt engineering tables');
+INSERT OR IGNORE INTO db_version (version, description) VALUES (4, 'Updated skills table with full schema, added skill_templates and skill_cooldowns tables');
+INSERT OR IGNORE INTO db_version (version, description) VALUES (5, 'Updated quests table: added chain type, prerequisites, log fields, fixed rewards default value');

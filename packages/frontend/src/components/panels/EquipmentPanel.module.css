@@ -1,0 +1,416 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 空状态 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.emptyHint {
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+  opacity: 0.7;
+}
+
+/* 属性加成面板 */
+.statsPanel {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.statsTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.statsIcon {
+  font-size: 16px;
+}
+
+.statsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.statName {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.statValue {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.noStats {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+/* 装备布局 */
+.equipmentLayout {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  flex: 1;
+  overflow-y: auto;
+}
+
+.leftColumn,
+.rightColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.centerColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 槽位卡片 */
+.slotCard {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.slotCard:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary-light);
+}
+
+.slotCardSelected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.bodySlot {
+  flex: 1;
+}
+
+.slotHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.slotIcon {
+  font-size: 18px;
+}
+
+.slotLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+/* 已装备物品 */
+.equippedItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-xs);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--rarity-color, var(--color-border));
+}
+
+.itemName {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.itemRarity {
+  font-size: var(--font-size-xs);
+  text-transform: capitalize;
+}
+
+/* 空槽位 */
+.emptySlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-border);
+}
+
+.emptyText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+
+/* 饰品槽位 */
+.accessorySlots {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.accessoryHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.accessoryList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.accessoryItem {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--rarity-color, var(--color-border));
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.accessoryItem:hover {
+  background: var(--color-surface-hover);
+}
+
+.accessoryItemSelected {
+  background: var(--color-primary-light);
+  border-left-color: var(--color-primary);
+}
+
+.accessoryName {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.emptyAccessory {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-border);
+}
+
+/* 物品详情 */
+.itemDetail {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background-secondary);
+  padding: var(--spacing-md);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.detailIcon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+}
+
+.detailTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.detailName {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin: 0;
+}
+
+.detailSlot {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.closeDetail {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.closeDetail:hover {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.detailDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--spacing-sm);
+}
+
+/* 详情属性 */
+.detailStats {
+  margin-bottom: var(--spacing-sm);
+}
+
+.statsSectionTitle {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.detailStatItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.detailStatName {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.detailStatValue {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+/* 需求 */
+.detailRequirements {
+  margin-bottom: var(--spacing-sm);
+}
+
+.requirementItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.requirementLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.requirementValue {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* 操作按钮 */
+.detailActions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* 响应式 */
+@media (max-width: 400px) {
+  .equipmentLayout {
+    flex-direction: column;
+  }
+
+  .leftColumn,
+  .centerColumn,
+  .rightColumn {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .slotCard {
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .bodySlot {
+    min-width: 100%;
+  }
+}

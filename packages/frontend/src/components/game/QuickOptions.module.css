@@ -19,3 +19,8 @@
 .option {
   font-size: var(--font-size-sm);
 }
+
+.disabledReason {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}

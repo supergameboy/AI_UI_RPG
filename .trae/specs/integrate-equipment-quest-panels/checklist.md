@@ -1,0 +1,5 @@
+- [x] EquipmentPanel 组件正确导入并在 PanelContainer 中使用
+- [x] QuestPanel 组件正确导入并在 PanelContainer 中使用
+- [x] 点击装备按钮显示装备面板（不是占位符）
+- [x] 点击任务按钮显示任务面板（不是占位符）
+- [x] TypeScript 类型检查通过

@@ -16,6 +16,21 @@
   gap: var(--spacing-md);
 }
 
+.message {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .scene {
   font-size: var(--font-size-lg);
   line-height: var(--line-height-relaxed);
@@ -38,4 +53,51 @@
 .text {
   color: var(--color-text);
   font-style: italic;
+}
+
+.user {
+  padding: var(--spacing-md);
+  background: var(--color-primary-light);
+  border-radius: var(--radius-md);
+}
+
+.userAction {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.actionLabel {
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-right: var(--spacing-sm);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-lg);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  color: var(--color-text-secondary);
+}
+
+.loadingDots {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
 }

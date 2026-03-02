@@ -4,7 +4,8 @@ import type {
   AgentResponse,
   Quest,
   QuestObjective,
-  QuestReward,
+  QuestRewards,
+  QuestType,
   UIInstruction,
 } from '@ai-rpg/shared';
 import { AgentType as AT } from '@ai-rpg/shared';
@@ -18,7 +19,7 @@ interface QuestChain {
   questIds: string[];
   currentQuestIndex: number;
   status: 'active' | 'completed' | 'abandoned';
-  chainRewards: QuestReward[];
+  chainRewards: QuestRewards;
 }
 
 // 任务生成参数
@@ -47,7 +48,7 @@ interface QuestStatusResult {
   quest: Quest;
   statusChanged: boolean;
   previousStatus: Quest['status'];
-  rewards?: QuestReward[];
+  rewards?: QuestRewards;
   chainAdvanced?: boolean;
   nextQuest?: Quest;
 }
@@ -64,7 +65,7 @@ interface QuestFilter {
 // 任务统计数据
 interface QuestStatistics {
   total: number;
-  byType: Record<Quest['type'], number>;
+  byType: Record<QuestType, number>;
   byStatus: Record<Quest['status'], number>;
   completedRewards: {
     experience: number;
@@ -269,7 +270,7 @@ export class QuestAgent extends AgentBase {
       questCount: number;
       baseType: Quest['type'];
       context: QuestGenerationParams['context'];
-      chainRewards?: QuestReward[];
+      chainRewards?: QuestRewards;
     };
 
     if (!chainData.name || !chainData.questCount) {
@@ -316,6 +317,7 @@ export class QuestAgent extends AgentBase {
   private createQuest(params: QuestGenerationParams): Quest {
     const id = this.generateQuestId();
     const difficulty = params.difficulty || 'normal';
+    const now = Math.floor(Date.now() / 1000);
     
     // 生成任务目标
     const objectives = this.generateObjectives(params.type, difficulty, params.context);
@@ -333,8 +335,9 @@ export class QuestAgent extends AgentBase {
       rewards,
       prerequisites: params.context.previousQuests || [],
       timeLimit: params.timeLimit,
-      giver: params.context.npcs?.[0],
-      location: params.context.location,
+      log: [],
+      createdAt: now,
+      updatedAt: now,
     };
 
     return quest;
@@ -349,7 +352,7 @@ export class QuestAgent extends AgentBase {
     questCount: number;
     baseType: Quest['type'];
     context: QuestGenerationParams['context'];
-    chainRewards?: QuestReward[];
+    chainRewards?: QuestRewards;
   }): QuestChain {
     const chainId = this.generateChainId();
     const questIds: string[] = [];
@@ -385,7 +388,7 @@ export class QuestAgent extends AgentBase {
       questIds,
       currentQuestIndex: 0,
       status: 'active',
-      chainRewards: data.chainRewards || [],
+      chainRewards: data.chainRewards || {},
     };
   }
 
@@ -445,7 +448,7 @@ export class QuestAgent extends AgentBase {
       target: targets[type],
       current: 0,
       required: baseRequired,
-      completed: false,
+      isCompleted: false,
     };
   }
 
@@ -456,37 +459,30 @@ export class QuestAgent extends AgentBase {
     type: Quest['type'],
     difficulty: string,
     playerLevel?: number
-  ): QuestReward[] {
+  ): QuestRewards {
     const baseExp = this.getBaseExperience(type, difficulty);
     const baseCurrency = this.getBaseCurrency(type, difficulty);
     const levelMultiplier = playerLevel ? 1 + (playerLevel - 1) * 0.1 : 1;
 
-    const rewards: QuestReward[] = [
-      {
-        type: 'experience',
-        value: Math.floor(baseExp * levelMultiplier),
+    const rewards: QuestRewards = {
+      experience: Math.floor(baseExp * levelMultiplier),
+      currency: {
+        gold: Math.floor(baseCurrency * levelMultiplier),
       },
-      {
-        type: 'currency',
-        value: Math.floor(baseCurrency * levelMultiplier),
-      },
-    ];
+    };
 
     // 主线任务额外奖励
     if (type === 'main') {
-      rewards.push({
-        type: 'reputation',
-        value: 10,
-      });
+      rewards.reputation = {
+        main_faction: 10,
+      };
     }
 
     // 高难度任务额外奖励
     if (difficulty === 'hard' || difficulty === 'extreme') {
-      rewards.push({
-        type: 'item',
-        value: 'rare_item',
-        quantity: 1,
-      });
+      rewards.items = [
+        { itemId: 'rare_item', quantity: 1 },
+      ];
     }
 
     return rewards;
@@ -499,11 +495,12 @@ export class QuestAgent extends AgentBase {
     type: Quest['type'],
     context: QuestGenerationParams['context']
   ): string {
-    const prefixes: Record<Quest['type'], string[]> = {
+    const prefixes: Record<QuestType, string[]> = {
       main: ['主线任务', '关键任务', '重要使命'],
       side: ['支线任务', '额外委托', '帮助请求'],
       daily: ['日常任务', '每日委托', '例行公事'],
       hidden: ['隐藏任务', '秘密委托', '神秘事件'],
+      chain: ['链式任务', '连续委托', '系列任务'],
     };
 
     const prefix = prefixes[type][Math.floor(Math.random() * prefixes[type].length)];
@@ -656,12 +653,12 @@ export class QuestAgent extends AgentBase {
     objective.current = Math.min(objective.current + progressData.progress, objective.required);
     
     // 检查是否完成
-    if (objective.current >= objective.required && !objective.completed) {
-      objective.completed = true;
+    if (objective.current >= objective.required && !objective.isCompleted) {
+      objective.isCompleted = true;
     }
 
     // 检查任务是否全部完成
-    const allCompleted = quest.objectives.every(o => o.completed);
+    const allCompleted = quest.objectives.every(o => o.isCompleted);
     
     this.addMemory(
       `Quest progress updated: ${quest.name} - ${objective.description} (${objective.current}/${objective.required})`,
@@ -680,7 +677,7 @@ export class QuestAgent extends AgentBase {
       },
     ];
 
-    if (objective.completed && previousCurrent < objective.required) {
+    if (objective.isCompleted && previousCurrent < objective.required) {
       uiInstructions.push({
         type: 'notify',
         target: 'notification',
@@ -732,7 +729,7 @@ export class QuestAgent extends AgentBase {
     }
 
     // 检查所有目标是否完成
-    const allCompleted = quest.objectives.every(o => o.completed);
+    const allCompleted = quest.objectives.every(o => o.isCompleted);
     if (!allCompleted) {
       return {
         success: false,
@@ -925,7 +922,7 @@ export class QuestAgent extends AgentBase {
     // 重置目标进度
     for (const objective of quest.objectives) {
       objective.current = 0;
-      objective.completed = false;
+      objective.isCompleted = false;
     }
 
     this.addMemory(
@@ -1026,11 +1023,13 @@ export class QuestAgent extends AgentBase {
     }
 
     if (filterData.location) {
-      quests = quests.filter(q => q.location === filterData.location);
+      // quests = quests.filter(q => q.location === filterData.location);
+      // Note: location is not a property on Quest in the new type
     }
 
     if (filterData.giver) {
-      quests = quests.filter(q => q.giver === filterData.giver);
+      // quests = quests.filter(q => q.giver === filterData.giver);
+      // Note: giver is not a property on Quest in the new type
     }
 
     if (filterData.limit) {
@@ -1164,6 +1163,7 @@ export class QuestAgent extends AgentBase {
         side: 0,
         daily: 0,
         hidden: 0,
+        chain: 0,
       },
       byStatus: {
         locked: 0,
@@ -1184,13 +1184,16 @@ export class QuestAgent extends AgentBase {
       stats.byStatus[quest.status]++;
 
       if (quest.status === 'completed') {
-        for (const reward of quest.rewards) {
-          if (reward.type === 'experience') {
-            stats.completedRewards.experience += reward.value as number;
-          } else if (reward.type === 'currency') {
-            stats.completedRewards.currency += reward.value as number;
-          } else if (reward.type === 'item' && typeof reward.value === 'string') {
-            stats.completedRewards.items.push(reward.value);
+        if (quest.rewards.experience) {
+          stats.completedRewards.experience += quest.rewards.experience;
+        }
+        if (quest.rewards.currency) {
+          const gold = quest.rewards.currency.gold || 0;
+          stats.completedRewards.currency += gold;
+        }
+        if (quest.rewards.items) {
+          for (const item of quest.rewards.items) {
+            stats.completedRewards.items.push(item.itemId);
           }
         }
       }
@@ -1209,70 +1212,68 @@ export class QuestAgent extends AgentBase {
    */
   private handleDistributeRewards(data: Record<string, unknown>): AgentResponse {
     const rewardData = data as {
-      rewards: QuestReward[];
+      rewards: QuestRewards;
       source?: string;
     };
 
-    if (!rewardData.rewards || !Array.isArray(rewardData.rewards)) {
+    if (!rewardData.rewards) {
       return {
         success: false,
-        error: 'Missing or invalid rewards array',
+        error: 'Missing rewards',
       };
     }
 
-    const distributed: QuestReward[] = [];
     const uiInstructions: UIInstruction[] = [];
 
-    for (const reward of rewardData.rewards) {
-      distributed.push(reward);
+    // 处理经验奖励
+    if (rewardData.rewards.experience && rewardData.rewards.experience > 0) {
+      uiInstructions.push({
+        type: 'update',
+        target: 'player_stats',
+        action: 'add_experience',
+        data: { amount: rewardData.rewards.experience },
+        options: { priority: 'normal' },
+      });
+    }
 
-      // 根据奖励类型生成UI指令
-      switch (reward.type) {
-        case 'experience':
-          uiInstructions.push({
-            type: 'update',
-            target: 'player_stats',
-            action: 'add_experience',
-            data: { amount: reward.value },
-            options: { priority: 'normal' },
-          });
-          break;
-        case 'currency':
+    // 处理货币奖励
+    if (rewardData.rewards.currency) {
+      for (const [currency, amount] of Object.entries(rewardData.rewards.currency)) {
+        if (amount > 0) {
           uiInstructions.push({
             type: 'update',
             target: 'player_stats',
             action: 'add_currency',
-            data: { amount: reward.value },
+            data: { currency, amount },
             options: { priority: 'normal' },
           });
-          break;
-        case 'item':
-          uiInstructions.push({
-            type: 'update',
-            target: 'inventory',
-            action: 'add_item',
-            data: { itemId: reward.value, quantity: reward.quantity || 1 },
-            options: { priority: 'normal' },
-          });
-          break;
-        case 'skill':
-          uiInstructions.push({
-            type: 'update',
-            target: 'skill_panel',
-            action: 'unlock_skill',
-            data: { skillId: reward.value },
-            options: { priority: 'high' },
-          });
-          break;
-        case 'reputation':
-          uiInstructions.push({
-            type: 'update',
-            target: 'reputation_panel',
-            action: 'add_reputation',
-            data: { amount: reward.value },
-            options: { priority: 'low' },
-          });
-          break;
+        }
+      }
+    }
+
+    // 处理物品奖励
+    if (rewardData.rewards.items) {
+      for (const item of rewardData.rewards.items) {
+        uiInstructions.push({
+          type: 'update',
+          target: 'inventory',
+          action: 'add_item',
+          data: { itemId: item.itemId, quantity: item.quantity },
+          options: { priority: 'normal' },
+        });
+      }
+    }
+
+    // 处理声望奖励
+    if (rewardData.rewards.reputation) {
+      for (const [faction, amount] of Object.entries(rewardData.rewards.reputation)) {
+        uiInstructions.push({
+          type: 'update',
+          target: 'reputation_panel',
+          action: 'add_reputation',
+          data: { faction, amount },
+          options: { priority: 'low' },
+        });
       }
     }
 
@@ -1281,13 +1282,13 @@ export class QuestAgent extends AgentBase {
       type: 'notify',
       target: 'notification',
       action: 'rewards_received',
-      data: { rewards: distributed, source: rewardData.source },
+      data: { rewards: rewardData.rewards, source: rewardData.source },
       options: { duration: 4000, priority: 'high' },
     });
 
     return {
       success: true,
-      data: { distributed },
+      data: { distributed: rewardData.rewards },
       uiInstructions,
     };
   }
@@ -1339,7 +1340,7 @@ export class QuestAgent extends AgentBase {
           chain.status = 'completed';
           
           // 分发任务链奖励
-          if (chain.chainRewards.length > 0) {
+          if (chain.chainRewards && Object.keys(chain.chainRewards).length > 0) {
             this.addMemory(
               `Quest chain completed: ${chain.name}. Chain rewards ready for distribution.`,
               'assistant',
@@ -1358,11 +1359,12 @@ export class QuestAgent extends AgentBase {
    * 获取目标数量
    */
   private getObjectiveCount(type: Quest['type'], difficulty: string): number {
-    const baseCount: Record<Quest['type'], number> = {
+    const baseCount: Record<QuestType, number> = {
       main: 3,
       side: 2,
       daily: 1,
       hidden: 2,
+      chain: 3,
     };
 
     const difficultyModifier: Record<string, number> = {
@@ -1401,11 +1403,12 @@ export class QuestAgent extends AgentBase {
    * 获取基础经验值
    */
   private getBaseExperience(type: Quest['type'], difficulty: string): number {
-    const baseExp: Record<Quest['type'], number> = {
+    const baseExp: Record<QuestType, number> = {
       main: 500,
       side: 200,
       daily: 100,
       hidden: 300,
+      chain: 400,
     };
 
     const difficultyMultiplier: Record<string, number> = {
@@ -1422,11 +1425,12 @@ export class QuestAgent extends AgentBase {
    * 获取基础货币
    */
   private getBaseCurrency(type: Quest['type'], difficulty: string): number {
-    const baseCurrency: Record<Quest['type'], number> = {
+    const baseCurrency: Record<QuestType, number> = {
       main: 100,
       side: 50,
       daily: 20,
       hidden: 80,
+      chain: 70,
     };
 
     const difficultyMultiplier: Record<string, number> = {

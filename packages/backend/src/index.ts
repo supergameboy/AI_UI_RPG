@@ -14,11 +14,24 @@ import { getTemplateService } from './services/TemplateService';
 import { initializeAIGenerateService } from './services/AIGenerateService';
 import { initializeCharacterGenerationService } from './services/CharacterGenerationService';
 import { getSettingsService, initializeSettingsService } from './services/SettingsService';
+import { initializeSkillService } from './services/SkillService';
+import { initializeNumericalService } from './services/NumericalService';
+import { initializeQuestService } from './services/QuestService';
+import { initializeMapService } from './services/MapService';
+import { initializeNPCService } from './services/NPCService';
 import agentRoutes from './routes/agentRoutes';
+import questRoutes from './routes/questRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import promptRoutes from './routes/promptRoutes';
 import templateRoutes from './routes/templateRoutes';
 import characterRoutes from './routes/characterRoutes';
+import inventoryRoutes from './routes/inventoryRoutes';
+import skillRoutes from './routes/skillRoutes';
+import numericalRoutes from './routes/numericalRoutes';
+import equipmentRoutes from './routes/equipmentRoutes';
+import mapRoutes from './routes/mapRoutes';
+import npcRoutes from './routes/npcRoutes';
+import dialogueRoutes from './routes/dialogueRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 import type { LogLevel, LogSource } from './services/GameLogService';
 
@@ -414,6 +427,14 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/prompts', promptRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/character', characterRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/skills', skillRoutes);
+app.use('/api/numerical', numericalRoutes);
+app.use('/api/quests', questRoutes);
+app.use('/api/equipment', equipmentRoutes);
+app.use('/api/map', mapRoutes);
+app.use('/api/npc', npcRoutes);
+app.use('/api/dialogue', dialogueRoutes);
 
 app.get('/api/logs/llm', (_req, res) => {
   try {
@@ -576,6 +597,41 @@ async function initializeApp() {
     console.log('Agent Service initialized');
   } catch (error) {
     console.error('Failed to initialize Agent service:', error);
+  }
+
+  try {
+    await initializeSkillService();
+    console.log('Skill Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Skill service:', error);
+  }
+
+  try {
+    await initializeNumericalService();
+    console.log('Numerical Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Numerical service:', error);
+  }
+
+  try {
+    await initializeQuestService();
+    console.log('Quest Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Quest service:', error);
+  }
+
+  try {
+    await initializeMapService();
+    console.log('Map Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Map service:', error);
+  }
+
+  try {
+    await initializeNPCService();
+    console.log('NPC Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize NPC service:', error);
   }
 
   getWebSocketService().initialize(server);

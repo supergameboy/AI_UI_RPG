@@ -90,8 +90,9 @@ export class SkillRepository extends BaseRepository<SkillEntity> {
   /**
    * 创建技能
    */
-  public createSkill(data: Omit<ExtendedSkill, 'id'> & { characterId: string }): SkillEntity {
+  public createSkill(data: Omit<ExtendedSkill, 'id'> & { characterId: string; skillId?: string }): SkillEntity {
     const id = this.generateId();
+    const skillId = data.skillId || `skill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = Math.floor(Date.now() / 1000);
 
     const stmt = this.db.prepare(`
@@ -106,7 +107,7 @@ export class SkillRepository extends BaseRepository<SkillEntity> {
     stmt.run(
       id,
       data.characterId,
-      data.id, // skill_id 存储原始技能ID
+      skillId, // skill_id 存储原始技能ID
       data.name,
       data.type,
       data.category,

@@ -1236,6 +1236,153 @@ export class DatabaseInitializer {
     } catch (error) {
       console.log('Migration check skipped (table may not exist yet)');
     }
+
+    try {
+      const skillsCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('skills') WHERE name = 'created_at'").get();
+      if (!skillsCheck) {
+        console.log('Running migration: Rebuilding skills table with full schema...');
+        db.exec(`
+          DROP TABLE IF EXISTS skills;
+          CREATE TABLE IF NOT EXISTS skills (
+            id TEXT PRIMARY KEY,
+            character_id TEXT NOT NULL,
+            skill_id TEXT,
+            name TEXT NOT NULL,
+            description TEXT,
+            type TEXT DEFAULT 'active' CHECK(type IN ('active', 'passive', 'toggle')),
+            category TEXT DEFAULT 'combat' CHECK(category IN ('combat', 'magic', 'craft', 'social', 'exploration', 'custom')),
+            level INTEGER DEFAULT 1,
+            max_level INTEGER DEFAULT 10,
+            cooldown INTEGER DEFAULT 0,
+            costs TEXT DEFAULT '[]',
+            effects TEXT DEFAULT '[]',
+            requirements TEXT DEFAULT '[]',
+            target_type TEXT DEFAULT 'single_enemy',
+            range TEXT DEFAULT '{}',
+            cast_time INTEGER,
+            channel_time INTEGER,
+            is_toggle_on INTEGER DEFAULT 0,
+            tags TEXT DEFAULT '[]',
+            unlocked INTEGER DEFAULT 1,
+            custom_data TEXT DEFAULT '{}',
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+          );
+        `);
+        console.log('Migration completed: skills table rebuilt');
+      }
+    } catch (error) {
+      console.log('Skills migration check skipped (table may not exist yet)');
+    }
+
+    try {
+      const cooldownsCheck = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='skill_cooldowns'").get();
+      if (!cooldownsCheck) {
+        console.log('Running migration: Creating skill_cooldowns table...');
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS skill_cooldowns (
+            id TEXT PRIMARY KEY,
+            character_id TEXT NOT NULL,
+            skill_id TEXT NOT NULL,
+            remaining_turns INTEGER DEFAULT 0,
+            total_cooldown INTEGER DEFAULT 0,
+            last_used_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+            UNIQUE(character_id, skill_id)
+          );
+        `);
+        console.log('Migration completed: skill_cooldowns table created');
+      }
+    } catch (error) {
+      console.log('Skill cooldowns migration check skipped');
+    }
+
+    try {
+      const templatesCheck = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='skill_templates'").get();
+      if (!templatesCheck) {
+        console.log('Running migration: Creating skill_templates table...');
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS skill_templates (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            type TEXT DEFAULT 'active' CHECK(type IN ('active', 'passive', 'toggle')),
+            category TEXT DEFAULT 'combat' CHECK(category IN ('combat', 'magic', 'craft', 'social', 'exploration', 'custom')),
+            base_costs TEXT DEFAULT '[]',
+            base_cooldown INTEGER DEFAULT 0,
+            base_effects TEXT DEFAULT '[]',
+            requirements TEXT DEFAULT '[]',
+            max_level INTEGER DEFAULT 10,
+            scaling_per_level TEXT DEFAULT '{}',
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+          );
+        `);
+        console.log('Migration completed: skill_templates table created');
+      }
+    } catch (error) {
+      console.log('Skill templates migration check skipped');
+    }
+
+    // ==================== 任务表迁移 ====================
+    // 迁移 5: 更新 quests 表结构以支持完整任务系统
+    try {
+      const questsTableCheck = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='quests'").get();
+      if (questsTableCheck) {
+        // 检查是否有 character_id 列（新结构）
+        const characterIdCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('quests') WHERE name = 'character_id'").get();
+        const saveIdCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('quests') WHERE name = 'save_id'").get();
+        
+        // 如果有 save_id 但没有 character_id，需要重建表
+        if (saveIdCheck && !characterIdCheck) {
+          console.log('Running migration: Rebuilding quests table with new schema...');
+          db.exec(`
+            DROP TABLE IF EXISTS quests;
+            CREATE TABLE IF NOT EXISTS quests (
+              id TEXT PRIMARY KEY,
+              character_id TEXT NOT NULL,
+              quest_id TEXT NOT NULL,
+              name TEXT NOT NULL,
+              description TEXT,
+              type TEXT DEFAULT 'side' CHECK(type IN ('main', 'side', 'daily', 'hidden', 'chain')),
+              status TEXT DEFAULT 'available' CHECK(status IN ('locked', 'available', 'in_progress', 'completed', 'failed')),
+              objectives TEXT DEFAULT '[]',
+              prerequisites TEXT DEFAULT '[]',
+              rewards TEXT DEFAULT '{}',
+              time_limit INTEGER,
+              log TEXT DEFAULT '[]',
+              created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+              updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+              UNIQUE(character_id, quest_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_quests_character ON quests(character_id);
+            CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
+            CREATE INDEX IF NOT EXISTS idx_quests_type ON quests(type);
+          `);
+          console.log('Migration completed: quests table rebuilt with new schema');
+        } else {
+          // 检查是否缺少其他列
+          const prerequisitesCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('quests') WHERE name = 'prerequisites'").get();
+          if (!prerequisitesCheck) {
+            console.log('Running migration: Adding prerequisites column to quests...');
+            db.exec('ALTER TABLE quests ADD COLUMN prerequisites TEXT DEFAULT "[]"');
+            console.log('Migration completed: prerequisites column added');
+          }
+
+          const logCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('quests') WHERE name = 'log'").get();
+          if (!logCheck) {
+            console.log('Running migration: Adding log column to quests...');
+            db.exec('ALTER TABLE quests ADD COLUMN log TEXT DEFAULT "[]"');
+            console.log('Migration completed: log column added');
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Quests migration check skipped:', error);
+    }
   }
 
   private seedData(): void {
