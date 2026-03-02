@@ -6,9 +6,9 @@ export const GlobalDeveloperTools: React.FC = () => {
   const { settings } = useSettingsStore();
   const connectWebSocket = useDeveloperStore((state) => state.connectWebSocket);
   const isConnected = useDeveloperStore((state) => state.wsConnection.connected);
-  const isDeveloperPanelVisible = useDeveloperStore((state) => state.isDeveloperPanelVisible);
   const showDeveloperPanel = useDeveloperStore((state) => state.showDeveloperPanel);
   const hasConnected = useRef(false);
+  const hasShownPanel = useRef(false);
 
   useEffect(() => {
     if (settings.developer.developerMode && !isConnected && !hasConnected.current) {
@@ -18,10 +18,11 @@ export const GlobalDeveloperTools: React.FC = () => {
   }, [settings.developer.developerMode, isConnected, connectWebSocket]);
 
   useEffect(() => {
-    if (settings.developer.developerMode && !isDeveloperPanelVisible) {
+    if (settings.developer.developerMode && !hasShownPanel.current) {
       showDeveloperPanel();
+      hasShownPanel.current = true;
     }
-  }, [settings.developer.developerMode, isDeveloperPanelVisible, showDeveloperPanel]);
+  }, [settings.developer.developerMode, showDeveloperPanel]);
 
   if (!settings.developer.developerMode) {
     return null;
