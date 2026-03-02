@@ -28,7 +28,7 @@ export const RequestMonitor: React.FC = () => {
   };
 
   return (
-    <div className={styles.tabContent}>
+    <div className={styles.tabContent} style={{ padding: 0 }}>
       <div className={styles.toolbar}>
         <div className={styles.connectionStatus}>
           <span className={`${styles.statusDot} ${wsConnection.connected ? styles.connected : styles.disconnected}`} />

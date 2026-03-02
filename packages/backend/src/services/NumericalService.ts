@@ -35,6 +35,7 @@ import {
   DEFAULT_LEVEL_CONFIG as DEFAULT_LEVEL,
   DEFAULT_BLOCK_REDUCTION as DEFAULT_BLOCK,
 } from '@ai-rpg/shared';
+import { gameLog } from './GameLogService';
 
 // ==================== 服务接口 ====================
 
@@ -178,6 +179,8 @@ export class NumericalService {
         error: 'Missing required fields: baseAttributes, level',
       };
     }
+
+    gameLog.debug('backend', '计算派生属性', { level });
 
     const derivedAttributes: Record<DerivedAttributeName, number> = {
       maxHp: 0,
@@ -351,6 +354,19 @@ export class NumericalService {
     }
 
     result.finalDamage = Math.max(1, Math.floor(damage));
+
+    // 记录详细伤害计算日志
+    gameLog.debug('backend', '伤害计算详情', {
+      attacker: { baseAttack: params.attacker.baseAttack, level: params.attacker.level },
+      defender: { defense: params.defender.defense, level: params.defender.level },
+      baseDamage: params.baseDamage,
+      formula: 'baseDamage * variance * critical',
+      result: result.finalDamage,
+      isCritical: result.isCritical,
+      isDodged: result.isDodged,
+      isBlocked: result.isBlocked,
+      breakdown: result.breakdown,
+    });
 
     // 更新战斗统计
     this.updateCombatStats(params.attacker.level.toString(), {
@@ -1241,6 +1257,12 @@ export class NumericalService {
         currentMp: derivedResult.data.derivedAttributes.maxMp,
       };
     }
+
+    gameLog.info('backend', '角色升级', {
+      characterId: character.id,
+      newLevel: character.level,
+      attributeGains,
+    });
 
     return {
       previousLevel,

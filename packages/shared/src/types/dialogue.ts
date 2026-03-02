@@ -1,7 +1,18 @@
 import type { WorldSetting } from './template';
+import type { EnemyInitData, AllyInitData } from './combat';
 
 export type DialogueType = 'normal' | 'quest' | 'trade' | 'combat' | 'romance' | 'system';
 export type MessageRole = 'user' | 'assistant' | 'system' | 'narrator';
+
+/**
+ * 战斗触发信息
+ * 当对话中检测到战斗触发时返回
+ */
+export interface CombatTrigger {
+  enemies: EnemyInitData[];
+  allies?: AllyInitData[];
+  reason?: string;
+}
 
 export interface DialogueMessage {
   id: string;
@@ -94,6 +105,7 @@ export interface SendDialogueResponse {
       change: number;
     };
   };
+  combatTrigger?: CombatTrigger;
 }
 
 export interface GetOptionsRequest {

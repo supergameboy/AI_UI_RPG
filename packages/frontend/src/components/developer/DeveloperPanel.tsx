@@ -6,14 +6,16 @@ import { AgentCommunication } from './AgentCommunication';
 import { LogViewer } from './LogViewer';
 import { StateInspector } from './StateInspector';
 import { PromptEditor } from './PromptEditor';
+import { TokenUsagePanel } from './TokenUsagePanel';
 import styles from './DeveloperPanel.module.css';
 
-const TABS: { id: 'requests' | 'agents' | 'logs' | 'state' | 'prompts'; label: string; icon: IconName }[] = [
+const TABS: { id: 'requests' | 'agents' | 'logs' | 'state' | 'prompts' | 'tokens'; label: string; icon: IconName }[] = [
   { id: 'requests', label: '请求', icon: 'send' },
   { id: 'agents', label: '智能体', icon: 'developer' },
   { id: 'logs', label: '日志', icon: 'folder' },
   { id: 'state', label: '状态', icon: 'character' },
   { id: 'prompts', label: '提示词', icon: 'edit' },
+  { id: 'tokens', label: 'Token', icon: 'token' },
 ];
 
 export const DeveloperPanel: React.FC = () => {
@@ -101,6 +103,8 @@ export const DeveloperPanel: React.FC = () => {
         return <StateInspector />;
       case 'prompts':
         return <PromptEditor />;
+      case 'tokens':
+        return <TokenUsagePanel />;
       default:
         return null;
     }

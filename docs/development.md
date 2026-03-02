@@ -833,6 +833,189 @@ interface DialogueOption {
 
 ---
 
+### 25. 战斗系统 (Combat System)
+
+**实现时间**: 第八阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/combat.ts`
+- 后端服务: `packages/backend/src/services/CombatService.ts`
+- 后端路由: `packages/backend/src/routes/combatRoutes.ts`
+- 智能体: `packages/backend/src/agents/CombatAgent.ts`
+- 前端服务: `packages/frontend/src/services/combatService.ts`
+- 前端组件: `packages/frontend/src/components/combat/`
+
+#### 25.1 核心功能
+
+- **回合制战斗**: 基于速度属性的回合顺序
+- **战斗行动**: 攻击、技能、物品、防御、逃跑
+- **伤害计算**: 物理伤害、魔法伤害、暴击、闪避、防御减伤
+- **战斗AI**: 三种难度（简单/普通/困难），困难模式使用 LLM 决策
+- **状态效果**: 持续伤害、治疗、属性修正
+- **战斗奖励**: 经验值、金币、物品掉落
+
+#### 25.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/combat/initiate` | POST | 初始化战斗 |
+| `/api/combat/start` | POST | 开始战斗 |
+| `/api/combat/action` | POST | 执行玩家行动 |
+| `/api/combat/ai-turn` | POST | 执行AI回合 |
+| `/api/combat/end` | POST | 结束战斗 |
+| `/api/combat/:combatId` | GET | 获取战斗状态 |
+| `/api/combat/player/:playerId` | GET | 获取玩家当前战斗 |
+
+#### 25.3 类型定义
+
+```typescript
+enum CombatState {
+  PREPARING = 'preparing',
+  IN_PROGRESS = 'in_progress',
+  PLAYER_TURN = 'player_turn',
+  ENEMY_TURN = 'enemy_turn',
+  ENDED = 'ended',
+}
+
+enum ActionType {
+  ATTACK = 'attack',
+  SKILL = 'skill',
+  ITEM = 'item',
+  DEFEND = 'defend',
+  FLEE = 'flee',
+}
+
+interface CombatUnit {
+  id: string;
+  name: string;
+  type: 'player' | 'ally' | 'enemy';
+  level: number;
+  stats: CombatUnitStats;
+  skills: string[];
+  statusEffects: StatusEffect[];
+  isDefending: boolean;
+  isAlive: boolean;
+}
+```
+
+#### 25.4 前端组件
+
+- **CombatPanel**: 战斗主面板，整合所有战斗组件
+- **CombatUnitCard**: 显示单个战斗单位信息（HP/MP条、状态效果）
+- **ActionMenu**: 玩家行动菜单（攻击、技能、物品、防御、逃跑）
+- **CombatLog**: 战斗日志滚动显示
+- **TurnOrder**: 回合顺序显示
+
+#### 25.5 战斗触发
+
+- 通过对话系统触发战斗（LLM 返回 `combatTrigger` 字段）
+- 支持两种触发格式：
+  - `[COMBAT_START]...[/COMBAT_START]` 标记格式
+  - JSON 中的 `combatTrigger` 字段格式
+- 战斗结束后自动发放奖励并更新角色状态
+
+#### 25.6 gameStore 集成
+
+新增状态：
+- `combat`: 当前战斗实例数据
+- `combatLog`: 战斗日志记录
+- `isInCombat`: 是否在战斗中
+- `isPlayerTurn`: 是否玩家回合
+
+新增 Actions：
+- `initiateCombat(enemies, allies?)`: 初始化并开始战斗
+- `executeCombatAction(action, targetId?, skillId?, itemId?)`: 执行玩家行动
+- `executeAITurn()`: 执行AI回合
+- `endCombat()`: 结束战斗，处理奖励
+
+---
+
+### 26. Token 计费系统 (Token Usage System)
+
+**实现时间**: 第九阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/developer.ts`
+- 后端服务: `packages/backend/src/services/TokenUsageService.ts`
+- 后端路由: `packages/backend/src/routes/tokenRoutes.ts`
+- 前端服务: `packages/frontend/src/services/tokenService.ts`
+- 前端组件: `packages/frontend/src/components/developer/TokenUsagePanel.tsx`
+
+#### 26.1 核心功能
+
+- **Token 使用记录**: 记录每次 LLM 调用的 Token 使用量
+- **费用计算**: 根据提供商和模型计算预估费用
+- **统计分析**: 按智能体和提供商分类统计
+- **价格配置**: 支持自定义各模型的价格
+
+#### 26.2 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/token/statistics` | GET | 获取统计信息 |
+| `/api/token/usage` | GET | 获取使用记录 |
+| `/api/token/pricing` | GET | 获取价格配置 |
+| `/api/token/pricing` | POST | 更新价格配置 |
+| `/api/token/reset` | POST | 重置统计 |
+
+#### 26.3 支持的提供商价格
+
+| 提供商 | 模型 | 输入价格 ($/1k tokens) | 输出价格 ($/1k tokens) |
+|--------|------|------------------------|------------------------|
+| DeepSeek | deepseek-chat | 0.0005 | 0.001 |
+| GLM | glm-4 | 0.014 | 0.014 |
+| Kimi | moonshot-v1-8k | 0.012 | 0.012 |
+| OpenAI | gpt-4o | 0.005 | 0.015 |
+
+---
+
+### 27. 增强日志系统 (Enhanced Logging System)
+
+**实现时间**: 第九阶段  
+**文件位置**: 
+- 类型定义: `packages/shared/src/types/log.ts`
+- 后端日志服务: `packages/backend/src/services/GameLogService.ts`
+- 前端日志组件: `packages/frontend/src/components/developer/LogViewer.tsx`
+
+#### 27.1 核心功能
+
+- **详细日志记录**: 记录完整的输入输出内容
+- **内容截断**: 超长内容自动截断（默认 2000 字符）
+- **多来源分类**: dialogue, llm, combat, backend, agent, system, frontend
+- **多级别日志**: debug, info, warn, error
+- **实时推送**: 通过 WebSocket 实时推送到前端
+
+#### 27.2 日志来源
+
+| 来源 | 用途 |
+|------|------|
+| `dialogue` | 对话系统相关日志 |
+| `llm` | LLM 调用相关日志 |
+| `combat` | 战斗系统相关日志 |
+| `backend` | 后端通用服务日志 |
+| `agent` | 智能体相关日志 |
+| `system` | 系统级日志 |
+| `frontend` | 前端日志 |
+
+#### 27.3 日志级别规范
+
+| 级别 | 用途 |
+|------|------|
+| `debug` | 完整的输入输出内容、详细数据 |
+| `info` | 操作摘要、关键节点 |
+| `warn` | 可恢复异常、降级处理 |
+| `error` | 错误、异常、失败 |
+
+#### 27.4 已添加日志的服务
+
+- `dialogueRoutes.ts` - 请求、响应、战斗触发
+- `LLMService.ts` - LLM 调用输入输出
+- `CombatService.ts` - 战斗初始化、行动、AI决策
+- `NumericalService.ts` - 属性计算、伤害计算
+- `InventoryService.ts` - 物品操作
+- `QuestService.ts` - 任务操作
+- `MapService.ts` - 位置变更
+
+---
+
 ## 开发规范
 
 ### 代码风格
@@ -864,7 +1047,7 @@ ComponentName/
 
 ---
 
-*文档版本: v2.3*
-*创建日期: 2025-02-28*
-*最后更新: 2026-03-02*
-*项目版本: 0.7.0*
+*文档版本: v2.5*
+*创建日期: 2026-02-28*
+*最后更新: 2026-03-03*
+*项目版本: 0.9.0*

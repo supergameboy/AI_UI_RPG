@@ -19,6 +19,7 @@ import type {
 import { getQuestRepository, QuestRepository } from '../models/QuestRepository';
 import { getInventoryService } from './InventoryService';
 import { getNumericalService } from './NumericalService';
+import { gameLog } from './GameLogService';
 
 // ==================== 服务接口 ====================
 
@@ -144,6 +145,14 @@ export class QuestService {
       // 保存任务
       this.questRepository.createQuest(characterId, quest);
 
+      // 记录详细日志
+      gameLog.debug('backend', '接受任务详情', {
+        questId,
+        objectives: quest.objectives.map(o => ({ id: o.id, description: o.description, required: o.required })),
+        rewards: quest.rewards,
+        type: quest.type,
+      });
+
       return {
         success: true,
         quest,
@@ -204,6 +213,14 @@ export class QuestService {
 
       // 获取更新后的任务
       const completedQuest = this.questRepository.getQuest(questId, characterId)!;
+
+      // 记录详细日志
+      gameLog.debug('backend', '完成任务详情', {
+        questId,
+        completedObjectives: quest.objectives.filter(o => o.isCompleted).map(o => ({ id: o.id, description: o.description })),
+        rewardsClaimed: quest.rewards,
+        questName: quest.name,
+      });
 
       return {
         success: true,
@@ -271,6 +288,9 @@ export class QuestService {
 
       // 找到更新的目标
       const objective = updatedQuest.objectives.find(obj => obj.id === objectiveId)!;
+
+      // 记录日志
+      gameLog.debug('backend', '更新任务进度', { questId, objectiveId, progress });
 
       // 添加日志
       if (objective.isCompleted) {

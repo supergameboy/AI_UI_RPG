@@ -19,6 +19,7 @@ import { initializeNumericalService } from './services/NumericalService';
 import { initializeQuestService } from './services/QuestService';
 import { initializeMapService } from './services/MapService';
 import { initializeNPCService } from './services/NPCService';
+import { initializeCombatService } from './services/CombatService';
 import agentRoutes from './routes/agentRoutes';
 import questRoutes from './routes/questRoutes';
 import settingsRoutes from './routes/settingsRoutes';
@@ -32,6 +33,8 @@ import equipmentRoutes from './routes/equipmentRoutes';
 import mapRoutes from './routes/mapRoutes';
 import npcRoutes from './routes/npcRoutes';
 import dialogueRoutes from './routes/dialogueRoutes';
+import combatRoutes from './routes/combatRoutes';
+import tokenRoutes from './routes/tokenRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 import type { LogLevel, LogSource } from './services/GameLogService';
 
@@ -435,6 +438,8 @@ app.use('/api/equipment', equipmentRoutes);
 app.use('/api/map', mapRoutes);
 app.use('/api/npc', npcRoutes);
 app.use('/api/dialogue', dialogueRoutes);
+app.use('/api/combat', combatRoutes);
+app.use('/api/token', tokenRoutes);
 
 app.get('/api/logs/llm', (_req, res) => {
   try {
@@ -632,6 +637,13 @@ async function initializeApp() {
     console.log('NPC Service initialized');
   } catch (error) {
     console.error('Failed to initialize NPC service:', error);
+  }
+
+  try {
+    await initializeCombatService();
+    console.log('Combat Service initialized');
+  } catch (error) {
+    console.error('Failed to initialize Combat service:', error);
   }
 
   getWebSocketService().initialize(server);

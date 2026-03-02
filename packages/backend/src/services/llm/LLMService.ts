@@ -12,6 +12,15 @@ import { DeepSeekAdapter } from './DeepSeekAdapter';
 import { GLMAdapter } from './GLMAdapter';
 import { KimiAdapter } from './KimiAdapter';
 import { getDeveloperLogService } from '../DeveloperLogService';
+import { getTokenUsageService } from '../TokenUsageService';
+import { gameLog } from '../GameLogService';
+
+const MAX_LOG_LENGTH = 2000;
+
+function truncateContent(content: string, maxLength: number = MAX_LOG_LENGTH): string {
+  if (content.length <= maxLength) return content;
+  return content.substring(0, maxLength) + `... [truncated, total: ${content.length} chars]`;
+}
 
 export interface LLMServiceConfig {
   defaultProvider: string;
@@ -96,6 +105,23 @@ export class LLMService {
     
     const capabilities = adapter.getCapabilities();
     
+    // GameLog: LLM调用开始
+    gameLog.debug('llm', 'LLM调用开始', { 
+      provider, 
+      model: capabilities.model, 
+      messageCount: messages.length 
+    });
+    
+    // GameLog: LLM调用输入
+    gameLog.debug('llm', 'LLM调用输入', { 
+      provider, 
+      model: capabilities.model,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: truncateContent(m.content)
+      }))
+    });
+    
     const requestLog = logService.addLLMRequest({
       agentType: (options?.agentType as AgentType) || 'unknown',
       provider,
@@ -119,6 +145,36 @@ export class LLMService {
         response: response.content,
       });
       
+      // 记录 Token 使用
+      const usage = response.usage;
+      if (usage) {
+        getTokenUsageService().recordUsage({
+          agentType: (options?.agentType as string) || 'unknown',
+          provider,
+          model: capabilities.model,
+          promptTokens: usage.promptTokens || 0,
+          completionTokens: usage.completionTokens || 0,
+          duration: Date.now() - startTime,
+        });
+      }
+      
+      // GameLog: LLM调用成功
+      gameLog.info('llm', 'LLM调用成功', { 
+        provider, 
+        model: capabilities.model, 
+        promptTokens: usage?.promptTokens || 0,
+        completionTokens: usage?.completionTokens || 0,
+        duration: Date.now() - startTime 
+      });
+      
+      // GameLog: LLM调用输出
+      gameLog.debug('llm', 'LLM调用输出', { 
+        provider, 
+        model: capabilities.model,
+        response: truncateContent(response.content),
+        usage: response.usage
+      });
+      
       return response;
     } catch (error) {
       logService.updateLLMRequest(requestId, {
@@ -126,6 +182,13 @@ export class LLMService {
         duration: Date.now() - startTime,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+      
+      // GameLog: LLM调用失败
+      gameLog.error('llm', 'LLM调用失败', { 
+        provider, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      
       throw error;
     }
   }
@@ -140,6 +203,23 @@ export class LLMService {
     
     const logService = getDeveloperLogService();
     const capabilities = adapter.getCapabilities();
+    
+    // GameLog: LLM流式调用开始
+    gameLog.debug('llm', 'LLM流式调用开始', { 
+      provider, 
+      model: capabilities.model, 
+      messageCount: messages.length 
+    });
+    
+    // GameLog: LLM流式调用输入
+    gameLog.debug('llm', 'LLM流式调用输入', { 
+      provider, 
+      model: capabilities.model,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: truncateContent(m.content)
+      }))
+    });
     
     const requestLog = logService.addLLMRequest({
       agentType: (options?.agentType as AgentType) || 'unknown',
@@ -171,12 +251,35 @@ export class LLMService {
         completionTokens: totalTokens,
         response: totalContent.substring(0, 1000),
       });
+      
+      // GameLog: LLM流式调用成功
+      gameLog.info('llm', 'LLM流式调用成功', { 
+        provider, 
+        model: capabilities.model, 
+        completionTokens: totalTokens,
+        duration: Date.now() - startTime 
+      });
+      
+      // GameLog: LLM流式调用输出
+      gameLog.debug('llm', 'LLM流式调用输出', { 
+        provider, 
+        model: capabilities.model,
+        response: truncateContent(totalContent),
+        completionTokens: totalTokens
+      });
     } catch (error) {
       logService.updateLLMRequest(requestId, {
         status: 'error',
         duration: Date.now() - startTime,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+      
+      // GameLog: LLM流式调用失败
+      gameLog.error('llm', 'LLM流式调用失败', { 
+        provider, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      
       throw error;
     }
   }

@@ -14,3 +14,5 @@ export * from './types/characterCreation';
 export * from './types/log';
 export * from './types/numerical';
 export * from './types/dialogue';
+export * from './types/combat';
+export * from './types/developer';

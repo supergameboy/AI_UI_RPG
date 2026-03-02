@@ -94,7 +94,7 @@ export const StateInspector: React.FC = () => {
   };
 
   return (
-    <div className={styles.tabContent}>
+    <div className={styles.tabContent} style={{ padding: 0 }}>
       <div className={styles.stateHeader}>
         <span>游戏状态树</span>
         <button

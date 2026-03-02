@@ -18,6 +18,7 @@ import type {
 } from '@ai-rpg/shared';
 import { getItemRepository, ItemRepository } from '../models/ItemRepository';
 import type { InventoryItemEntity } from '../models/ItemRepository';
+import { gameLog } from './GameLogService';
 
 // ==================== 类型定义 ====================
 
@@ -87,6 +88,13 @@ export class InventoryService {
         const added = newQuantity - existingItem.quantity;
         this.itemRepository.updateQuantity(existingItem.id, newQuantity);
 
+        gameLog.debug('backend', '添加物品详情', {
+          itemId: item.id,
+          quantity: added,
+          itemDetails: { name: item.name, type: item.type, rarity: item.rarity },
+          stacked: true,
+        });
+
         return {
           success: true,
           item,
@@ -115,6 +123,13 @@ export class InventoryService {
       item,
       quantity: item.stackable ? Math.min(quantity, item.maxStack) : 1,
       slotIndex,
+    });
+
+    gameLog.debug('backend', '添加物品详情', {
+      itemId: item.id,
+      quantity: entity.quantity,
+      itemDetails: { name: item.name, type: item.type, rarity: item.rarity },
+      stacked: false,
     });
 
     return {
@@ -162,6 +177,8 @@ export class InventoryService {
     }
 
     const slot = this.itemRepository.entityToSlot(entity);
+
+    gameLog.info('backend', '移除物品', { characterId, itemId, quantity: removedQuantity });
 
     return {
       success: true,
@@ -214,6 +231,14 @@ export class InventoryService {
       this.itemRepository.updateQuantity(entity.id, newQuantity);
       remainingQuantity = newQuantity;
     }
+
+    gameLog.debug('backend', '使用物品详情', {
+      itemId,
+      targetId: _targetId,
+      effects: item.effects,
+      remainingQuantity,
+      itemDetails: { name: item.name, type: item.type, rarity: item.rarity },
+    });
 
     return {
       success: true,

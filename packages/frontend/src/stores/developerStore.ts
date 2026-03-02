@@ -3,7 +3,7 @@ import type { LLMRequestRecord, AgentMessageRecord, LogEntry } from '../services
 import type { WSConnectionState, LLMRequestLog, AgentMessageLog } from '@ai-rpg/shared';
 import { websocketService } from '../services/websocketService';
 
-export type DeveloperTab = 'requests' | 'agents' | 'logs' | 'state' | 'prompts';
+export type DeveloperTab = 'requests' | 'agents' | 'logs' | 'state' | 'prompts' | 'tokens';
 
 export interface DeveloperState {
   isDeveloperPanelVisible: boolean;

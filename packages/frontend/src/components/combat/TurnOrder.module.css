@@ -1,0 +1,183 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+/* 头部 */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.headerIcon {
+  font-size: 14px;
+}
+
+.headerTitle {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.turnInfo {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-background-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+/* 顺序列表 */
+.orderList {
+  display: flex;
+  gap: var(--spacing-xs);
+  overflow-x: auto;
+  padding: var(--spacing-xs) 0;
+}
+
+/* 单位槽位 */
+.unitSlot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--spacing-xs);
+  min-width: 56px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+/* 单位类型样式 */
+.unitSlot.player {
+  border-color: var(--color-primary);
+}
+
+.unitSlot.ally {
+  border-color: var(--color-success);
+}
+
+.unitSlot.enemy {
+  border-color: var(--color-error);
+}
+
+.unitSlot.unknown {
+  border-color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+/* 当前回合 */
+.unitSlot.current {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: var(--color-warning);
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+  z-index: 1;
+}
+
+/* 已过回合 */
+.unitSlot.past {
+  opacity: 0.5;
+}
+
+/* 死亡状态 */
+.unitSlot.dead {
+  opacity: 0.3;
+  filter: grayscale(100%);
+}
+
+/* 当前回合指示器 */
+.currentIndicator {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--color-warning);
+}
+
+/* 单位图标 */
+.unitIcon {
+  font-size: 20px;
+}
+
+/* 单位名称 */
+.unitName {
+  font-size: 10px;
+  color: var(--color-text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50px;
+}
+
+/* 死亡标记 */
+.deadBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  color: var(--color-error);
+  font-weight: bold;
+}
+
+/* 更多指示器 */
+.moreIndicator {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* 滚动条样式 */
+.orderList::-webkit-scrollbar {
+  height: 4px;
+}
+
+.orderList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.orderList::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.orderList::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .unitSlot {
+    min-width: 48px;
+    padding: 4px;
+  }
+
+  .unitIcon {
+    font-size: 18px;
+  }
+
+  .unitName {
+    font-size: 9px;
+    max-width: 40px;
+  }
+}

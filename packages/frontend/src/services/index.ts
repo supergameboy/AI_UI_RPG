@@ -18,3 +18,5 @@ export type {
   AgentConfigWithMeta,
   AgentConfigUpdate,
 } from './agentService';
+
+export { tokenService } from './tokenService';

@@ -1,0 +1,187 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+/* 头部 */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-tertiary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerIcon {
+  font-size: 16px;
+}
+
+.headerTitle {
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.messageCount {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-background-secondary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+/* 日志列表 */
+.logList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+/* 空状态 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyIcon {
+  font-size: 32px;
+  opacity: 0.5;
+}
+
+/* 日志条目 */
+.logEntry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 消息类型样式 */
+.logEntry.damage {
+  border-left-color: var(--color-error);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.logEntry.heal {
+  border-left-color: var(--color-success);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.logEntry.skill {
+  border-left-color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.logEntry.system {
+  border-left-color: var(--color-text-secondary);
+  background: rgba(156, 163, 175, 0.05);
+}
+
+/* 时间戳 */
+.timestamp {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+/* 消息内容 */
+.message {
+  flex: 1;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+/* 伤害值 */
+.damageValue {
+  color: var(--color-error);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 治疗值 */
+.healValue {
+  color: var(--color-success);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 失败标记 */
+.failedBadge {
+  padding: 1px 6px;
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-error);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* 滚动条样式 */
+.logList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.logList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.logList::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.logList::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+  .header {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .logList {
+    padding: var(--spacing-xs);
+  }
+
+  .logEntry {
+    padding: 4px var(--spacing-xs);
+  }
+
+  .timestamp {
+    display: none;
+  }
+}

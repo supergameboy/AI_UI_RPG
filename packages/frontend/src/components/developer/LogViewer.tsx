@@ -1,25 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { logService, type LogLevel, type LogSource, type LogEntry } from '../../services/logService';
+import React, { useState } from 'react';
 import { useDeveloperStore } from '../../stores';
 import { Icon } from '../common';
+import type { LogLevel, LogSource, LogEntry } from '@ai-rpg/shared';
 import styles from './DeveloperPanel.module.css';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const LOG_SOURCES: LogSource[] = ['frontend', 'backend', 'agent', 'system', 'llm', 'prompt-editor'];
 
 export const LogViewer: React.FC = () => {
-  const { logs, setLogs } = useDeveloperStore();
+  const { logs, clearLogs } = useDeveloperStore();
   const [levelFilter, setLevelFilter] = useState<LogLevel | ''>('');
   const [sourceFilter, setSourceFilter] = useState<LogSource | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    const unsubscribe = logService.subscribe((newLogs) => {
-      setLogs(newLogs);
-    });
-    setLogs(logService.getLogs());
-    return unsubscribe;
-  }, [setLogs]);
 
   const filteredLogs = logs.filter((log) => {
     if (levelFilter && log.level !== levelFilter) return false;
@@ -39,15 +31,29 @@ export const LogViewer: React.FC = () => {
   };
 
   const handleExport = (format: 'json' | 'text') => {
-    logService.downloadLogs(format);
-  };
-
-  const handleClear = () => {
-    logService.clearLogs();
+    const content = format === 'json' 
+      ? JSON.stringify(filteredLogs, null, 2)
+      : filteredLogs.map(log => {
+          const timestamp = new Date(log.timestamp).toISOString();
+          const dataStr = log.data ? ` ${JSON.stringify(log.data)}` : '';
+          return `[${timestamp}] [${log.level.toUpperCase()}] [${log.source}] ${log.message}${dataStr}`;
+        }).join('\n');
+    
+    const mimeType = format === 'json' ? 'application/json' : 'text/plain';
+    const extension = format === 'json' ? 'json' : 'txt';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-rpg-logs-${timestamp}.${extension}`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className={styles.tabContent}>
+    <div className={styles.tabContent} style={{ padding: 0 }}>
       <div className={styles.filterBar}>
         <select
           className={styles.filterSelect}
@@ -92,7 +98,7 @@ export const LogViewer: React.FC = () => {
             <Icon name="download" size={14} />
             TXT
           </button>
-          <button className={styles.actionButton} onClick={handleClear}>
+          <button className={styles.actionButton} onClick={clearLogs}>
             <Icon name="trash" size={14} />
             清空
           </button>

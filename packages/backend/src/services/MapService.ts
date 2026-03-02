@@ -22,6 +22,7 @@ import type {
   GetLocationResponse,
 } from '@ai-rpg/shared';
 import { getMapRepository, MapRepository } from '../models/MapRepository';
+import { gameLog } from './GameLogService';
 
 export class MapService {
   private static instance: MapService | null = null;
@@ -235,6 +236,15 @@ export class MapService {
         this.mapRepository.updateLocation(targetLocationId, { isDiscovered: true });
       }
 
+      // 记录详细移动日志
+      gameLog.debug('backend', '移动详情', {
+        characterId,
+        from: fromLocation ? { id: fromLocation.id, name: fromLocation.name } : null,
+        to: { id: targetLocationId, name: targetLocation.name },
+        distance: travelTime,
+        method,
+      });
+
       const result: MoveResult = {
         success: true,
         fromLocation,
@@ -312,6 +322,9 @@ export class MapService {
       const discoveredNpcs = location.npcs.slice(0, Math.ceil(location.npcs.length * Math.random()));
 
       this.mapRepository.addExploredArea(characterId, targetLocationId);
+
+      // 记录探索日志
+      gameLog.debug('backend', '探索区域', { characterId, areaId: targetLocationId });
 
       const result: ExploreResult = {
         success: true,

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
 import { getLLMService } from '../services/llm';
+import { gameLog } from '../services/GameLogService';
 import type {
   InitialSceneRequest,
   InitialSceneResponse,
@@ -8,9 +9,74 @@ import type {
   SendDialogueResponse,
   DialogueMessage,
   DialogueOption,
+  CombatTrigger,
+  EnemyInitData,
+  AllyInitData,
 } from '@ai-rpg/shared';
 
 const router: RouterType = Router();
+
+const MAX_LOG_LENGTH = 2000;
+
+/**
+ * 截断内容用于日志输出
+ */
+function truncateContent(content: string, maxLength: number = MAX_LOG_LENGTH): string {
+  if (content.length <= maxLength) return content;
+  return content.substring(0, maxLength) + `... [truncated, total: ${content.length} chars]`;
+}
+
+/**
+ * 从 LLM 响应中解析战斗触发信息
+ * 支持两种格式：
+ * 1. [COMBAT_START] 标记后跟 JSON 格式的敌人数据
+ * 2. JSON 中的 combatTrigger 字段
+ */
+function parseCombatTrigger(content: string): CombatTrigger | null {
+  // 方式1: 检测 [COMBAT_START] 标记
+  const combatStartMatch = content.match(/\[COMBAT_START\]\s*([\s\S]*?)(?=\[\/COMBAT_START\]|$)/);
+  if (combatStartMatch) {
+    try {
+      const combatData = JSON.parse(combatStartMatch[1].trim()) as {
+        enemies: EnemyInitData[];
+        allies?: AllyInitData[];
+        reason?: string;
+      };
+      return {
+        enemies: combatData.enemies,
+        allies: combatData.allies,
+        reason: combatData.reason,
+      };
+    } catch (e) {
+      console.error('[DialogueRoutes] Failed to parse COMBAT_START data:', e);
+    }
+  }
+
+  // 方式2: 检测 JSON 格式的战斗指令
+  const jsonCombatMatch = content.match(/"combatTrigger"\s*:\s*(\{[\s\S]*?\})/);
+  if (jsonCombatMatch) {
+    try {
+      const combatData = JSON.parse(jsonCombatMatch[1]) as CombatTrigger;
+      if (combatData.enemies && combatData.enemies.length > 0) {
+        return combatData;
+      }
+    } catch (e) {
+      console.error('[DialogueRoutes] Failed to parse combatTrigger JSON:', e);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 从内容中移除战斗触发标记
+ */
+function removeCombatMarkers(content: string): string {
+  return content
+    .replace(/\[COMBAT_START\][\s\S]*?(\[\/COMBAT_START\]|$)/g, '')
+    .replace(/"combatTrigger"\s*:\s*\{[\s\S]*?\}/g, '')
+    .trim();
+}
 
 router.post('/initial', async (req: Request, res: Response) => {
   try {
@@ -22,6 +88,8 @@ router.post('/initial', async (req: Request, res: Response) => {
         error: 'Missing required fields: characterId, templateId',
       });
     }
+
+    gameLog.info('dialogue', '收到初始场景请求', { characterId: request.characterId, templateId: request.templateId });
 
     const llmService = getLLMService();
 
@@ -52,6 +120,10 @@ ${request.worldSetting ? `世界设定: ${request.worldSetting}` : ''}
     {"id": "opt_1", "text": "选项文本", "type": "normal"}
   ]
 }`;
+
+    gameLog.debug('dialogue', '初始场景系统提示词', { 
+      systemPrompt: truncateContent(systemPrompt) 
+    });
 
     const response = await llmService.chat(
       [
@@ -112,9 +184,18 @@ ${request.worldSetting ? `世界设定: ${request.worldSetting}` : ''}
       },
     };
 
+    gameLog.debug('dialogue', '初始场景响应', { 
+      content: truncateContent(message.content),
+      location: parsedResult.location,
+      options 
+    });
+
+    gameLog.info('dialogue', '初始场景生成成功', { responseLength: message.content.length });
+
     res.json(result);
   } catch (error) {
     console.error('[DialogueRoutes] Error generating initial scene:', error);
+    gameLog.error('dialogue', '初始场景生成失败', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -132,6 +213,12 @@ router.post('/send', async (req: Request, res: Response) => {
         error: 'Missing required fields: characterId, message',
       });
     }
+
+    gameLog.info('dialogue', '收到玩家输入', { input: request.message.substring(0, 50) });
+    gameLog.debug('dialogue', '玩家完整输入', { 
+      input: request.message,
+      characterId: request.characterId 
+    });
 
     const llmService = getLLMService();
 
@@ -152,6 +239,8 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
 
 请根据玩家的输入生成响应，并给出2-5个后续行动选项。
 
+如果场景适合触发战斗（如遇到敌人、进入危险区域、触发战斗事件），请在响应中包含战斗触发标记。
+
 返回JSON格式：
 {
   "content": "叙事响应内容",
@@ -163,14 +252,42 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
   },
   "options": [
     {"id": "opt_1", "text": "选项文本", "type": "normal"}
-  ]
-}`;
+  ],
+  "combatTrigger": {
+    "enemies": [
+      {
+        "id": "enemy_1",
+        "name": "哥布林",
+        "type": "enemy",
+        "level": 1,
+        "stats": {
+          "maxHp": 50,
+          "currentHp": 50,
+          "maxMp": 0,
+          "currentMp": 0,
+          "attack": 10,
+          "defense": 5,
+          "speed": 8,
+          "luck": 5
+        },
+        "skills": ["attack"]
+      }
+    ],
+    "allies": [],
+    "reason": "遭遇敌人"
+  }
+}
+
+注意：combatTrigger 字段是可选的，只有在需要触发战斗时才包含。`;
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: request.message },
+    ];
+    gameLog.debug('llm', '调用LLM生成对话响应', { messageCount: messages.length });
 
     const response = await llmService.chat(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: request.message },
-      ],
+      messages,
       { temperature: 0.8, maxTokens: 1000, agentType: 'dialogue' }
     );
 
@@ -184,6 +301,7 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
         experience?: number;
       };
       options: Array<{ id: string; text: string; type: string }>;
+      combatTrigger?: CombatTrigger;
     };
 
     if (jsonMatch) {
@@ -197,11 +315,34 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
       };
     }
 
+    // 检测战斗触发
+    let combatTrigger: CombatTrigger | undefined;
+    const rawContent = parsedResult.content || response.content;
+    
+    // 先检查 JSON 中的 combatTrigger
+    if (parsedResult.combatTrigger && parsedResult.combatTrigger.enemies?.length > 0) {
+      combatTrigger = parsedResult.combatTrigger;
+    } else {
+      // 再检查文本中的战斗标记
+      const triggerFromText = parseCombatTrigger(rawContent);
+      if (triggerFromText) {
+        combatTrigger = triggerFromText;
+      }
+    }
+
+    // 战斗触发日志
+    if (combatTrigger) {
+      gameLog.info('combat', '检测到战斗触发', { enemyCount: combatTrigger.enemies.length });
+    }
+
+    // 清理内容中的战斗标记
+    const cleanedContent = removeCombatMarkers(rawContent);
+
     const message: DialogueMessage = {
       id: `dmsg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       role: 'narrator',
-      content: parsedResult.content,
-      type: 'normal',
+      content: cleanedContent,
+      type: combatTrigger ? 'combat' : 'normal',
       timestamp: Date.now(),
     };
 
@@ -216,11 +357,19 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
       message,
       options,
       stateChanges: parsedResult.stateChanges,
+      combatTrigger,
     };
+
+    gameLog.info('dialogue', '对话响应生成成功', { responseLength: message.content.length });
+    gameLog.debug('dialogue', '对话响应内容', { 
+      content: truncateContent(message.content),
+      options 
+    });
 
     res.json(result);
   } catch (error) {
     console.error('[DialogueRoutes] Error sending dialogue:', error);
+    gameLog.error('dialogue', '对话处理失败', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -228,7 +377,7 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
   }
 });
 
-router.post('/options', async (req: Request, res: Response) => {
+router.post('/options', async (_req: Request, res: Response) => {
   try {
     const options: DialogueOption[] = [
       { id: `opt_${Date.now()}_1`, text: '四处看看', type: 'normal' },
@@ -249,7 +398,7 @@ router.post('/options', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/history/:characterId', async (req: Request, res: Response) => {
+router.get('/history/:characterId', async (_req: Request, res: Response) => {
   try {
     res.json({
       success: true,

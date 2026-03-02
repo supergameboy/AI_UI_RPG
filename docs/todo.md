@@ -4,7 +4,7 @@
 
 ---
 
-## 一、已完成功能概览 (v0.5.0)
+## 一、已完成功能概览 (v0.9.0)
 
 详见 [development.md](./development.md)
 
@@ -29,6 +29,8 @@
 - **世界系统** (世界/区域/地点层级、移动、探索)
 - **NPC系统** (NPC数据、关系系统、互动、队伍管理)
 - **对话系统** (初始场景生成、玩家输入、快速选项)
+- **战斗系统** (回合制战斗、AI决策、战斗UI、伤害计算)
+- **开发者工具增强** (Token计费、详细日志、数据流转追踪)
 
 ---
 
@@ -217,20 +219,32 @@
 - `packages/frontend/src/components/game/QuickOptions.tsx` ✅
 - `packages/frontend/src/components/game/ChatInput.tsx` ✅
 
-#### 2.4.2 战斗系统 (Combat System)
+#### 2.4.2 战斗系统 (Combat System) ✅
 **优先级**: P2 | **依赖**: 数值+技能+装备 | **智能体**: CombatAgent
+
+> **测试状态**: ✅ 类型检查通过 (2026-03-03)
+> - 战斗系统: 回合制战斗、战斗UI、AI决策 ✅
 
 | 任务 | 描述 | 状态 |
 |------|------|------|
-| 回合制战斗 | 行动顺序、回合管理 | 未开始 |
-| 战斗行动 | 攻击/技能/物品/逃跑 | 未开始 |
-| 伤害计算 | 命中/闪避/暴击/伤害 | 未开始 |
-| 战斗AI | 敌人行为决策 | 未开始 |
-| 战斗奖励 | 经验/物品/金币 | 未开始 |
+| 回合制战斗 | 行动顺序、回合管理 | ✅ 已完成 |
+| 战斗行动 | 攻击/技能/物品/逃跑 | ✅ 已完成 |
+| 伤害计算 | 命中/闪避/暴击/伤害 | ✅ 已完成 |
+| 战斗AI | 敌人行为决策 | ✅ 已完成 |
+| 战斗奖励 | 经验/物品/金币 | ✅ 已完成 |
+| 战斗UI | CombatPanel/ActionMenu/CombatLog | ✅ 已完成 |
 
 **关键文件**:
-- `packages/backend/src/agents/CombatAgent.ts` (已存在，需完善)
-- `packages/backend/src/services/CombatService.ts` (待创建)
+- `packages/backend/src/agents/CombatAgent.ts` ✅
+- `packages/backend/src/services/CombatService.ts` ✅
+- `packages/backend/src/routes/combatRoutes.ts` ✅
+- `packages/shared/src/types/combat.ts` ✅
+- `packages/frontend/src/services/combatService.ts` ✅
+- `packages/frontend/src/components/combat/CombatPanel.tsx` ✅
+- `packages/frontend/src/components/combat/ActionMenu.tsx` ✅
+- `packages/frontend/src/components/combat/CombatUnitCard.tsx` ✅
+- `packages/frontend/src/components/combat/CombatLog.tsx` ✅
+- `packages/frontend/src/components/combat/TurnOrder.tsx` ✅
 
 ---
 
@@ -325,13 +339,14 @@ interface APIResponse<T> {
 ✅ P0 (必须 - Phase 2): 装备系统 → 任务系统 [已完成]
 ✅ P1 (重要 - Phase 3): 地图系统 → NPC系统 [已完成]
 ✅ P1 (重要 - Phase 4): 对话系统 [已完成]
-P2 (次要 - Phase 5): 战斗系统
+✅ P2 (次要 - Phase 4): 战斗系统 [已完成]
+P0 (必须 - Phase 5): 游戏初始化流程
 P3 (可选): 成就系统、图鉴系统、多人模式
 ```
 
 ---
 
-*文档版本: v2.5*
+*文档版本: v2.7*
 *创建日期: 2026-02-28*
-*最后更新: 2026-03-02*
-*项目版本: 0.7.0*
+*最后更新: 2026-03-03*
+*项目版本: 0.9.0*

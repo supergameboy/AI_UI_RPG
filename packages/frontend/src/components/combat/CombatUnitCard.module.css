@@ -1,0 +1,259 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+  min-width: 160px;
+  max-width: 200px;
+}
+
+.card.player {
+  border-color: var(--color-primary);
+}
+
+.card.ally {
+  border-color: var(--color-success);
+}
+
+.card.enemy {
+  border-color: var(--color-error);
+}
+
+/* 当前回合高亮 */
+.card.currentTurn {
+  border-color: var(--color-warning);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(251, 191, 36, 0.6);
+  }
+}
+
+/* 可选择状态 */
+.card.targetable {
+  cursor: pointer;
+}
+
+.card.targetable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: var(--color-warning);
+}
+
+.card.targetable:active {
+  transform: translateY(0);
+}
+
+/* 死亡状态 */
+.card.dead {
+  opacity: 0.5;
+  filter: grayscale(80%);
+  pointer-events: none;
+}
+
+/* 头部信息 */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.typeIcon {
+  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.level {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.defending {
+  font-size: 12px;
+}
+
+/* 属性条 */
+.statBar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.statValue {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.lowHealthWarning {
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  animation: blink 0.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* 状态效果 */
+.statusEffects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+
+.statusEffect {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.statusEffect.buff {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.statusEffect.debuff {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.statusEffect.neutral {
+  background: rgba(156, 163, 175, 0.2);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.statusIcon {
+  font-size: 12px;
+}
+
+.statusDuration {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+/* 死亡覆盖层 */
+.deadOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-lg);
+}
+
+.deadText {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-error);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* 回合指示器 */
+.turnIndicator {
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+}
+
+.turnArrow {
+  color: var(--color-warning);
+  font-size: 16px;
+  animation: slideRight 0.5s ease-in-out infinite;
+}
+
+@keyframes slideRight {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+  .card {
+    min-width: 140px;
+    max-width: 160px;
+    padding: var(--spacing-xs);
+  }
+
+  .typeIcon {
+    font-size: 20px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .name {
+    font-size: var(--font-size-xs);
+  }
+}

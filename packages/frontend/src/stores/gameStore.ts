@@ -1,7 +1,18 @@
 import { create } from 'zustand';
 import { saveService, Save, CreateSaveData } from '../services/saveService';
 import { dialogueService } from '../services/dialogueService';
-import type { StoryTemplate, Character, DialogueOption } from '@ai-rpg/shared';
+import { combatService } from '../services/combatService';
+import type { 
+  StoryTemplate, 
+  Character, 
+  DialogueOption,
+  CombatInstanceData,
+  CombatAction,
+  ActionType,
+  EnemyInitData,
+  AllyInitData,
+  CombatResult,
+} from '@ai-rpg/shared';
 
 export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
 
@@ -65,6 +76,12 @@ export interface GameState {
   
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
   
+  // 战斗状态
+  combat: CombatInstanceData | null;
+  combatLog: CombatAction[];
+  isInCombat: boolean;
+  isPlayerTurn: boolean;
+  
   setScreen: (screen: GameScreen) => void;
   startNewGame: () => void;
   loadGame: (save: Save) => Promise<void>;
@@ -104,6 +121,15 @@ export interface GameState {
   
   setNotification: (notification: GameState['notification']) => void;
   clearNotification: () => void;
+  
+  // 战斗相关
+  initiateCombat: (enemies: EnemyInitData[], allies?: AllyInitData[]) => Promise<void>;
+  startCombat: () => Promise<void>;
+  executeCombatAction: (action: ActionType, targetId?: string, skillId?: string, itemId?: string) => Promise<void>;
+  executeAITurn: () => Promise<void>;
+  endCombat: () => Promise<void>;
+  addCombatLog: (action: CombatAction) => void;
+  clearCombat: () => void;
 }
 
 const defaultCharacter: CharacterState = {
@@ -148,6 +174,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   lastAutoSaveTime: 0,
   
   notification: null,
+  
+  combat: null,
+  combatLog: [],
+  isInCombat: false,
+  isPlayerTurn: false,
   
   setScreen: (screen: GameScreen) => {
     set({ screen });
@@ -514,6 +545,16 @@ export const useGameStore = create<GameState>((set, get) => ({
             }));
           }
         }
+        
+        // 检测战斗触发
+        if (response.combatTrigger) {
+          const { enemies, allies, reason } = response.combatTrigger;
+          console.log('[GameStore] Combat triggered:', reason);
+          // 延迟触发战斗，让玩家有时间看到对话内容
+          setTimeout(() => {
+            get().initiateCombat(enemies, allies);
+          }, 1000);
+        }
       }
     } catch (error) {
       console.error('Failed to send player input:', error);
@@ -579,5 +620,273 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   clearNotification: () => {
     set({ notification: null });
+  },
+  
+  // ==================== 战斗相关 Actions ====================
+  
+  initiateCombat: async (enemies: EnemyInitData[], allies?: AllyInitData[]) => {
+    const state = get();
+    if (!state.character.id) {
+      get().setNotification({ message: '角色不存在，无法进入战斗', type: 'error' });
+      return;
+    }
+    
+    set({ isLoading: true });
+    
+    try {
+      // 初始化战斗
+      const initResponse = await combatService.initiateCombat({
+        playerId: state.character.id,
+        enemies,
+        allies,
+      });
+      
+      set({ combat: initResponse.combat });
+      
+      // 开始战斗
+      const startResponse = await combatService.startCombat(initResponse.combatId);
+      
+      // 判断是否玩家回合
+      const isPlayerTurn = startResponse.currentUnit === state.character.id;
+      
+      set({
+        combat: startResponse.combat,
+        isInCombat: true,
+        isPlayerTurn,
+        isLoading: false,
+      });
+      
+      get().setNotification({ message: '战斗开始！', type: 'info' });
+      
+      // 如果不是玩家回合，自动执行AI回合
+      if (!isPlayerTurn) {
+        setTimeout(() => get().executeAITurn(), 500);
+      }
+    } catch (error) {
+      console.error('Failed to initiate combat:', error);
+      set({ isLoading: false });
+      get().setNotification({ message: '战斗初始化失败', type: 'error' });
+    }
+  },
+  
+  startCombat: async () => {
+    const state = get();
+    if (!state.combat) {
+      get().setNotification({ message: '没有进行中的战斗', type: 'error' });
+      return;
+    }
+    
+    set({ isLoading: true });
+    
+    try {
+      const response = await combatService.startCombat(state.combat.id);
+      const isPlayerTurn = response.currentUnit === state.character.id;
+      
+      set({
+        combat: response.combat,
+        isPlayerTurn,
+        isLoading: false,
+      });
+      
+      if (!isPlayerTurn) {
+        setTimeout(() => get().executeAITurn(), 500);
+      }
+    } catch (error) {
+      console.error('Failed to start combat:', error);
+      set({ isLoading: false });
+      get().setNotification({ message: '战斗启动失败', type: 'error' });
+    }
+  },
+  
+  executeCombatAction: async (action: ActionType, targetId?: string, skillId?: string, itemId?: string) => {
+    const state = get();
+    
+    if (!state.combat || !state.character.id) {
+      get().setNotification({ message: '战斗状态异常', type: 'error' });
+      return;
+    }
+    
+    if (!state.isPlayerTurn) {
+      get().setNotification({ message: '现在不是你的回合', type: 'error' });
+      return;
+    }
+    
+    set({ isLoading: true });
+    
+    try {
+      const response = await combatService.executeAction(
+        state.combat.id,
+        state.character.id,
+        action,
+        targetId,
+        skillId,
+        itemId
+      );
+      
+      // 添加战斗日志
+      get().addCombatLog(response.action);
+      
+      // 更新战斗状态
+      set({ combat: response.combat });
+      
+      // 检查战斗是否结束
+      if (response.combat.result) {
+        await get().endCombat();
+        return;
+      }
+      
+      // 判断下一个是否是AI回合
+      const currentUnitId = response.combat.turnOrder[response.combat.currentTurnIndex];
+      const isPlayerTurn = currentUnitId === state.character.id;
+      
+      set({ isPlayerTurn, isLoading: false });
+      
+      // 如果是AI回合，自动执行
+      if (!isPlayerTurn) {
+        setTimeout(() => get().executeAITurn(), 500);
+      }
+    } catch (error) {
+      console.error('Failed to execute combat action:', error);
+      set({ isLoading: false });
+      get().setNotification({ message: '行动执行失败', type: 'error' });
+    }
+  },
+  
+  executeAITurn: async () => {
+    const state = get();
+    
+    if (!state.combat) {
+      return;
+    }
+    
+    set({ isLoading: true });
+    
+    try {
+      const response = await combatService.executeAITurn(state.combat.id);
+      
+      // 添加战斗日志
+      get().addCombatLog(response.action);
+      
+      // 更新战斗状态
+      set({ combat: response.combat });
+      
+      // 检查战斗是否结束
+      if (response.combat.result) {
+        await get().endCombat();
+        return;
+      }
+      
+      // 判断下一个是否是玩家回合
+      const currentUnitId = response.combat.turnOrder[response.combat.currentTurnIndex];
+      const isPlayerTurn = currentUnitId === state.character.id;
+      
+      set({ isPlayerTurn, isLoading: false });
+      
+      // 如果还是AI回合，继续执行
+      if (!isPlayerTurn) {
+        setTimeout(() => get().executeAITurn(), 500);
+      }
+    } catch (error) {
+      console.error('Failed to execute AI turn:', error);
+      set({ isLoading: false });
+      get().setNotification({ message: 'AI回合执行失败', type: 'error' });
+    }
+  },
+  
+  endCombat: async () => {
+    const state = get();
+    
+    if (!state.combat) {
+      return;
+    }
+    
+    set({ isLoading: true });
+    
+    try {
+      const result: CombatResult = await combatService.endCombat(state.combat.id);
+      
+      // 处理战斗结果
+      if (result.victory && result.rewards) {
+        // 更新角色状态（经验、金币等）
+        const { rewards } = result;
+        
+        // 更新角色属性
+        set((s) => ({
+          character: {
+            ...s.character,
+            // 经验值可以用于升级判断，这里暂时存储
+            // 实际项目中可能需要单独的经验值字段
+            // 这里用 attributes 存储累计经验
+            attributes: {
+              ...s.character.attributes,
+              experience: (s.character.attributes.experience || 0) + rewards.experience,
+            },
+          },
+          hasUnsavedChanges: true,
+        }));
+        
+        // 显示奖励信息
+        const rewardMessages: string[] = [];
+        rewardMessages.push(`经验 +${rewards.experience}`);
+        rewardMessages.push(`金币 +${rewards.gold}`);
+        
+        if (rewards.items && rewards.items.length > 0) {
+          rewardMessages.push(`获得物品: ${rewards.items.join(', ')}`);
+          // TODO: 将物品添加到背包
+          // 需要调用 inventoryService 或相关方法
+        }
+        
+        if (rewards.skillPoints && rewards.skillPoints > 0) {
+          rewardMessages.push(`技能点 +${rewards.skillPoints}`);
+        }
+        
+        get().setNotification({ 
+          message: `战斗胜利！\n${rewardMessages.join('\n')}`, 
+          type: 'success' 
+        });
+        
+      } else if (result.fled) {
+        get().setNotification({ message: '成功逃离战斗！', type: 'info' });
+      } else {
+        // 战斗失败，可能需要处理角色死亡等情况
+        get().setNotification({ message: '战斗失败...', type: 'error' });
+        
+        // 可以在这里处理角色复活、回城等逻辑
+        // 例如：恢复一定生命值
+        set((s) => ({
+          character: {
+            ...s.character,
+            health: Math.floor(s.character.maxHealth * 0.3), // 恢复30%生命值
+          },
+        }));
+      }
+      
+      // 清除战斗状态
+      get().clearCombat();
+      set({ isLoading: false });
+      
+      // 自动保存
+      get().autoSave();
+      
+    } catch (error) {
+      console.error('Failed to end combat:', error);
+      set({ isLoading: false });
+      get().setNotification({ message: '战斗结束处理失败', type: 'error' });
+    }
+  },
+  
+  addCombatLog: (action: CombatAction) => {
+    set((state) => ({
+      combatLog: [...state.combatLog, action].slice(-100), // 保留最近100条
+    }));
+  },
+  
+  clearCombat: () => {
+    set({
+      combat: null,
+      combatLog: [],
+      isInCombat: false,
+      isPlayerTurn: false,
+    });
   },
 }));
