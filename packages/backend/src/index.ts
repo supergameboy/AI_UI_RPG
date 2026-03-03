@@ -20,6 +20,8 @@ import { initializeQuestService } from './services/QuestService';
 import { initializeMapService } from './services/MapService';
 import { initializeNPCService } from './services/NPCService';
 import { initializeCombatService } from './services/CombatService';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { requestLogger } from './middleware/requestLogger';
 import agentRoutes from './routes/agentRoutes';
 import questRoutes from './routes/questRoutes';
 import settingsRoutes from './routes/settingsRoutes';
@@ -44,6 +46,7 @@ const PORT = process.env.PORT || 6756;
 
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger());
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'AI-RPG Backend is running' });
@@ -529,6 +532,9 @@ app.delete('/api/logs/game', (_req, res) => {
     });
   }
 });
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 async function initializeApp() {
   console.log('Initializing application...');

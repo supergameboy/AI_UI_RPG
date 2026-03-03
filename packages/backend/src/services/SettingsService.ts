@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { gameLog } from './GameLogService';
 
 export interface GameSettings {
   ai: {
@@ -57,7 +58,7 @@ class SettingsService {
       if (fs.existsSync(this.settingsPath)) {
         const data = fs.readFileSync(this.settingsPath, 'utf-8');
         const parsed = JSON.parse(data) as Partial<GameSettings>;
-        console.log('[SettingsService] Loaded settings from file:', this.settingsPath);
+        gameLog.info('backend', '设置从文件加载', { path: this.settingsPath });
         return {
           ai: { ...DEFAULT_SETTINGS.ai, ...parsed.ai },
           gameplay: { ...DEFAULT_SETTINGS.gameplay, ...parsed.gameplay },
@@ -65,25 +66,33 @@ class SettingsService {
         };
       }
     } catch (error) {
-      console.error('[SettingsService] Failed to load settings from file:', error);
+      gameLog.error('backend', '加载设置失败', { error: error instanceof Error ? error.message : String(error) });
     }
+    gameLog.info('backend', '使用默认设置');
     return { ...DEFAULT_SETTINGS };
   }
 
   private saveToFile(): void {
     try {
       fs.writeFileSync(this.settingsPath, JSON.stringify(this.settings, null, 2), 'utf-8');
-      console.log('[SettingsService] Settings saved to file:', this.settingsPath);
+      gameLog.debug('backend', '设置保存到文件', { path: this.settingsPath });
     } catch (error) {
-      console.error('[SettingsService] Failed to save settings to file:', error);
+      gameLog.error('backend', '保存设置失败', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
   getSettings(): GameSettings {
+    gameLog.debug('backend', '获取设置');
     return { ...this.settings };
   }
 
   updateSettings(updates: Partial<GameSettings>): GameSettings {
+    gameLog.info('backend', '更新设置', { 
+      hasAiUpdate: updates.ai !== undefined,
+      hasGameplayUpdate: updates.gameplay !== undefined,
+      hasDeveloperUpdate: updates.developer !== undefined,
+    });
+    
     if (updates.ai !== undefined) {
       this.settings.ai = {
         ...this.settings.ai,

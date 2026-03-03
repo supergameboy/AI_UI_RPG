@@ -16,3 +16,5 @@ export * from './types/numerical';
 export * from './types/dialogue';
 export * from './types/combat';
 export * from './types/developer';
+export * from './types/api';
+export * from './types/error';

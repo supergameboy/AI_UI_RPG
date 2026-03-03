@@ -1,4 +1,5 @@
 import { DatabaseService } from './DatabaseService';
+import { gameLog } from './GameLogService';
 
 export interface Memory {
   id: string;
@@ -73,15 +74,31 @@ class ContextService {
     messages: Array<{ role: string; content: string }>,
     level: 'short' | 'medium' | 'long'
   ): Promise<CompressionResult> {
+    gameLog.debug('backend', '开始压缩上下文', { 
+      messageCount: messages.length, 
+      level,
+      totalTokens: messages.reduce((sum, m) => sum + this.estimateTokens(m.content), 0)
+    });
+    
     const keyInfo = this.extractKeyInformation(messages);
     const summary = this.generateSummary(messages, level, keyInfo);
     const stats = this.calculateStats(messages, summary);
 
-    return {
+    const result = {
       summary,
       keyInfo,
       stats,
     };
+    
+    gameLog.info('backend', '上下文压缩完成', { 
+      originalTokens: stats.originalTokens,
+      compressedTokens: stats.compressedTokens,
+      compressionRatio: stats.compressionRatio.toFixed(2),
+      decisionsCount: keyInfo.decisions.length,
+      eventsCount: keyInfo.events.length,
+    });
+
+    return result;
   }
 
   private extractKeyInformation(messages: Array<{ role: string; content: string }>): CompressionResult['keyInfo'] {
@@ -229,6 +246,8 @@ class ContextService {
       questId?: string;
     }
   ): Promise<Memory> {
+    gameLog.debug('backend', '保存记忆', { saveId, layer, sceneId: data.sceneId, questId: data.questId });
+    
     const db = this.getDb();
     const id = `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = Math.floor(Date.now() / 1000);
@@ -255,6 +274,7 @@ class ContextService {
       now
     );
 
+    gameLog.info('backend', '记忆保存成功', { memoryId: id, layer, tokenCount });
     return this.getMemory(id)!;
   }
 
@@ -279,6 +299,12 @@ class ContextService {
     contextState: ContextState,
     agentStates: AgentState[]
   ): Promise<void> {
+    gameLog.info('backend', '保存上下文状态', { 
+      saveId, 
+      layer1Messages: contextState.layer1.messages.length,
+      agentStatesCount: agentStates.length 
+    });
+    
     const db = this.getDb();
 
     await this.saveMemory(saveId, 1, {
@@ -346,6 +372,8 @@ class ContextService {
   }
 
   public loadContextState(saveId: string): { contextState: ContextState | null; agentStates: AgentState[] } {
+    gameLog.debug('backend', '加载上下文状态', { saveId });
+    
     const db = this.getDb();
     const stmt = db.prepare<{
       context_state: string;
@@ -361,6 +389,7 @@ class ContextService {
     const result = stmt.get(saveId);
 
     if (!result) {
+      gameLog.warn('backend', '未找到上下文状态快照', { saveId });
       return { contextState: null, agentStates: [] };
     }
 
@@ -368,6 +397,7 @@ class ContextService {
     try {
       contextState = JSON.parse(result.context_state);
     } catch {
+      gameLog.error('backend', '解析上下文状态失败', { saveId });
       contextState = null;
     }
 
@@ -375,9 +405,16 @@ class ContextService {
     try {
       agentStates = JSON.parse(result.agent_states);
     } catch {
+      gameLog.error('backend', '解析智能体状态失败', { saveId });
       agentStates = [];
     }
 
+    gameLog.info('backend', '上下文状态加载完成', { 
+      saveId, 
+      hasContextState: contextState !== null,
+      agentStatesCount: agentStates.length 
+    });
+    
     return { contextState, agentStates };
   }
 

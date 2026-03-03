@@ -12,6 +12,7 @@ import type {
   Character,
 } from '@ai-rpg/shared';
 import { AIGenerateService } from './AIGenerateService';
+import { gameLog } from './GameLogService';
 
 export interface CharacterGenerationOptions {
   generateImagePrompt: boolean;
@@ -97,10 +98,10 @@ export class CharacterGenerationService {
   ): AttributeCalculationResult {
     const result: AttributeCalculationResult = {};
     
-    console.log('[CharacterGenerationService] calculateAttributes called');
-    console.log('[CharacterGenerationService] attributes:', attributes.map(a => ({ id: a.id, abbr: a.abbreviation })));
-    console.log('[CharacterGenerationService] race:', { name: race.name, bonuses: race.bonuses, penalties: race.penalties });
-    console.log('[CharacterGenerationService] class:', { name: cls.name, primaryAttributes: cls.primaryAttributes });
+    gameLog.debug('system', 'calculateAttributes called');
+    gameLog.debug('system', 'attributes', { data: attributes.map(a => ({ id: a.id, abbr: a.abbreviation })) });
+    gameLog.debug('system', 'race', { data: { name: race.name, bonuses: race.bonuses, penalties: race.penalties } });
+    gameLog.debug('system', 'class', { data: { name: cls.name, primaryAttributes: cls.primaryAttributes } });
     
     for (const attr of attributes) {
       const baseValue = attr.defaultValue;
@@ -108,7 +109,7 @@ export class CharacterGenerationService {
       const racePenalty = race.penalties[attr.id] || race.penalties[attr.abbreviation] || 0;
       const classBonus = cls.primaryAttributes.includes(attr.id) || cls.primaryAttributes.includes(attr.abbreviation) ? 1 : 0;
       
-      console.log(`[CharacterGenerationService] ${attr.id}: base=${baseValue}, raceBonus=${raceBonus}, racePenalty=${racePenalty}, classBonus=${classBonus}`);
+      gameLog.debug('system', `${attr.id}: base=${baseValue}, raceBonus=${raceBonus}, racePenalty=${racePenalty}, classBonus=${classBonus}`);
       
       const finalValue = baseValue + raceBonus - racePenalty + classBonus;
       
@@ -168,7 +169,7 @@ ${options.generateImagePrompt ? '请同时生成英文的AI绘图提示词。' :
         };
       }
     } catch (error) {
-      console.error('[CharacterGenerationService] Failed to generate appearance:', error);
+      gameLog.error('system', 'Failed to generate appearance', { error });
     }
 
     return {
@@ -213,7 +214,7 @@ ${options.generateImagePrompt ? '请同时生成英文的AI绘图提示词。' :
 
       return response.content.trim();
     } catch (error) {
-      console.error('[CharacterGenerationService] Failed to generate backstory:', error);
+      gameLog.error('system', 'Failed to generate backstory', { error });
       return `${characterName}来自${background.name}，经过多年的历练成为了一名${cls.name}。`;
     }
   }

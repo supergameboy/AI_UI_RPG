@@ -23,6 +23,7 @@ import type {
   RemovePartyMemberResponse,
 } from '@ai-rpg/shared';
 import { getNPCRepository, NPCRepository } from '../models/NPCRepository';
+import { gameLog } from './GameLogService';
 
 export class NPCService {
   private static instance: NPCService | null = null;
@@ -47,7 +48,7 @@ export class NPCService {
 
     getNPCRepository();
     this.initialized = true;
-    console.log('[NPCService] Initialized');
+    gameLog.info('system', 'NPCService initialized');
   }
 
   // ==================== NPC CRUD ====================
@@ -80,7 +81,7 @@ export class NPCService {
         relationship,
       };
     } catch (error) {
-      console.error('[NPCService] Error getting NPC:', error);
+      gameLog.error('system', 'Error getting NPC', { error });
       return {
         success: false,
         npc: null as unknown as NPC,
@@ -100,7 +101,7 @@ export class NPCService {
         statistics,
       };
     } catch (error) {
-      console.error('[NPCService] Error getting NPCs:', error);
+      gameLog.error('system', 'Error getting NPCs', { error });
       return {
         success: false,
         npcs: [],
@@ -148,7 +149,7 @@ export class NPCService {
         relationship,
       };
     } catch (error) {
-      console.error('[NPCService] Error getting relationship:', error);
+      gameLog.error('system', 'Error getting relationship', { error });
       return {
         success: false,
         relationship: null as unknown as NPCRelationship,
@@ -211,7 +212,7 @@ export class NPCService {
         message: '关系更新成功',
       };
     } catch (error) {
-      console.error('[NPCService] Error updating relationship:', error);
+      gameLog.error('system', 'Error updating relationship', { error });
       return {
         success: false,
         relationship: null as unknown as NPCRelationship,
@@ -369,7 +370,7 @@ export class NPCService {
         result,
       };
     } catch (error) {
-      console.error('[NPCService] Error interacting with NPC:', error);
+      gameLog.error('system', 'Error interacting with NPC', { error });
       return {
         success: false,
         result: {
@@ -419,7 +420,7 @@ export class NPCService {
         npcs,
       };
     } catch (error) {
-      console.error('[NPCService] Error getting party:', error);
+      gameLog.error('system', 'Error getting party', { error });
       return {
         success: false,
         party: {
@@ -530,7 +531,7 @@ export class NPCService {
         message: `${npc.name} 加入了队伍`,
       };
     } catch (error) {
-      console.error('[NPCService] Error adding party member:', error);
+      gameLog.error('system', 'Error adding party member', { error });
       return {
         success: false,
         party: {
@@ -592,7 +593,7 @@ export class NPCService {
         message: `${npc.name} 离开了队伍`,
       };
     } catch (error) {
-      console.error('[NPCService] Error removing party member:', error);
+      gameLog.error('system', 'Error removing party member', { error });
       return {
         success: false,
         party: {

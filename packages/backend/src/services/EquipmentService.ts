@@ -7,6 +7,7 @@ import type {
 } from '@ai-rpg/shared';
 import { getItemRepository, ItemRepository } from '../models/ItemRepository';
 import { getInventoryService, InventoryService } from './InventoryService';
+import { gameLog } from './GameLogService';
 
 // ==================== 类型定义 ====================
 
@@ -457,7 +458,7 @@ export class EquipmentService {
         const result = this.unequipItem(characterId, slot);
         results.push(result);
       } catch (error) {
-        console.error(`[EquipmentService] Failed to unequip item ${entity.id}:`, error);
+        gameLog.error('system', `Failed to unequip item ${entity.id}`, { error });
       }
     }
 

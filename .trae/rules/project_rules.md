@@ -67,6 +67,198 @@ registerProvider(name, { provider: name, apiKey, baseURL });
 - 移除未使用的变量
 - 使用 `_` 前缀标记有意忽略的变量
 
+---
+
+## 统一类型定义规范
+
+### 类型定义位置
+所有共享类型定义必须放在 `packages/shared/src/types/` 目录下。
+
+### 类型文件结构
+```
+packages/shared/src/types/
+├── api.ts          # API 响应类型
+├── error.ts        # 错误类型
+├── character.ts    # 角色类型
+├── item.ts         # 物品类型
+├── ...             # 其他类型
+└── index.ts        # 统一导出
+```
+
+### API 响应类型
+使用统一的 `APIResponse<T>` 类型：
+
+```typescript
+// 成功响应
+interface APIResponse<T> {
+  success: true;
+  data: T;
+  meta?: {
+    page?: number;
+    total?: number;
+    timestamp?: number;
+  };
+}
+
+// 错误响应
+interface APIResponse {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+```
+
+### 错误码定义
+使用 `ErrorCodes` 常量定义标准错误码：
+
+```typescript
+const ErrorCodes = {
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  NOT_FOUND: 'NOT_FOUND',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  LLM_ERROR: 'LLM_ERROR',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+} as const;
+```
+
+---
+
+## 错误处理规范
+
+### 后端错误处理
+
+#### 使用错误处理中间件
+```typescript
+import { errorHandler, asyncHandler } from './middleware/errorHandler';
+
+// 在路由后添加
+app.use(errorHandler);
+```
+
+#### 使用自定义错误类
+```typescript
+import { ValidationError, NotFoundError, LLMError } from '@ai-rpg/shared';
+
+// 验证错误
+throw new ValidationError('参数无效', { field: 'name' });
+
+// 资源不存在
+throw new NotFoundError('存档', saveId);
+
+// LLM 调用错误
+throw new LLMError('模型响应超时', { provider: 'deepseek' });
+```
+
+#### 异步路由处理
+```typescript
+// 使用 asyncHandler 包装异步路由
+app.get('/api/resource', asyncHandler(async (req, res) => {
+  const data = await fetchData();
+  res.json({ success: true, data });
+}));
+```
+
+### 前端错误处理
+
+#### 统一错误处理
+```typescript
+// 在服务层统一处理 API 响应
+async function fetchData(): Promise<Data> {
+  const response = await fetch('/api/data');
+  const result = await response.json() as APIResponse<Data>;
+  
+  if (!result.success) {
+    throw new Error(result.error.message);
+  }
+  
+  return result.data;
+}
+```
+
+---
+
+## API 响应格式规范
+
+### 成功响应
+```typescript
+import { sendSuccess, sendCreated, sendPaginated } from './utils/response';
+
+// 单个资源
+sendSuccess(res, data);
+
+// 创建资源
+sendCreated(res, newResource);
+
+// 分页数据
+sendPaginated(res, items, total, page, limit);
+```
+
+### 错误响应
+```typescript
+import { sendError } from './utils/response';
+
+sendError(res, 'NOT_FOUND', '资源不存在', 404);
+sendError(res, 'VALIDATION_ERROR', '参数无效', 400, { field: 'name' });
+```
+
+---
+
+## 日志记录规范
+
+### 日志级别
+| 级别 | 用途 |
+|------|------|
+| `debug` | 完整的输入输出内容、详细数据 |
+| `info` | 操作摘要、关键节点 |
+| `warn` | 可恢复异常、降级处理 |
+| `error` | 错误、异常、失败 |
+
+### 日志来源
+| 来源 | 用途 |
+|------|------|
+| `dialogue` | 对话系统相关日志 |
+| `llm` | LLM 调用相关日志 |
+| `combat` | 战斗系统相关日志 |
+| `backend` | 后端通用服务日志 |
+| `agent` | 智能体相关日志 |
+| `system` | 系统级日志 |
+| `frontend` | 前端日志 |
+
+### 日志使用示例
+```typescript
+import { gameLog } from './services/GameLogService';
+
+// 调试日志 - 详细数据
+gameLog.debug('backend', '处理请求', { requestId, params });
+
+// 信息日志 - 操作摘要
+gameLog.info('backend', '用户登录成功', { userId });
+
+// 警告日志 - 可恢复异常
+gameLog.warn('backend', '缓存未命中，使用默认值', { key });
+
+// 错误日志 - 异常
+gameLog.error('backend', '数据库连接失败', { error: error.message });
+```
+
+### 日志内容截断
+超长内容必须截断，默认最大 2000 字符：
+
+```typescript
+const MAX_LOG_LENGTH = 2000;
+function truncateContent(content: string): string {
+  if (content.length <= MAX_LOG_LENGTH) return content;
+  return content.substring(0, MAX_LOG_LENGTH) + `... [truncated, total: ${content.length} chars]`;
+}
+```
+
+---
+
 ## 代码风格
 
 ### 导入顺序

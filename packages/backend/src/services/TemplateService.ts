@@ -1,4 +1,5 @@
 import { TemplateRepository, getTemplateRepository } from '../models/TemplateRepository';
+import { gameLog } from './GameLogService';
 import type { StoryTemplate } from '@ai-rpg/shared';
 
 /**
@@ -1365,7 +1366,7 @@ export class TemplateService {
         // 创建内置模板（需要直接插入数据库，设置 is_builtin = 1）
         this.createBuiltInTemplate(preset);
       } catch (error) {
-        console.error(`初始化预设模板失败: ${preset.name}`, error);
+        gameLog.error('backend', `初始化预设模板失败: ${preset.name}`, { error });
       }
     }
   }

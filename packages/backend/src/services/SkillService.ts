@@ -23,6 +23,7 @@ import {
   getSkillTemplateRepository,
   getSkillCooldownRepository,
 } from '../models/SkillRepository';
+import { gameLog } from './GameLogService';
 
 // ==================== 服务接口 ====================
 
@@ -90,7 +91,7 @@ export class SkillService {
     getSkillCooldownRepository();
 
     this.initialized = true;
-    console.log('[SkillService] Initialized');
+    gameLog.info('system', 'SkillService initialized');
   }
 
   // ==================== 技能管理 ====================
@@ -134,7 +135,7 @@ export class SkillService {
         message: `技能 ${skill.name} 创建成功`,
       };
     } catch (error) {
-      console.error('[SkillService] Error creating skill:', error);
+      gameLog.error('system', 'Error creating skill', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '创建技能失败',
@@ -177,7 +178,7 @@ export class SkillService {
         message: `从模板创建技能 ${skill.name} 成功`,
       };
     } catch (error) {
-      console.error('[SkillService] Error creating skill from template:', error);
+      gameLog.error('system', 'Error creating skill from template', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '从模板创建技能失败',
@@ -205,7 +206,7 @@ export class SkillService {
         data: repo.toSkill(entity),
       };
     } catch (error) {
-      console.error('[SkillService] Error getting skill:', error);
+      gameLog.error('system', 'Error getting skill', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取技能失败',
@@ -230,7 +231,7 @@ export class SkillService {
         },
       };
     } catch (error) {
-      console.error('[SkillService] Error getting character skills:', error);
+      gameLog.error('system', 'Error getting character skills', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取角色技能失败',
@@ -260,7 +261,7 @@ export class SkillService {
         },
       };
     } catch (error) {
-      console.error('[SkillService] Error getting skills by category:', error);
+      gameLog.error('system', 'Error getting skills by category', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取分类技能失败',
@@ -293,7 +294,7 @@ export class SkillService {
         message: `技能 ${skillId} 已删除`,
       };
     } catch (error) {
-      console.error('[SkillService] Error deleting skill:', error);
+      gameLog.error('system', 'Error deleting skill', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '删除技能失败',
@@ -346,7 +347,7 @@ export class SkillService {
         message: `成功学习技能`,
       };
     } catch (error) {
-      console.error('[SkillService] Error learning skill:', error);
+      gameLog.error('system', 'Error learning skill', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '学习技能失败',
@@ -396,7 +397,7 @@ export class SkillService {
         message: `技能升级到 ${skill.level + 1} 级`,
       };
     } catch (error) {
-      console.error('[SkillService] Error upgrading skill:', error);
+      gameLog.error('system', 'Error upgrading skill', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '升级技能失败',
@@ -468,7 +469,7 @@ export class SkillService {
         data: result,
       };
     } catch (error) {
-      console.error('[SkillService] Error using skill:', error);
+      gameLog.error('system', 'Error using skill', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '使用技能失败',
@@ -522,7 +523,7 @@ export class SkillService {
         },
       };
     } catch (error) {
-      console.error('[SkillService] Error checking skill availability:', error);
+      gameLog.error('system', 'Error checking skill availability', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '检查技能可用性失败',
@@ -551,7 +552,7 @@ export class SkillService {
         },
       };
     } catch (error) {
-      console.error('[SkillService] Error getting cooldowns:', error);
+      gameLog.error('system', 'Error getting cooldowns', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取冷却失败',
@@ -581,7 +582,7 @@ export class SkillService {
         message: '冷却已减少',
       };
     } catch (error) {
-      console.error('[SkillService] Error reducing cooldown:', error);
+      gameLog.error('system', 'Error reducing cooldown', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '减少冷却失败',
@@ -610,7 +611,7 @@ export class SkillService {
         message: '冷却已重置',
       };
     } catch (error) {
-      console.error('[SkillService] Error resetting cooldown:', error);
+      gameLog.error('system', 'Error resetting cooldown', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '重置冷却失败',
@@ -662,7 +663,7 @@ export class SkillService {
         message: `模板 ${template.name} 创建成功`,
       };
     } catch (error) {
-      console.error('[SkillService] Error creating template:', error);
+      gameLog.error('system', 'Error creating template', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '创建模板失败',
@@ -690,7 +691,7 @@ export class SkillService {
         data: templateRepo.toTemplate(entity),
       };
     } catch (error) {
-      console.error('[SkillService] Error getting template:', error);
+      gameLog.error('system', 'Error getting template', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取模板失败',
@@ -712,7 +713,7 @@ export class SkillService {
         data: templates,
       };
     } catch (error) {
-      console.error('[SkillService] Error getting templates:', error);
+      gameLog.error('system', 'Error getting templates', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取模板列表失败',
@@ -778,7 +779,7 @@ export class SkillService {
         data: stats,
       };
     } catch (error) {
-      console.error('[SkillService] Error getting statistics:', error);
+      gameLog.error('system', 'Error getting statistics', { error });
       return {
         success: false,
         error: error instanceof Error ? error.message : '获取统计失败',

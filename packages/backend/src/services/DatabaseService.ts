@@ -1,6 +1,7 @@
 import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
+import { gameLog } from './GameLogService';
 
 export interface DatabaseConfig {
   dbPath: string;
@@ -71,10 +72,10 @@ export class DatabaseService {
       this.db.run('PRAGMA journal_mode = WAL');
       this.db.run('PRAGMA foreign_keys = ON');
 
-      console.log(`Database connected: ${fullPath}`);
+      gameLog.info('system', `Database connected: ${fullPath}`);
       return this.db;
     } catch (error) {
-      console.error('Failed to connect to database:', error);
+      gameLog.error('system', 'Failed to connect to database', { error });
       throw error;
     }
   }
@@ -100,7 +101,7 @@ export class DatabaseService {
       this.save();
       this.db.close();
       this.db = null;
-      console.log('Database connection closed');
+      gameLog.info('system', 'Database connection closed');
     }
   }
 

@@ -1,4 +1,5 @@
 import type { LLMService } from './llm/LLMService';
+import { gameLog } from './GameLogService';
 import type {
   NPCDefinition,
   ItemDefinition,
@@ -39,7 +40,7 @@ export class AIGenerateService {
 
       return this.parseNPCResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate NPC:', error);
+      gameLog.error('llm', 'Failed to generate NPC', { error });
       return null;
     }
   }
@@ -59,7 +60,7 @@ export class AIGenerateService {
 
       return this.parseItemResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate item:', error);
+      gameLog.error('llm', 'Failed to generate item', { error });
       return null;
     }
   }
@@ -79,7 +80,7 @@ export class AIGenerateService {
 
       return this.parseQuestResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate quest:', error);
+      gameLog.error('llm', 'Failed to generate quest', { error });
       return null;
     }
   }
@@ -99,7 +100,7 @@ export class AIGenerateService {
 
       return this.parseSceneResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate scene:', error);
+      gameLog.error('llm', 'Failed to generate scene', { error });
       return null;
     }
   }
@@ -119,7 +120,7 @@ export class AIGenerateService {
 
       return this.parseRaceResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate race:', error);
+      gameLog.error('llm', 'Failed to generate race', { error });
       return null;
     }
   }
@@ -139,7 +140,7 @@ export class AIGenerateService {
 
       return this.parseRacesResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate races:', error);
+      gameLog.error('llm', 'Failed to generate races', { error });
       return [];
     }
   }
@@ -159,7 +160,7 @@ export class AIGenerateService {
 
       return this.parseClassResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate class:', error);
+      gameLog.error('llm', 'Failed to generate class', { error });
       return null;
     }
   }
@@ -179,7 +180,7 @@ export class AIGenerateService {
 
       return this.parseClassesResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate classes:', error);
+      gameLog.error('llm', 'Failed to generate classes', { error });
       return [];
     }
   }
@@ -199,7 +200,7 @@ export class AIGenerateService {
 
       return this.parseBackgroundResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate background:', error);
+      gameLog.error('llm', 'Failed to generate background', { error });
       return null;
     }
   }
@@ -219,7 +220,7 @@ export class AIGenerateService {
 
       return this.parseBackgroundsResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate backgrounds:', error);
+      gameLog.error('llm', 'Failed to generate backgrounds', { error });
       return [];
     }
   }
@@ -239,7 +240,7 @@ export class AIGenerateService {
 
       return this.parseWorldSettingResponse(response.content);
     } catch (error) {
-      console.error('[AIGenerateService] Failed to generate world setting:', error);
+      gameLog.error('llm', 'Failed to generate world setting', { error });
       return null;
     }
   }
@@ -662,7 +663,7 @@ ${extraContext}
         services: parsed.services,
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse NPC response:', error);
+      gameLog.error('llm', 'Failed to parse NPC response', { error });
       return null;
     }
   }
@@ -685,7 +686,7 @@ ${extraContext}
         quantity: parsed.quantity || 1,
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse item response:', error);
+      gameLog.error('llm', 'Failed to parse item response', { error });
       return null;
     }
   }
@@ -713,7 +714,7 @@ ${extraContext}
         timeLimit: parsed.timeLimit,
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse quest response:', error);
+      gameLog.error('llm', 'Failed to parse quest response', { error });
       return null;
     }
   }
@@ -767,7 +768,7 @@ ${extraContext}
         })),
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse scene response:', error);
+      gameLog.error('llm', 'Failed to parse scene response', { error });
       return null;
     }
   }
@@ -788,7 +789,7 @@ ${extraContext}
         availableClasses: parsed.availableClasses || [],
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse race response:', error);
+      gameLog.error('llm', 'Failed to parse race response', { error });
       return null;
     }
   }
@@ -809,7 +810,7 @@ ${extraContext}
         startingEquipment: parsed.startingEquipment || [],
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse class response:', error);
+      gameLog.error('llm', 'Failed to parse class response', { error });
       return null;
     }
   }
@@ -830,7 +831,7 @@ ${extraContext}
         feature: this.normalizeFeature(parsed.feature),
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse background response:', error);
+      gameLog.error('llm', 'Failed to parse background response', { error });
       return null;
     }
   }
@@ -856,7 +857,7 @@ ${extraContext}
         availableClasses: item.availableClasses || [],
       }));
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse races response:', error);
+      gameLog.error('llm', 'Failed to parse races response', { error });
       return [];
     }
   }
@@ -882,7 +883,7 @@ ${extraContext}
         startingEquipment: item.startingEquipment || [],
       }));
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse classes response:', error);
+      gameLog.error('llm', 'Failed to parse classes response', { error });
       return [];
     }
   }
@@ -908,7 +909,7 @@ ${extraContext}
         feature: this.normalizeFeature(item.feature),
       }));
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse backgrounds response:', error);
+      gameLog.error('llm', 'Failed to parse backgrounds response', { error });
       return [];
     }
   }
@@ -937,7 +938,7 @@ ${extraContext}
         customFields: parsed.customFields || {},
       };
     } catch (error) {
-      console.error('[AIGenerateService] Failed to parse world setting response:', error);
+      gameLog.error('llm', 'Failed to parse world setting response', { error });
       return null;
     }
   }

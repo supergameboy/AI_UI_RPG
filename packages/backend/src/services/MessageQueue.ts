@@ -4,6 +4,7 @@ import type {
   MessagePriority,
   AgentLog,
 } from '@ai-rpg/shared';
+import { gameLog } from './GameLogService';
 
 const PRIORITY_ORDER: Record<MessagePriority, number> = {
   critical: 4,
@@ -234,12 +235,12 @@ export class MessageRouter {
     handler: (message: AgentMessage) => Promise<AgentMessage>
   ): void {
     this.handlers.set(agentType, handler);
-    console.log(`[MessageRouter] Registered handler for: ${agentType}`);
+    gameLog.info('agent', `Registered handler for: ${agentType}`);
   }
 
   unregisterHandler(agentType: AgentType): void {
     this.handlers.delete(agentType);
-    console.log(`[MessageRouter] Unregistered handler for: ${agentType}`);
+    gameLog.info('agent', `Unregistered handler for: ${agentType}`);
   }
 
   async route(message: AgentMessage): Promise<AgentMessage> {
@@ -250,7 +251,7 @@ export class MessageRouter {
       const handler = this.handlers.get(target);
       
       if (!handler) {
-        console.warn(`[MessageRouter] No handler registered for: ${target}`);
+        gameLog.warn('agent', `No handler registered for: ${target}`);
         continue;
       }
 
@@ -259,7 +260,7 @@ export class MessageRouter {
         const response = await handler(message);
         results.push(response);
       } catch (error) {
-        console.error(`[MessageRouter] Error routing to ${target}:`, error);
+        gameLog.error('agent', `Error routing to ${target}`, { error });
         throw error;
       } finally {
         this.queue.setProcessing(target, false);
