@@ -401,6 +401,74 @@
 
 ## Phase 5: 集成与测试
 
+### 批次 5.0：提示词工程
+
+- [ ] Task 5.0.1: 创建提示词模块系统
+  - [ ] SubTask 5.0.1.1: 创建 `packages/backend/src/prompts/modules/` 目录
+  - [ ] SubTask 5.0.1.2: 创建角色定义模块模板
+  - [ ] SubTask 5.0.1.3: 创建 Tool Schema 模块模板
+  - [ ] SubTask 5.0.1.4: 创建上下文模板模块
+  - [ ] SubTask 5.0.1.5: 创建输出格式模块模板
+
+- [ ] Task 5.0.2: 创建 Tool Schema 生成器
+  - [ ] SubTask 5.0.2.1: 创建 `packages/backend/src/services/ToolSchemaGenerator.ts`
+  - [ ] SubTask 5.0.2.2: 实现 OpenAI 风格 Schema 生成
+  - [ ] SubTask 5.0.2.3: 实现 Tool 方法元数据提取
+  - [ ] SubTask 5.0.2.4: 实现 Schema 缓存机制
+  - [ ] SubTask 5.0.2.5: 实现 Schema 按需获取 API
+
+- [ ] Task 5.0.3: 创建上下文注入服务
+  - [ ] SubTask 5.0.3.1: 创建 `packages/backend/src/services/ContextInjectionService.ts`
+  - [ ] SubTask 5.0.3.2: 实现核心上下文构建
+  - [ ] SubTask 5.0.3.3: 实现分层注入逻辑
+  - [ ] SubTask 5.0.3.4: 实现上下文请求 Tool
+  - [ ] SubTask 5.0.3.5: 实现历史记录截断（可配置条数）
+
+- [ ] Task 5.0.4: 创建 Agent 输出解析器
+  - [ ] SubTask 5.0.4.1: 创建 `packages/backend/src/services/AgentOutputParser.ts`
+  - [ ] SubTask 5.0.4.2: 实现 `<thinking>` 标记解析
+  - [ ] SubTask 5.0.4.3: 实现 JSON 自动识别和解析
+  - [ ] SubTask 5.0.4.4: 实现 Tool 调用提取
+  - [ ] SubTask 5.0.4.5: 实现解析错误处理
+
+- [ ] Task 5.0.5: 创建 Tool 调用执行器
+  - [ ] SubTask 5.0.5.1: 创建 `packages/backend/src/services/ToolCallExecutor.ts`
+  - [ ] SubTask 5.0.5.2: 实现单次调用执行
+  - [ ] SubTask 5.0.5.3: 实现批量并行调用执行
+  - [ ] SubTask 5.0.5.4: 实现自动重试机制（可配置次数）
+  - [ ] SubTask 5.0.5.5: 实现指数退避延迟
+  - [ ] SubTask 5.0.5.6: 实现调用结果注入上下文
+
+- [ ] Task 5.0.6: 创建写操作审核服务
+  - [ ] SubTask 5.0.6.1: 创建 `packages/backend/src/services/WriteOperationReviewService.ts`
+  - [ ] SubTask 5.0.6.2: 实现规则验证检查
+  - [ ] SubTask 5.0.6.3: 实现权限检查
+  - [ ] SubTask 5.0.6.4: 实现冲突检测
+  - [ ] SubTask 5.0.6.5: 实现审核日志记录
+  - [ ] SubTask 5.0.6.6: 实现审核结果返回格式
+
+- [ ] Task 5.0.7: 创建 Tool 调用示例文件
+  - [ ] SubTask 5.0.7.1: 创建 `packages/backend/src/prompts/examples/` 目录结构
+  - [ ] SubTask 5.0.7.2: 创建 combat/ 示例文件
+  - [ ] SubTask 5.0.7.3: 创建 dialogue/ 示例文件
+  - [ ] SubTask 5.0.7.4: 创建 inventory/ 示例文件
+  - [ ] SubTask 5.0.7.5: 创建 common/ 示例文件（单次/批量调用）
+
+- [ ] Task 5.0.8: 更新 PromptService
+  - [ ] SubTask 5.0.8.1: 添加模块组合功能
+  - [ ] SubTask 5.0.8.2: 添加 Tool Schema 注入
+  - [ ] SubTask 5.0.8.3: 添加示例注入
+  - [ ] SubTask 5.0.8.4: 添加决策日志配置选项
+  - [ ] SubTask 5.0.8.5: 更新现有模板为新格式
+
+- [ ] Task 5.0.9: 更新 Agent 提示词模板
+  - [ ] SubTask 5.0.9.1: 更新 coordinator.md
+  - [ ] SubTask 5.0.9.2: 更新 dialogue.md
+  - [ ] SubTask 5.0.9.3: 更新 combat.md
+  - [ ] SubTask 5.0.9.4: 更新其他 Agent 模板
+  - [ ] SubTask 5.0.9.5: 添加 `{{tool_list}}` 变量
+  - [ ] SubTask 5.0.9.6: 添加 `{{tool_examples}}` 变量
+
 ### 批次 5.1：后端 API 更新
 
 - [ ] Task 5.1: 更新 Agent 相关 API
@@ -595,7 +663,16 @@
 - [Task 4.11] depends on [Task 3.1, Task 3.2, All Phase 2 Tasks]
 
 ## Phase 5 依赖
-- [Task 5.1] depends on [Task 3.2, Task 4.11]
+- [Task 5.0.1] depends on [Task 1.1]
+- [Task 5.0.2] depends on [Task 1.2, Task 1.3]
+- [Task 5.0.3] depends on [Task 1.6, Task 1.7]
+- [Task 5.0.4] depends on [Task 1.1]
+- [Task 5.0.5] depends on [Task 1.2, Task 1.3, Task 5.0.4]
+- [Task 5.0.6] depends on [Task 1.6, Task 1.7, Task 1.8]
+- [Task 5.0.7] depends on [Task 5.0.2]
+- [Task 5.0.8] depends on [Task 5.0.1, Task 5.0.2, Task 5.0.3, Task 5.0.7]
+- [Task 5.0.9] depends on [Task 5.0.8]
+- [Task 5.1] depends on [Task 3.2, Task 4.11, Task 5.0.9]
 - [Task 5.2] depends on [Task 5.1]
 - [Task 5.3] depends on [All Phase 2 Tasks]
 - [Task 5.4] depends on [All Phase 4 Tasks]

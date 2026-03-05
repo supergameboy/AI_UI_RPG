@@ -910,3 +910,493 @@ const agentBindings: AgentBinding[] = [
 | 性能下降 | 中 | Binding 路由使用缓存 |
 | 学习成本 | 中 | 完善文档和示例 |
 | AI 生成内容不可控 | 中 | 添加验证层，过滤不合理内容 |
+
+---
+
+## 提示词工程设计
+
+### 设计决策总结
+
+| 决策点 | 选择 | 说明 |
+|--------|------|------|
+| Tool 调用格式 | 结构化 JSON Schema | OpenAI 风格，定义统一的 ToolCall 格式 |
+| 上下文注入 | 分层注入 | 默认核心上下文 + 按需请求额外上下文 |
+| 决策日志集成 | 可配置 | 设置中提供三种选项，默认仅日志记录 |
+| 提示词模板组织 | 模块化组合 | 公共部分统一管理，个性化部分独立设计 |
+| 多 Tool 调用 | 混合模式 | 支持单次和批量两种模式 |
+| 写操作处理 | Coordinator 审核 | 规则验证 + 权限检查 + 冲突检测 + 日志记录 |
+| 错误处理 | 自动重试 | 可配置重试次数 |
+| 输出结构 | 思考+JSON | `<thinking>` 标记包裹思考过程，纯 JSON 输出 |
+| Tool 列表展示 | 简化列表 | 只列出 Tool 名称和简短描述 |
+| 调用示例 | 独立文件 | 示例存储在单独文件中，按需注入 |
+
+### Requirement: Prompt Template Architecture
+
+提示词模板应采用模块化组合设计。
+
+#### Scenario: Template Modules
+- **GIVEN** 一个 Agent 的提示词模板
+- **WHEN** 构建提示词
+- **THEN** 模板包含以下模块：
+  - **角色定义模块**：角色定义、职责、能力范围等基础信息
+  - **Tool Schema 模块**：Tool 调用的 JSON Schema 定义和示例
+  - **上下文模板模块**：上下文变量的定义和使用说明
+  - **输出格式模块**：输出格式、JSON 结构、示例等
+
+#### Scenario: Module Composition
+- **WHEN** 组装提示词
+- **THEN** 公共模块（如 Tool Schema 格式说明）统一管理
+- **AND** 个性化模块（如角色定义）独立设计
+- **AND** 通过变量注入机制组合模块
+
+### Requirement: Tool Call Schema
+
+Tool 调用应采用 OpenAI 风格的 JSON Schema。
+
+#### Scenario: Tool Definition Format
+- **GIVEN** 一个 Tool 方法
+- **WHEN** 定义 Tool Schema
+- **THEN** Schema 包含以下字段：
+```json
+{
+  "name": "toolType.methodName",
+  "description": "方法描述",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "param1": { "type": "string", "description": "参数描述" }
+    },
+    "required": ["param1"]
+  }
+}
+```
+
+#### Scenario: Tool Call Format
+- **WHEN** Agent 调用 Tool
+- **THEN** 输出格式为：
+```json
+{
+  "tool_calls": [
+    {
+      "id": "call_xxx",
+      "type": "function",
+      "function": {
+        "name": "inventory_data.getItem",
+        "arguments": "{\"itemId\": \"sword_001\"}"
+      }
+    }
+  ]
+}
+```
+
+#### Scenario: Tool Response Format
+- **WHEN** Tool 返回结果
+- **THEN** 系统注入格式为：
+```json
+{
+  "tool_call_id": "call_xxx",
+  "role": "tool",
+  "content": "{\"success\": true, \"data\": {...}}"
+}
+```
+
+### Requirement: Context Injection System
+
+上下文应采用分层注入机制。
+
+#### Scenario: Core Context
+- **GIVEN** Agent 开始处理请求
+- **WHEN** 构建提示词
+- **THEN** 默认注入核心上下文：
+  - **玩家核心信息**：名称、职业、等级、位置、状态
+  - **场景信息**：当前位置、可移动区域、附近 NPC
+  - **最近历史**：最近 N 条对话或事件记录（可配置，默认 10 条）
+
+#### Scenario: Context Request via Tool
+- **WHEN** Agent 需要额外上下文
+- **THEN** Agent 通过 Tool 调用获取：
+  - `getContext.fullInventory` - 获取完整背包
+  - `getContext.questDetails` - 获取任务详情
+  - `getContext.npcDetails` - 获取 NPC 详情
+  - `getContext.combatState` - 获取战斗状态
+
+#### Scenario: Context Variable Format
+- **WHEN** 注入上下文变量
+- **THEN** 使用以下格式：
+```
+## 当前上下文
+
+### 玩家信息
+- 名称: {{player_name}}
+- 职业: {{player_class}}
+- 等级: {{player_level}}
+- 当前位置: {{current_location}}
+
+### 场景信息
+- 当前区域: {{current_area}}
+- 可移动区域: {{available_areas}}
+- 附近NPC: {{nearby_npcs}}
+
+### 最近历史
+{{recent_history}}
+```
+
+### Requirement: Agent Output Format
+
+Agent 输出应采用思考+JSON 的结构。
+
+#### Scenario: Output Structure
+- **WHEN** Agent 输出响应
+- **THEN** 输出结构为：
+```
+<thinking>
+这里是 Agent 的思考过程，分析当前情况，考虑可选方案，做出决策...
+</thinking>
+
+{
+  "response": "对玩家的响应文本",
+  "tool_calls": [...],
+  "context_updates": {...}
+}
+```
+
+#### Scenario: Thinking Tag
+- **GIVEN** Agent 输出思考过程
+- **WHEN** 解析输出
+- **THEN** 使用 `<thinking>...</thinking>` 标记包裹
+- **AND** 思考内容不显示给玩家
+- **AND** 思考内容记录到决策日志
+
+#### Scenario: JSON Parsing
+- **GIVEN** Agent 输出 JSON
+- **WHEN** 解析输出
+- **THEN** 系统自动识别 JSON 块（以 `{` 开始，以 `}` 结束）
+- **AND** 无需额外标记包裹
+- **AND** 支持多行 JSON
+
+### Requirement: Tool List Display
+
+提示词中应展示简化的 Tool 列表。
+
+#### Scenario: Simplified Tool List
+- **WHEN** 构建提示词
+- **THEN** Tool 列表格式为：
+```
+## 可用工具
+
+### 数据查询工具
+- `numerical.calculateDamage` - 计算伤害值
+- `inventory_data.getItem` - 获取物品信息
+- `map_data.getLocation` - 获取位置信息
+
+### 数据修改工具（需要 Coordinator 审核）
+- `inventory_data.createItem` - 创建新物品
+- `quest_data.updateProgress` - 更新任务进度
+
+详细参数说明请参考 Tool Schema 文档。
+```
+
+#### Scenario: Tool Schema On Demand
+- **WHEN** Agent 需要详细 Tool Schema
+- **THEN** 通过 `getContext.toolSchema` 获取
+- **AND** 返回完整的 JSON Schema 定义
+
+### Requirement: Tool Call Examples
+
+Tool 调用示例应存储在独立文件中。
+
+#### Scenario: Example File Structure
+- **GIVEN** Tool 调用示例
+- **WHEN** 组织示例文件
+- **THEN** 文件结构为：
+```
+packages/backend/src/prompts/examples/
+├── combat/
+│   ├── attack.json          # 攻击示例
+│   ├── defend.json          # 防御示例
+│   └── skill.json           # 技能使用示例
+├── dialogue/
+│   ├── normal.json          # 普通对话示例
+│   ├── quest.json           # 任务对话示例
+│   └── trade.json           # 交易对话示例
+├── inventory/
+│   ├── use_item.json        # 使用物品示例
+│   └── equip.json           # 装备物品示例
+└── common/
+    ├── single_call.json     # 单次调用示例
+    └── batch_call.json      # 批量调用示例
+```
+
+#### Scenario: Example Injection
+- **WHEN** 构建提示词
+- **THEN** 根据 Agent 类型选择相关示例
+- **AND** 通过变量 `{{tool_examples}}` 注入
+- **AND** 示例数量可配置（默认 2-3 个）
+
+### Requirement: Write Operation Review
+
+Tool 写操作应通过 Coordinator 审核。
+
+#### Scenario: Review Process
+- **WHEN** Agent 请求写操作
+- **THEN** CoordinatorAgent 执行以下检查：
+  1. **规则验证**：检查写操作是否符合游戏规则和逻辑
+  2. **权限检查**：检查 Agent 是否有权限执行该写操作
+  3. **冲突检测**：检查写操作是否与当前游戏状态冲突
+  4. **日志记录**：记录写操作的详细信息用于回滚和审计
+
+#### Scenario: Review Result
+- **WHEN** 审核完成
+- **THEN** 返回审核结果：
+```json
+{
+  "approved": true/false,
+  "reason": "审核原因",
+  "modifications": {...}  // 可选的修改建议
+}
+```
+
+### Requirement: Error Handling and Retry
+
+Tool 调用失败应自动重试。
+
+#### Scenario: Retry Configuration
+- **GIVEN** Tool 调用配置
+- **WHEN** 配置重试策略
+- **THEN** 支持以下配置项：
+  - `maxRetries`: 最大重试次数（默认 3）
+  - `retryDelay`: 重试延迟（默认 1000ms）
+  - `exponentialBackoff`: 是否指数退避（默认 true）
+
+#### Scenario: Retry Process
+- **WHEN** Tool 调用失败
+- **THEN** 系统自动重试
+- **AND** 将错误信息注入上下文
+- **AND** Agent 可根据错误调整策略
+
+#### Scenario: Retry Exhausted
+- **WHEN** 重试次数耗尽
+- **THEN** 返回错误给 CoordinatorAgent
+- **AND** 记录详细错误日志
+- **AND** 可选择降级处理或返回错误给玩家
+
+### Requirement: Decision Logging Integration
+
+决策日志应与提示词集成，提供可配置选项。
+
+#### Scenario: Logging Options
+- **GIVEN** 决策日志配置
+- **WHEN** 配置日志级别
+- **THEN** 提供以下选项：
+  - **仅日志记录**（默认）：系统自动记录上下文和调用链
+  - **可选解释**：关键决策要求 Agent 解释决策理由
+  - **强制解释**：Agent 必须在输出中解释决策理由
+
+#### Scenario: Logging Format
+- **WHEN** 记录决策日志
+- **THEN** 包含以下信息：
+  - Agent ID 和类型
+  - 输入上下文快照
+  - 思考过程（如有）
+  - Tool 调用记录
+  - 输出结果
+  - 上下文变更
+
+### 提示词模板示例
+
+#### CoordinatorAgent 模板
+
+```markdown
+# 角色定义
+
+你是AI-RPG游戏的核心统筹智能体，负责协调所有其他智能体的工作。
+
+# 核心职责
+
+1. 意图分析：准确理解玩家输入的真实意图
+2. 任务分配：将复杂任务拆分并分配给合适的智能体
+3. 冲突解决：检测并解决智能体输出之间的逻辑冲突
+4. 结果整合：将多个智能体的输出合并为连贯的响应
+5. 写操作审核：审核其他 Agent 的写操作请求
+
+# 可用工具
+
+{{tool_list}}
+
+# 审核规则
+
+当收到写操作审核请求时，检查：
+1. 规则验证：操作是否符合游戏规则
+2. 权限检查：Agent 是否有执行权限
+3. 冲突检测：是否与当前状态冲突
+4. 日志记录：记录审核详情
+
+# 当前上下文
+
+## 玩家信息
+- 名称: {{player_name}}
+- 职业: {{player_class}}
+- 等级: {{player_level}}
+- 当前位置: {{current_location}}
+
+## 场景信息
+- 当前区域: {{current_area}}
+- 可移动区域: {{available_areas}}
+- 附近NPC: {{nearby_npcs}}
+
+## 最近历史
+{{recent_history}}
+
+# 输出格式
+
+<thinking>
+分析玩家意图，考虑可选方案，做出决策...
+</thinking>
+
+{
+  "intent": "识别的意图",
+  "agents_to_call": ["智能体列表"],
+  "tool_calls": [...],  // 可选的 Tool 调用
+  "response": "对玩家的响应",
+  "priority": "优先级"
+}
+```
+
+#### DialogueAgent 模板
+
+```markdown
+# 角色定义
+
+你是对话管理智能体，负责生成自然流畅的NPC对话。
+
+# 核心职责
+
+1. 对话生成：根据NPC性格、关系、情境生成对话内容
+2. 对话选项生成：提供有意义的玩家选择
+3. 情绪表达：在对话中体现NPC的情绪变化
+
+# 可用工具
+
+{{tool_list}}
+
+# NPC性格要素
+
+- personality: 性格特点
+- dialogue_style: 对话风格
+- traits: 特殊特质列表
+- mood: 当前心情
+
+# 好感度影响
+
+- -100 ~ -50: 敌对
+- -50 ~ 0: 冷淡
+- 0 ~ 30: 中立
+- 30 ~ 60: 友好
+- 60 ~ 80: 亲密
+- 80 ~ 100: 恋爱
+
+# 当前上下文
+
+## 玩家信息
+- 名称: {{player_name}}
+- 当前位置: {{current_location}}
+
+## 对话对象
+{{dialogue_target}}
+
+## 最近对话历史
+{{recent_history}}
+
+# 输出格式
+
+<thinking>
+分析对话情境，考虑NPC性格和关系，设计对话内容...
+</thinking>
+
+{
+  "content": "对话内容",
+  "emotion": "情绪状态",
+  "options": [
+    {"text": "选项文本", "type": "选项类型"}
+  ]
+}
+```
+
+### Tool Schema 示例
+
+```json
+{
+  "tools": [
+    {
+      "name": "inventory_data.getItem",
+      "description": "获取物品详细信息",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "物品ID"
+          }
+        },
+        "required": ["itemId"]
+      }
+    },
+    {
+      "name": "inventory_data.createItem",
+      "description": "创建新物品（需要 Coordinator 审核）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "description": "物品名称"},
+          "type": {"type": "string", "description": "物品类型"},
+          "rarity": {"type": "string", "description": "稀有度"},
+          "attributes": {"type": "object", "description": "物品属性"}
+        },
+        "required": ["name", "type"]
+      }
+    }
+  ]
+}
+```
+
+### Tool 调用示例
+
+#### 单次调用示例
+```json
+{
+  "tool_calls": [
+    {
+      "id": "call_001",
+      "type": "function",
+      "function": {
+        "name": "inventory_data.getItem",
+        "arguments": "{\"itemId\": \"sword_001\"}"
+      }
+    }
+  ]
+}
+```
+
+#### 批量调用示例
+```json
+{
+  "tool_calls": [
+    {
+      "id": "call_001",
+      "type": "function",
+      "function": {
+        "name": "numerical.calculateDamage",
+        "arguments": "{\"attackerId\": \"player\", \"defenderId\": \"goblin_001\"}"
+      }
+    },
+    {
+      "id": "call_002",
+      "type": "function",
+      "function": {
+        "name": "combat_data.getCombatState",
+        "arguments": "{}"
+      }
+    }
+  ]
+}
+```
