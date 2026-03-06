@@ -913,6 +913,659 @@ const agentBindings: AgentBinding[] = [
 
 ---
 
+## EventService 事件服务设计
+
+### 设计决策
+
+| 决策点 | 选择 | 说明 |
+|--------|------|------|
+| 存储策略 | 内存 + 数据库 | 活跃事件在内存中，历史触发记录存数据库 |
+| 存读档支持 | 完整支持 | 存档时持久化事件状态，读档时恢复 |
+| 事件类型 | 四种全支持 | 随机事件、剧情事件、地点事件、条件事件 |
+
+### Requirement: EventService Architecture
+
+事件服务应管理游戏中所有动态事件的触发、执行和记录。
+
+#### Scenario: Event Storage
+- **GIVEN** 一个游戏事件
+- **WHEN** 事件被创建
+- **THEN** 活跃事件存储在内存中
+- **AND** 事件定义和历史触发记录持久化到数据库
+- **AND** 支持跨会话恢复
+
+#### Scenario: Event Types
+- **GIVEN** 不同类型的事件
+- **WHEN** 系统处理事件
+- **THEN** 支持以下事件类型：
+  - **随机事件**：基于概率随机触发（如遭遇战、宝箱）
+  - **剧情事件**：与主线/支线剧情相关的关键事件
+  - **地点事件**：进入特定地点时触发
+  - **条件事件**：满足特定条件组合时触发
+
+#### Scenario: Event Lifecycle
+- **WHEN** 事件被触发
+- **THEN** 执行以下流程：
+  1. 检查触发条件是否满足
+  2. 记录触发时间和上下文
+  3. 执行事件效果
+  4. 更新事件链状态（如有）
+  5. 持久化触发记录
+
+#### Scenario: Save/Load Support
+- **WHEN** 玩家存档
+- **THEN** 序列化当前活跃事件状态
+- **AND** 保存到存档数据中
+- **WHEN** 玩家读档
+- **THEN** 恢复活跃事件状态
+- **AND** 重新注册事件监听器
+
+### EventService 数据结构
+
+```typescript
+interface GameEvent {
+  id: string;
+  saveId: string;
+  
+  // 事件类型
+  type: 'random' | 'story' | 'location' | 'condition';
+  
+  // 事件信息
+  name: string;
+  description: string;
+  
+  // 触发条件
+  trigger: {
+    probability?: number;           // 随机事件概率
+    locationId?: string;            // 地点事件触发地点
+    conditions?: EventCondition[];  // 条件事件的触发条件
+    storyFlag?: string;             // 剧情事件的前置标记
+  };
+  
+  // 事件效果
+  effects: EventEffect[];
+  
+  // 事件链
+  chain?: {
+    nextEventId: string;
+    triggerDelay?: number;
+  };
+  
+  // 元数据
+  metadata: {
+    priority: number;
+    repeatable: boolean;
+    cooldown?: number;
+    maxTriggers?: number;
+  };
+  
+  // 状态
+  status: {
+    triggerCount: number;
+    lastTriggered?: number;
+    isActive: boolean;
+  };
+}
+
+interface EventTriggerRecord {
+  id: string;
+  eventId: string;
+  characterId: string;
+  timestamp: number;
+  context: {
+    location: string;
+    previousEvents: string[];
+    playerChoices: string[];
+  };
+  result: {
+    success: boolean;
+    effects: string[];
+  };
+}
+
+interface EventCondition {
+  type: 'attribute' | 'item' | 'quest' | 'flag' | 'location' | 'time' | 'custom';
+  target: string;
+  operator: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'has' | 'not_has';
+  value: unknown;
+}
+
+interface EventEffect {
+  type: 'dialogue' | 'combat' | 'item' | 'quest' | 'teleport' | 'flag' | 'stat' | 'custom';
+  action: string;
+  params: Record<string, unknown>;
+}
+```
+
+### EventService 接口定义
+
+```typescript
+interface EventService {
+  // 事件 CRUD
+  createEvent(data: CreateEventData): Promise<GameEvent>;
+  getEvent(eventId: string): Promise<GameEvent | null>;
+  listEvents(saveId: string, filters?: EventFilters): Promise<GameEvent[]>;
+  updateEvent(eventId: string, updates: Partial<GameEvent>): Promise<boolean>;
+  deleteEvent(eventId: string): Promise<boolean>;
+  
+  // 条件检查
+  checkConditions(eventId: string, context: EventContext): Promise<boolean>;
+  checkLocationTriggers(locationId: string): Promise<GameEvent[]>;
+  checkConditionTriggers(context: EventContext): Promise<GameEvent[]>;
+  
+  // 触发管理
+  triggerEvent(eventId: string, context: EventContext): Promise<EventResult>;
+  recordTrigger(eventId: string, characterId: string, result: EventResult): Promise<void>;
+  getTriggerHistory(characterId: string, eventId?: string): Promise<EventTriggerRecord[]>;
+  
+  // 事件链
+  getNextEvent(eventId: string): Promise<GameEvent | null>;
+  getChainProgress(chainId: string, characterId: string): Promise<ChainProgress>;
+  
+  // 存读档支持
+  serializeState(): Promise<EventSerializedState>;
+  deserializeState(state: EventSerializedState): Promise<void>;
+  
+  // 随机事件
+  rollRandomEvent(context: EventContext): Promise<GameEvent | null>;
+}
+
+interface EventFilters {
+  type?: GameEvent['type'];
+  isActive?: boolean;
+  locationId?: string;
+}
+
+interface EventContext {
+  characterId: string;
+  locationId: string;
+  flags: Record<string, boolean>;
+  stats: Record<string, number>;
+  items: string[];
+  quests: string[];
+  timestamp: number;
+}
+
+interface EventResult {
+  success: boolean;
+  effects: EventEffect[];
+  message?: string;
+  nextEventId?: string;
+}
+
+interface EventSerializedState {
+  activeEvents: GameEvent[];
+  triggerHistory: EventTriggerRecord[];
+  pendingChains: ChainProgress[];
+}
+```
+
+---
+
+## StoryService 故事服务设计
+
+### 设计决策
+
+| 决策点 | 选择 | 说明 |
+|--------|------|------|
+| 摘要压缩 | LLM 压缩 | 调用 LLM 生成高质量摘要 |
+| 存读档支持 | 完整支持 | 存档时持久化故事状态，读档时恢复 |
+| 节点组织 | 分支树结构 | 支持分支选择和并行剧情线 |
+
+### Requirement: StoryService Architecture
+
+故事服务应管理剧情节点、玩家选择和故事摘要。
+
+#### Scenario: Story Node Organization
+- **GIVEN** 一个故事节点
+- **WHEN** 创建节点
+- **THEN** 节点支持分支树结构：
+  - 每个节点可以有多个子节点（分支）
+  - 每个分支对应一个玩家选择
+  - 支持并行剧情线
+  - 支持分支收敛（多个分支汇合到同一节点）
+
+#### Scenario: Choice Recording
+- **WHEN** 玩家做出选择
+- **THEN** 记录选择到当前节点
+- **AND** 激活对应的分支节点
+- **AND** 更新故事摘要
+
+#### Scenario: Summary Compression
+- **WHEN** 需要压缩故事上下文
+- **THEN** 调用 LLM 生成摘要
+- **AND** 摘要分为三层：
+  - **短期摘要**：最近 10 轮对话
+  - **中期摘要**：最近 50 轮对话
+  - **长期摘要**：整体故事概要
+- **AND** 保留关键决策和转折点
+
+#### Scenario: Save/Load Support
+- **WHEN** 玩家存档
+- **THEN** 序列化完整故事树状态
+- **AND** 保存所有摘要
+- **AND** 保存当前剧情点位置
+- **WHEN** 玩家读档
+- **THEN** 恢复故事树结构
+- **AND** 恢复所有摘要
+- **AND** 恢复当前剧情点
+
+### StoryService 数据结构
+
+```typescript
+interface StoryNode {
+  id: string;
+  saveId: string;
+  
+  // 节点信息
+  title: string;
+  description: string;
+  type: 'chapter' | 'scene' | 'choice' | 'convergence';
+  
+  // 节点内容
+  content: {
+    narrative: string;
+    dialogues?: DialogueSnippet[];
+    effects?: StoryEffect[];
+  };
+  
+  // 分支选项
+  choices: StoryChoice[];
+  
+  // 父节点（用于回溯）
+  parentId?: string;
+  
+  // 收敛点（多个分支汇合到此节点）
+  convergencePoint?: boolean;
+  convergingBranches?: string[];
+  
+  // 元数据
+  metadata: {
+    chapter: number;
+    importance: 'minor' | 'major' | 'critical';
+    tags: string[];
+    createdAt: number;
+  };
+  
+  // 状态
+  status: {
+    isVisited: boolean;
+    visitedAt?: number;
+    selectedChoice?: string;
+  };
+}
+
+interface StoryChoice {
+  id: string;
+  text: string;
+  
+  // 选择后的效果
+  effects: StoryEffect[];
+  
+  // 分支目标节点
+  targetNodeId?: string;
+  
+  // 选择条件
+  conditions?: StoryCondition[];
+  
+  // 选择标记（用于后续判断）
+  flags?: Record<string, boolean>;
+}
+
+interface StoryEffect {
+  type: 'flag' | 'relationship' | 'quest' | 'item' | 'stat' | 'custom';
+  action: string;
+  params: Record<string, unknown>;
+}
+
+interface StoryCondition {
+  type: 'flag' | 'attribute' | 'item' | 'quest' | 'relationship' | 'custom';
+  target: string;
+  operator: string;
+  value: unknown;
+}
+
+interface StorySummary {
+  id: string;
+  characterId: string;
+  
+  // 三层摘要
+  shortTerm: {
+    content: string;
+    nodeIds: string[];
+    lastUpdated: number;
+  };
+  midTerm: {
+    content: string;
+    nodeIds: string[];
+    lastUpdated: number;
+  };
+  longTerm: {
+    content: string;
+    keyDecisions: DecisionRecord[];
+    lastUpdated: number;
+  };
+  
+  // 当前状态
+  currentNodeId: string;
+  activeBranches: string[];
+}
+
+interface DecisionRecord {
+  nodeId: string;
+  choiceId: string;
+  choiceText: string;
+  consequence: string;
+  timestamp: number;
+}
+
+interface PlotPoint {
+  id: string;
+  characterId: string;
+  
+  // 剧情点信息
+  type: 'revelation' | 'twist' | 'climax' | 'resolution' | 'foreshadowing';
+  title: string;
+  description: string;
+  
+  // 关联节点
+  relatedNodes: string[];
+  
+  // 重要程度
+  importance: number;
+  
+  // 时间戳
+  timestamp: number;
+}
+```
+
+### StoryService 接口定义
+
+```typescript
+interface StoryService {
+  // 节点管理
+  createNode(data: CreateNodeData): Promise<StoryNode>;
+  getNode(nodeId: string): Promise<StoryNode | null>;
+  updateNode(nodeId: string, updates: Partial<StoryNode>): Promise<boolean>;
+  deleteNode(nodeId: string): Promise<boolean>;
+  getActiveNodes(characterId: string): Promise<StoryNode[]>;
+  
+  // 分支管理
+  getBranch(nodeId: string): Promise<StoryNode[]>;
+  mergeBranches(nodeIds: string[], convergenceNode: CreateNodeData): Promise<StoryNode>;
+  getCurrentBranch(characterId: string): Promise<StoryNode[]>;
+  
+  // 选择记录
+  recordChoice(characterId: string, nodeId: string, choiceId: string): Promise<void>;
+  getChoices(characterId: string, nodeId?: string): Promise<DecisionRecord[]>;
+  undoChoice(characterId: string, nodeId: string): Promise<boolean>;
+  
+  // 摘要管理
+  generateSummary(characterId: string, level: 'short' | 'mid' | 'long'): Promise<string>;
+  saveSummary(characterId: string, summary: Partial<StorySummary>): Promise<void>;
+  getSummary(characterId: string): Promise<StorySummary | null>;
+  
+  // 剧情点
+  addPlotPoint(characterId: string, plotPoint: Omit<PlotPoint, 'id' | 'timestamp'>): Promise<PlotPoint>;
+  getPlotPoints(characterId: string, filters?: PlotPointFilters): Promise<PlotPoint[]>;
+  
+  // 存读档支持
+  serializeState(characterId: string): Promise<StorySerializedState>;
+  deserializeState(characterId: string, state: StorySerializedState): Promise<void>;
+  
+  // 导航
+  getCurrentNode(characterId: string): Promise<StoryNode | null>;
+  navigateToNode(characterId: string, nodeId: string): Promise<boolean>;
+  getStoryPath(characterId: string): Promise<StoryNode[]>;
+}
+
+interface CreateNodeData {
+  saveId: string;
+  title: string;
+  description: string;
+  type: StoryNode['type'];
+  content: StoryNode['content'];
+  choices?: StoryChoice[];
+  parentId?: string;
+  metadata?: Partial<StoryNode['metadata']>;
+}
+
+interface PlotPointFilters {
+  type?: PlotPoint['type'];
+  minImportance?: number;
+  since?: number;
+}
+
+interface StorySerializedState {
+  nodes: StoryNode[];
+  summary: StorySummary;
+  plotPoints: PlotPoint[];
+  decisionHistory: DecisionRecord[];
+}
+```
+
+---
+
+## UIService UI服务设计
+
+### 设计决策
+
+| 决策点 | 选择 | 说明 |
+|--------|------|------|
+| 指令处理 | 队列顺序执行 | 指令进入队列，按顺序逐个执行 |
+| 存读档支持 | 完整支持 | 存档时保存 UI 状态，读档时恢复 |
+| 状态持久化 | 完整保存 | 存档时保存当前 UI 状态，读档时恢复 |
+
+### Requirement: UIService Architecture
+
+UI服务应管理前端UI状态和指令队列。
+
+#### Scenario: Instruction Queue
+- **WHEN** 收到 UI 指令
+- **THEN** 指令进入队列
+- **AND** 按顺序逐个执行
+- **AND** 每个指令执行完成后才处理下一个
+- **AND** 支持优先级插队
+
+#### Scenario: UI State Management
+- **WHEN** UI 状态变化
+- **THEN** 更新内存中的状态
+- **AND** 触发状态变更通知
+- **AND** 支持状态订阅机制
+
+#### Scenario: Component Caching
+- **WHEN** 需要缓存 UI 组件
+- **THEN** 存储组件配置到缓存
+- **AND** 支持缓存过期和清理
+- **AND** 支持缓存命中统计
+
+#### Scenario: Save/Load Support
+- **WHEN** 玩家存档
+- **THEN** 序列化完整 UI 状态：
+  - 所有面板的展开/折叠状态
+  - 当前激活的 Tab
+  - 滚动位置
+  - 输入框内容
+  - 通知队列
+- **WHEN** 玩家读档
+- **THEN** 恢复所有 UI 状态
+- **AND** 重新渲染 UI
+
+### UIService 数据结构
+
+```typescript
+interface UIState {
+  id: string;
+  characterId: string;
+  
+  // 面板状态
+  panels: {
+    [panelId: string]: {
+      isOpen: boolean;
+      isExpanded: boolean;
+      activeTab?: string;
+      scrollPosition?: number;
+      customState?: Record<string, unknown>;
+    };
+  };
+  
+  // 对话框状态
+  dialogs: {
+    [dialogId: string]: {
+      isOpen: boolean;
+      position?: { x: number; y: number };
+      size?: { width: number; height: number };
+      zIndex?: number;
+    };
+  };
+  
+  // 输入状态
+  inputs: {
+    [inputId: string]: {
+      value: string;
+      cursorPosition?: number;
+      selection?: { start: number; end: number };
+    };
+  };
+  
+  // 通知队列
+  notifications: NotificationItem[];
+  
+  // 快捷栏状态
+  quickBar: {
+    slots: QuickBarSlot[];
+    activeSlot?: number;
+  };
+  
+  // 小地图状态
+  minimap: {
+    zoom: number;
+    center: { x: number; y: number };
+    showMarkers: string[];
+  };
+  
+  // 最后更新时间
+  lastUpdated: number;
+}
+
+interface UIInstruction {
+  id: string;
+  type: 'update' | 'show' | 'hide' | 'animate' | 'notify' | 'dialog' | 'navigate' | 'custom';
+  target: string;
+  action: string;
+  data: Record<string, unknown>;
+  options?: {
+    priority?: 'low' | 'normal' | 'high' | 'critical';
+    duration?: number;
+    easing?: string;
+    delay?: number;
+  };
+  timestamp: number;
+}
+
+interface NotificationItem {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'achievement';
+  title: string;
+  message: string;
+  icon?: string;
+  duration?: number;
+  actions?: NotificationAction[];
+  createdAt: number;
+  isRead: boolean;
+}
+
+interface NotificationAction {
+  id: string;
+  label: string;
+  action: string;
+  params?: Record<string, unknown>;
+}
+
+interface QuickBarSlot {
+  index: number;
+  type: 'item' | 'skill' | 'action';
+  id: string;
+  icon?: string;
+  label?: string;
+  cooldown?: number;
+}
+
+interface UIComponent {
+  id: string;
+  type: string;
+  props: Record<string, unknown>;
+  cachedAt: number;
+  expiresAt?: number;
+}
+```
+
+### UIService 接口定义
+
+```typescript
+interface UIService {
+  // 状态管理
+  getState(characterId: string): Promise<UIState>;
+  updateState(characterId: string, updates: Partial<UIState>): Promise<void>;
+  resetState(characterId: string): Promise<void>;
+  
+  // 面板管理
+  openPanel(characterId: string, panelId: string): Promise<void>;
+  closePanel(characterId: string, panelId: string): Promise<void>;
+  togglePanel(characterId: string, panelId: string): Promise<void>;
+  setPanelTab(characterId: string, panelId: string, tabId: string): Promise<void>;
+  
+  // 指令队列
+  queueInstruction(characterId: string, instruction: Omit<UIInstruction, 'id' | 'timestamp'>): Promise<string>;
+  getQueue(characterId: string): Promise<UIInstruction[]>;
+  clearQueue(characterId: string): Promise<void>;
+  processNextInstruction(characterId: string): Promise<UIInstruction | null>;
+  
+  // 通知管理
+  showNotification(characterId: string, notification: Omit<NotificationItem, 'id' | 'createdAt' | 'isRead'>): Promise<string>;
+  dismissNotification(characterId: string, notificationId: string): Promise<void>;
+  clearNotifications(characterId: string): Promise<void>;
+  getNotifications(characterId: string, includeRead?: boolean): Promise<NotificationItem[]>;
+  markAsRead(characterId: string, notificationId: string): Promise<void>;
+  
+  // 对话框管理
+  showDialog(characterId: string, dialogId: string, options?: UIState['dialogs'][string]): Promise<void>;
+  hideDialog(characterId: string, dialogId: string): Promise<void>;
+  bringToFront(characterId: string, dialogId: string): Promise<void>;
+  
+  // 组件缓存
+  getComponent(componentId: string): Promise<UIComponent | null>;
+  cacheComponent(componentId: string, component: Omit<UIComponent, 'id' | 'cachedAt'>): Promise<void>;
+  invalidateComponent(componentId: string): Promise<void>;
+  clearCache(): Promise<void>;
+  
+  // 快捷栏管理
+  setQuickBarSlot(characterId: string, index: number, slot: QuickBarSlot): Promise<void>;
+  clearQuickBarSlot(characterId: string, index: number): Promise<void>;
+  useQuickBarSlot(characterId: string, index: number): Promise<boolean>;
+  
+  // 存读档支持
+  serializeState(characterId: string): Promise<UISerializedState>;
+  deserializeState(characterId: string, state: UISerializedState): Promise<void>;
+  
+  // 订阅机制
+  subscribe(characterId: string, callback: UIStateCallback): () => void;
+  notifySubscribers(characterId: string, changes: Partial<UIState>): void;
+}
+
+interface UIStateCallback {
+  (state: UIState, changes: Partial<UIState>): void;
+}
+
+interface UISerializedState {
+  state: UIState;
+  pendingInstructions: UIInstruction[];
+  componentCache: UIComponent[];
+}
+```
+
+---
+
 ## 提示词工程设计
 
 ### 设计决策总结

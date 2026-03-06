@@ -45,138 +45,67 @@ const STAT_NAMES: Record<string, string> = {
   charisma: '魅力',
 };
 
-/**
- * 模拟装备数据（用于演示）
- */
-const MOCK_EQUIPPED_ITEMS: Record<string, Item> = {
-  weapon: {
-    id: 'weapon_001',
-    name: '精钢长剑',
-    description: '一把由精钢锻造的长剑，锋利无比。',
-    type: 'weapon',
-    rarity: 'rare',
-    stats: { attack: 25, speed: 5 },
-    effects: [],
-    requirements: { level: 5 },
-    value: { buy: 500, sell: 250, currency: 'gold' },
-    stackable: false,
-    maxStack: 1,
-  },
-  head: {
-    id: 'head_001',
-    name: '铁头盔',
-    description: '坚固的铁头盔，提供基础防护。',
-    type: 'armor',
-    rarity: 'common',
-    stats: { defense: 8 },
-    effects: [],
-    requirements: { level: 1 },
-    value: { buy: 100, sell: 50, currency: 'gold' },
-    stackable: false,
-    maxStack: 1,
-  },
-  body: {
-    id: 'body_001',
-    name: '皮甲',
-    description: '轻便的皮革护甲，提供基础防护。',
-    type: 'armor',
-    rarity: 'uncommon',
-    stats: { defense: 15, speed: 2 },
-    effects: [],
-    requirements: { level: 3 },
-    value: { buy: 200, sell: 100, currency: 'gold' },
-    stackable: false,
-    maxStack: 1,
-  },
-  feet: {
-    id: 'feet_001',
-    name: '旅行靴',
-    description: '舒适的旅行靴，适合长途跋涉。',
-    type: 'armor',
-    rarity: 'common',
-    stats: { speed: 3 },
-    effects: [],
-    requirements: { level: 1 },
-    value: { buy: 80, sell: 40, currency: 'gold' },
-    stackable: false,
-    maxStack: 1,
-  },
-  accessory_0: {
-    id: 'accessory_001',
-    name: '力量戒指',
-    description: '一枚散发着微光的戒指，能增强力量。',
-    type: 'accessory',
-    rarity: 'uncommon',
-    stats: { strength: 5 },
-    effects: [],
-    requirements: { level: 5 },
-    value: { buy: 300, sell: 150, currency: 'gold' },
-    stackable: false,
-    maxStack: 1,
-  },
-};
-
-/**
- * 装备面板组件
- * 显示装备槽位、已装备物品、属性加成
- */
 export const EquipmentPanel: React.FC = () => {
   const character = useGameStore((state) => state.character);
+  const equipment = useGameStore((state) => state.equipment);
   const [selectedSlot, setSelectedSlot] = useState<EquipmentSlotType | null>(null);
   const [selectedAccessoryIndex, setSelectedAccessoryIndex] = useState<number | null>(null);
 
-  // 使用模拟数据
-  const equippedItems = MOCK_EQUIPPED_ITEMS;
+  const getEquippedItem = (slot: EquipmentSlotType, index?: number): Item | null => {
+    if (slot === 'accessory' && index !== undefined) {
+      return equipment.accessories[index]?.item || null;
+    }
+    if (slot === 'weapon') return equipment.weapon?.item || null;
+    if (slot === 'head') return equipment.head?.item || null;
+    if (slot === 'body') return equipment.body?.item || null;
+    if (slot === 'feet') return equipment.feet?.item || null;
+    return null;
+  };
 
-  // 计算属性加成总计
   const totalStats = useMemo(() => {
     const stats: Record<string, number> = {};
-    Object.values(equippedItems).forEach((item) => {
-      if (item) {
+    const allItems: (Item | undefined)[] = [
+      equipment.weapon?.item,
+      equipment.head?.item,
+      equipment.body?.item,
+      equipment.feet?.item,
+      ...equipment.accessories.map(a => a.item),
+    ];
+    allItems.forEach((item) => {
+      if (item?.stats) {
         Object.entries(item.stats).forEach(([key, value]) => {
           stats[key] = (stats[key] || 0) + value;
         });
       }
     });
     return stats;
-  }, [equippedItems]);
+  }, [equipment]);
 
-  // 获取选中物品
   const getSelectedItem = (): { item: Item | null; slot: EquipmentSlotType | null } => {
     if (selectedSlot === 'accessory' && selectedAccessoryIndex !== null) {
-      const item = equippedItems[`accessory_${selectedAccessoryIndex}`];
-      return { item: item || null, slot: 'accessory' };
+      const item = getEquippedItem('accessory', selectedAccessoryIndex);
+      return { item, slot: 'accessory' };
     }
     if (selectedSlot) {
-      const item = equippedItems[selectedSlot];
-      return { item: item || null, slot: selectedSlot };
+      const item = getEquippedItem(selectedSlot);
+      return { item, slot: selectedSlot };
     }
     return { item: null, slot: null };
   };
 
   const { item: selectedItem, slot: currentSlot } = getSelectedItem();
 
-  // 卸下装备
   const handleUnequip = (slot: EquipmentSlotType, accessoryIndex?: number) => {
     console.log('卸下装备:', slot, accessoryIndex);
-    // TODO: 实现卸下装备逻辑
     setSelectedSlot(null);
     setSelectedAccessoryIndex(null);
   };
 
-  // 获取饰品列表
   const accessories = useMemo(() => {
-    const acc: Array<{ index: number; item: Item }> = [];
-    let i = 0;
-    while (equippedItems[`accessory_${i}`]) {
-      const item = equippedItems[`accessory_${i}`];
-      if (item) {
-        acc.push({ index: i, item });
-      }
-      i++;
-    }
-    return acc;
-  }, [equippedItems]);
+    return equipment.accessories
+      .map((eq, index) => ({ index, item: eq.item }))
+      .filter((a): a is { index: number; item: Item } => a.item !== undefined);
+  }, [equipment.accessories]);
 
   if (!character.id) {
     return (
@@ -229,14 +158,14 @@ export const EquipmentPanel: React.FC = () => {
               <span className={styles.slotIcon}>{SLOT_ICONS.weapon}</span>
               <span className={styles.slotLabel}>{SLOT_NAMES.weapon}</span>
             </div>
-            {equippedItems.weapon ? (
+            {getEquippedItem('weapon') ? (
               <div
                 className={styles.equippedItem}
-                style={{ '--rarity-color': RARITY_CONFIG[equippedItems.weapon.rarity].color } as React.CSSProperties}
+                style={{ '--rarity-color': RARITY_CONFIG[getEquippedItem('weapon')!.rarity].color } as React.CSSProperties}
               >
-                <span className={styles.itemName}>{equippedItems.weapon.name}</span>
-                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[equippedItems.weapon.rarity].color }}>
-                  {equippedItems.weapon.rarity}
+                <span className={styles.itemName}>{getEquippedItem('weapon')!.name}</span>
+                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[getEquippedItem('weapon')!.rarity].color }}>
+                  {getEquippedItem('weapon')!.rarity}
                 </span>
               </div>
             ) : (
@@ -260,14 +189,14 @@ export const EquipmentPanel: React.FC = () => {
               <span className={styles.slotIcon}>{SLOT_ICONS.head}</span>
               <span className={styles.slotLabel}>{SLOT_NAMES.head}</span>
             </div>
-            {equippedItems.head ? (
+            {getEquippedItem('head') ? (
               <div
                 className={styles.equippedItem}
-                style={{ '--rarity-color': RARITY_CONFIG[equippedItems.head.rarity].color } as React.CSSProperties}
+                style={{ '--rarity-color': RARITY_CONFIG[getEquippedItem('head')!.rarity].color } as React.CSSProperties}
               >
-                <span className={styles.itemName}>{equippedItems.head.name}</span>
-                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[equippedItems.head.rarity].color }}>
-                  {equippedItems.head.rarity}
+                <span className={styles.itemName}>{getEquippedItem('head')!.name}</span>
+                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[getEquippedItem('head')!.rarity].color }}>
+                  {getEquippedItem('head')!.rarity}
                 </span>
               </div>
             ) : (
@@ -295,14 +224,14 @@ export const EquipmentPanel: React.FC = () => {
               <span className={styles.slotIcon}>{SLOT_ICONS.body}</span>
               <span className={styles.slotLabel}>{SLOT_NAMES.body}</span>
             </div>
-            {equippedItems.body ? (
+            {getEquippedItem('body') ? (
               <div
                 className={styles.equippedItem}
-                style={{ '--rarity-color': RARITY_CONFIG[equippedItems.body.rarity].color } as React.CSSProperties}
+                style={{ '--rarity-color': RARITY_CONFIG[getEquippedItem('body')!.rarity].color } as React.CSSProperties}
               >
-                <span className={styles.itemName}>{equippedItems.body.name}</span>
-                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[equippedItems.body.rarity].color }}>
-                  {equippedItems.body.rarity}
+                <span className={styles.itemName}>{getEquippedItem('body')!.name}</span>
+                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[getEquippedItem('body')!.rarity].color }}>
+                  {getEquippedItem('body')!.rarity}
                 </span>
               </div>
             ) : (
@@ -329,14 +258,14 @@ export const EquipmentPanel: React.FC = () => {
               <span className={styles.slotIcon}>{SLOT_ICONS.feet}</span>
               <span className={styles.slotLabel}>{SLOT_NAMES.feet}</span>
             </div>
-            {equippedItems.feet ? (
+            {getEquippedItem('feet') ? (
               <div
                 className={styles.equippedItem}
-                style={{ '--rarity-color': RARITY_CONFIG[equippedItems.feet.rarity].color } as React.CSSProperties}
+                style={{ '--rarity-color': RARITY_CONFIG[getEquippedItem('feet')!.rarity].color } as React.CSSProperties}
               >
-                <span className={styles.itemName}>{equippedItems.feet.name}</span>
-                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[equippedItems.feet.rarity].color }}>
-                  {equippedItems.feet.rarity}
+                <span className={styles.itemName}>{getEquippedItem('feet')!.name}</span>
+                <span className={styles.itemRarity} style={{ color: RARITY_CONFIG[getEquippedItem('feet')!.rarity].color }}>
+                  {getEquippedItem('feet')!.rarity}
                 </span>
               </div>
             ) : (

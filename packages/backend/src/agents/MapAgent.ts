@@ -7,8 +7,14 @@ import type {
   MapConnection,
   MapEncounter,
   MapTile,
+  MapItem,
+  AgentBinding,
+  ToolType,
+  GameTemplate,
+  AgentInitializationResult,
+  Character,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // 地点类型
@@ -123,20 +129,21 @@ export interface LocationGenerationConfig {
  */
 export class MapAgent extends AgentBase {
   readonly type: AgentType = AT.MAP;
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.STORY_CONTEXT,
-    AT.NPC_PARTY,
-    AT.QUEST,
+
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.MAP_DATA,
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.EVENT_DATA,
+    ToolTypeEnum.QUEST_DATA,
   ];
-  readonly dataAccess: string[] = [
-    'game_maps',
-    'locations',
-    'connections',
-    'player_position',
-    'exploration_progress',
-    'encounters',
-    'environment_state',
+
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.STORY_CONTEXT, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
+    { agentType: AT.QUEST, enabled: true },
   ];
 
   readonly systemPrompt = `你是地图管理智能体，负责管理游戏世界的地理信息和玩家移动。
@@ -194,6 +201,100 @@ export class MapAgent extends AgentBase {
       'environment_simulation',
       'encounter_generation',
     ];
+  }
+
+  /**
+   * 初始化地图
+   * 从模板获取地图配置并初始化起始位置
+   */
+  async initialize(params: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<AgentInitializationResult> {
+    const { character, template } = params;
+    
+    try {
+      const startingScene = template.startingScene;
+      if (!startingScene) {
+        return {
+          success: false,
+          error: '模板缺少 startingScene 配置',
+        };
+      }
+      
+      const mapItems: MapItem[] = (startingScene.items || []).map(item => ({
+        itemId: item.id,
+        position: { x: 50, y: 50 },
+        quantity: item.quantity || 1,
+        hidden: false,
+      }));
+      
+      const gameMap: GameMap = {
+        id: this.generateMapId(),
+        name: startingScene.location || '起始之地',
+        description: startingScene.description || '你的冒险从这里开始',
+        type: 'overworld',
+        size: { width: 100, height: 100 },
+        tiles: this.generateEmptyTiles({ width: 100, height: 100 }),
+        locations: [],
+        connections: [],
+        encounters: [],
+        npcs: (startingScene.npcs || []).map(n => n.id),
+        items: mapItems,
+      };
+      
+      this.mapState.currentMap = gameMap;
+      
+      const startingLocation: ExtendedLocation = {
+        id: 'start',
+        name: startingScene.location || '起始之地',
+        type: LocationType.VILLAGE,
+        position: { x: 50, y: 50 },
+        description: startingScene.description || '你的冒险从这里开始',
+        discovered: true,
+        isDiscovered: true,
+        isAccessible: true,
+        environment: this.generateEnvironment(LocationType.VILLAGE),
+        connections: [],
+        npcs: (startingScene.npcs || []).map(n => n.id),
+        items: (startingScene.items || []).map(i => i.id),
+        encounters: [],
+        dangerLevel: 1,
+        tags: ['starting', 'safe'],
+      };
+      
+      this.mapState.locations.set(startingLocation.id, startingLocation);
+      this.mapState.currentLocationId = startingLocation.id;
+      this.mapState.visitedLocations.add(startingLocation.id);
+      
+      this.mapState.lastUpdated = Date.now();
+      
+      this.addMemory(
+        `初始化地图: ${character.name}, 起始位置: ${startingLocation.name}`,
+        'assistant',
+        8,
+        { 
+          characterId: character.id, 
+          mapId: gameMap.id, 
+          startingLocation: startingLocation.id,
+          totalLocations: this.mapState.locations.size,
+        }
+      );
+      
+      return {
+        success: true,
+        data: {
+          map: gameMap,
+          startingLocation,
+          totalLocations: this.mapState.locations.size,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '地图初始化失败',
+      };
+    }
   }
 
   /**

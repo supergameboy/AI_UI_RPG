@@ -7,8 +7,13 @@ import type {
   QuestRewards,
   QuestType,
   UIInstruction,
+  AgentBinding,
+  ToolType,
+  GameTemplate,
+  AgentInitializationResult,
+  Character,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // 任务链配置
@@ -81,22 +86,21 @@ interface QuestStatistics {
 export class QuestAgent extends AgentBase {
   readonly type: AgentType = AT.QUEST;
   
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.STORY_CONTEXT,
-    AT.NPC_PARTY,
-    AT.MAP,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.QUEST_DATA,
+    ToolTypeEnum.INVENTORY_DATA,
+    ToolTypeEnum.NUMERICAL,
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.MAP_DATA,
   ];
   
-  readonly dataAccess: string[] = [
-    'quests',
-    'quest_progress',
-    'quest_chains',
-    'player_inventory',
-    'player_stats',
-    'npc_relations',
-    'story_flags',
-    'locations',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.STORY_CONTEXT, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
+    { agentType: AT.MAP, enabled: true },
   ];
   
   readonly systemPrompt = `你是任务管理智能体，负责管理游戏中的所有任务系统。
@@ -174,6 +178,81 @@ export class QuestAgent extends AgentBase {
       'daily_quest_refresh',
       'hidden_quest_discovery',
     ];
+  }
+
+  /**
+   * 初始化角色任务
+   * 从模板的 initialQuests 获取初始任务列表
+   */
+  async initialize(params: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<AgentInitializationResult> {
+    const { character, template } = params;
+    
+    try {
+      const initialQuests = template.initialQuests || [];
+      const createdQuests: string[] = [];
+      const failedQuests: string[] = [];
+      
+      for (const questDef of initialQuests) {
+        const quest: Quest = {
+          id: questDef.id,
+          name: questDef.name,
+          description: questDef.description,
+          type: questDef.type as QuestType,
+          status: 'in_progress',
+          objectives: questDef.objectives.map((obj, index) => ({
+            id: obj.id || `obj_${index}`,
+            description: obj.description,
+            type: obj.type as 'kill' | 'collect' | 'talk' | 'explore' | 'custom',
+            target: obj.target,
+            current: 0,
+            required: obj.required,
+            isCompleted: false,
+          })),
+          rewards: {
+            experience: typeof questDef.rewards?.find(r => r.type === 'experience')?.value === 'number' 
+              ? questDef.rewards.find(r => r.type === 'experience')!.value as number 
+              : 0,
+            currency: {},
+            items: questDef.rewards?.filter(r => r.type === 'item').map(r => ({
+              itemId: String(r.value),
+              quantity: r.quantity || 1,
+            })) || [],
+          },
+          prerequisites: [],
+          log: [{ timestamp: Date.now(), event: '任务开始' }],
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+        };
+        
+        this.quests.set(quest.id, quest);
+        this.activeQuests.add(quest.id);
+        createdQuests.push(quest.id);
+      }
+      
+      this.addMemory(
+        `初始化角色任务: ${character.name}, 任务数: ${createdQuests.length}/${initialQuests.length}`,
+        'assistant',
+        7,
+        { characterId: character.id, createdQuests, failedQuests }
+      );
+      
+      return {
+        success: true,
+        data: {
+          createdQuests,
+          failedQuests,
+          questCount: createdQuests.length,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '任务初始化失败',
+      };
+    }
   }
 
   /**

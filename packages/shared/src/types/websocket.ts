@@ -1,6 +1,9 @@
 import type { AgentType } from './agent';
+import type { ToolCallPayload, ToolResponsePayload } from './agent';
 
-export type WSMessageType = 'llm_request' | 'llm_update' | 'agent_message' | 'log';
+export type { ToolCallPayload, ToolResponsePayload };
+
+export type WSMessageType = 'llm_request' | 'llm_update' | 'agent_message' | 'log' | 'game_state_update';
 
 export type LLMRequestStatus = 'pending' | 'success' | 'error';
 
@@ -21,6 +24,42 @@ export interface LLMRequestLog {
 
 export type AgentMessageStatus = 'sent' | 'received' | 'error';
 
+/**
+ * 扩展的消息类型
+ */
+export type ExtendedMessageType =
+  | 'request'
+  | 'response'
+  | 'notification'
+  | 'error'
+  | 'tool_call'
+  | 'tool_response'
+  | 'context_change'
+  | 'conflict_detected';
+
+/**
+ * 上下文变更载荷
+ */
+export interface ContextChangePayload {
+  path: string;
+  oldValue: unknown;
+  newValue: unknown;
+  source: string;
+  reason?: string;
+}
+
+/**
+ * 冲突检测载荷
+ */
+export interface ConflictDetectedPayload {
+  conflictType: 'data' | 'state' | 'action' | 'resource';
+  description: string;
+  conflictingParties: string[];
+  conflictingData?: Record<string, unknown>;
+  resolution?: 'auto' | 'manual' | 'priority' | 'timestamp';
+  resolvedBy?: string;
+}
+
 export interface AgentMessageLog {
   id: string;
   timestamp: number;
@@ -31,6 +70,11 @@ export interface AgentMessageLog {
   status: AgentMessageStatus;
   payload?: unknown;
   error?: string;
+  /** 扩展消息类型的载荷 */
+  toolCall?: ToolCallPayload;
+  toolResponse?: ToolResponsePayload;
+  contextChange?: ContextChangePayload;
+  conflictDetected?: ConflictDetectedPayload;
 }
 
 export interface WSMessage {

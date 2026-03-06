@@ -5,8 +5,12 @@ import type {
   UIInstruction,
   Character,
   StatusEffect,
+  AgentBinding,
+  ToolType,
+  GameTemplate,
+  AgentInitializationResult,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== 类型定义 ====================
@@ -258,22 +262,20 @@ const DEFAULT_BLOCK_REDUCTION = 0.5;
 export class NumericalAgent extends AgentBase {
   readonly type: AgentType = AT.NUMERICAL;
 
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.INVENTORY,
-    AT.SKILL,
-    AT.COMBAT,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.NUMERICAL,
+    ToolTypeEnum.COMBAT_DATA,
+    ToolTypeEnum.SKILL_DATA,
+    ToolTypeEnum.INVENTORY_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'characters',
-    'character_attributes',
-    'character_levels',
-    'combat_logs',
-    'skill_effects',
-    'equipment_bonuses',
-    'status_effects',
-    'buffs_debuffs',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.INVENTORY, enabled: true },
+    { agentType: AT.SKILL, enabled: true },
+    { agentType: AT.COMBAT, enabled: true },
   ];
 
   readonly systemPrompt = `你是数值管理智能体，负责管理游戏中所有数值相关的计算和平衡。
@@ -375,6 +377,78 @@ export class NumericalAgent extends AgentBase {
       'balance_adjustment',
       'snapshot_management',
     ];
+  }
+
+  /**
+   * 初始化角色数值
+   * 从模板数据初始化角色的基础属性和派生属性
+   */
+  async initialize(params: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<AgentInitializationResult> {
+    const { character, template } = params;
+    
+    try {
+      const race = character.race;
+      const characterClass = character.class;
+      const level = character.level || 1;
+
+      const baseAttributes = this.handleCalculateBaseAttributes({
+        level,
+        race,
+        class: characterClass,
+      });
+
+      if (!baseAttributes.success || !baseAttributes.data) {
+        return {
+          success: false,
+          error: baseAttributes.error || '计算基础属性失败',
+        };
+      }
+
+      const baseData = baseAttributes.data as { attributes: Record<BaseAttributeName, number> };
+      
+      const derivedResult = this.handleCalculateDerivedAttributes({
+        baseAttributes: baseData.attributes,
+        level,
+        buffs: [],
+      });
+
+      if (!derivedResult.success || !derivedResult.data) {
+        return {
+          success: false,
+          error: derivedResult.error || '计算派生属性失败',
+        };
+      }
+
+      const derivedData = derivedResult.data as { derivedAttributes: Record<DerivedAttributeName, number> };
+
+      const raceDef = template.characterCreation?.races?.find(r => r.id === race);
+      const classDef = template.characterCreation?.classes?.find(c => c.id === characterClass);
+
+      this.addMemory(
+        `初始化角色数值: ${character.name}, 职业: ${characterClass}, 种族: ${race}`,
+        'assistant',
+        8,
+        { characterId: character.id, baseAttributes: baseData.attributes, derivedAttributes: derivedData.derivedAttributes }
+      );
+
+      return {
+        success: true,
+        data: {
+          baseAttributes: baseData.attributes,
+          derivedAttributes: derivedData.derivedAttributes,
+          raceBonuses: raceDef?.bonuses || {},
+          classBonuses: classDef?.primaryAttributes || [],
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '数值初始化失败',
+      };
+    }
   }
 
   /**

@@ -3,8 +3,13 @@ import type {
   AgentMessage,
   MessagePriority,
   AgentLog,
+  ToolType,
+  ToolResponse,
+  ToolCallPayload,
+  ToolResponsePayload,
 } from '@ai-rpg/shared';
 import { gameLog } from './GameLogService';
+import { BindingRouter, getBindingRouter } from '../routing/BindingRouter';
 
 const PRIORITY_ORDER: Record<MessagePriority, number> = {
   critical: 4,
@@ -159,6 +164,21 @@ export class MessageQueue {
     return logs;
   }
 
+  /**
+   * 获取 Tool 调用日志
+   * @param toolType 可选的 Tool 类型过滤
+   */
+  getToolCallLogs(toolType?: ToolType): AgentLog[] {
+    let logs = this.logs.filter(log => log.toolCall !== undefined);
+    
+    if (toolType) {
+      logs = logs.filter(log => log.toolCall?.toolType === toolType);
+    }
+    
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+    return logs;
+  }
+
   clearLogs(): void {
     this.logs = [];
   }
@@ -225,9 +245,11 @@ export class MessageQueue {
 export class MessageRouter {
   private queue: MessageQueue;
   private handlers: Map<AgentType, (message: AgentMessage) => Promise<AgentMessage>> = new Map();
+  private bindingRouter: BindingRouter;
 
-  constructor(queue: MessageQueue) {
+  constructor(queue: MessageQueue, bindingRouter?: BindingRouter) {
     this.queue = queue;
+    this.bindingRouter = bindingRouter || getBindingRouter();
   }
 
   registerHandler(
@@ -241,6 +263,54 @@ export class MessageRouter {
   unregisterHandler(agentType: AgentType): void {
     this.handlers.delete(agentType);
     gameLog.info('agent', `Unregistered handler for: ${agentType}`);
+  }
+
+  /**
+   * 通过 Binding 匹配路由消息
+   * @param message 要路由的消息
+   * @returns 路由结果消息
+   */
+  async routeByBinding(message: AgentMessage): Promise<AgentMessage> {
+    const messageType = message.type;
+    const context: Record<string, unknown> = {
+      from: message.from,
+      to: message.to,
+      action: message.payload.action,
+      ...message.payload.context,
+    };
+
+    const routeResult = this.bindingRouter.route(messageType, context);
+    
+    gameLog.debug('agent', 'Binding route result', {
+      messageType,
+      agentId: routeResult.agentId,
+      matched: routeResult.matched,
+      bindingId: routeResult.binding?.id,
+    });
+
+    if (!routeResult.matched) {
+      // 没有匹配的 Binding，fallback 到 handler
+      return this.route(message);
+    }
+
+    const targetAgent = routeResult.agentId;
+    const handler = this.handlers.get(targetAgent);
+    
+    if (!handler) {
+      gameLog.warn('agent', `No handler registered for binding target: ${targetAgent}`);
+      return this.route(message);
+    }
+
+    try {
+      this.queue.setProcessing(targetAgent, true);
+      const response = await handler(message);
+      return response;
+    } catch (error) {
+      gameLog.error('agent', `Error routing by binding to ${targetAgent}`, { error });
+      throw error;
+    } finally {
+      this.queue.setProcessing(targetAgent, false);
+    }
   }
 
   async route(message: AgentMessage): Promise<AgentMessage> {
@@ -268,6 +338,196 @@ export class MessageRouter {
     }
 
     return results[0];
+  }
+
+  /**
+   * 调用 Tool
+   * @param from 调用方 Agent
+   * @param toolType Tool 类型
+   * @param method 方法名
+   * @param params 参数
+   * @param permission 权限类型
+   * @returns Tool 响应
+   */
+  async callTool(
+    from: AgentType,
+    toolType: ToolType,
+    method: string,
+    params: Record<string, unknown>,
+    permission: 'read' | 'write'
+  ): Promise<ToolResponse> {
+    const startTime = Date.now();
+    const messageId = this.generateMessageId();
+    
+    const toolCallPayload: ToolCallPayload = {
+      toolType,
+      method,
+      params,
+      permission,
+    };
+
+    const message: AgentMessage = {
+      id: messageId,
+      timestamp: startTime,
+      from,
+      to: from, // Tool 响应返回给调用方
+      type: 'tool_call',
+      payload: {
+        action: method,
+        data: params,
+      },
+      metadata: {
+        priority: 'high',
+        requiresResponse: true,
+      },
+      toolCall: toolCallPayload,
+    };
+
+    gameLog.debug('agent', 'Tool call initiated', {
+      toolType,
+      method,
+      permission,
+      from,
+    });
+
+    try {
+      // 通过 Binding 路由 Tool 调用
+      const response = await this.routeByBinding(message);
+      
+      const duration = Date.now() - startTime;
+      
+      // 记录 Tool 调用日志
+      this.queue['addLog']({
+        id: this.queue['generateLogId'](),
+        timestamp: startTime,
+        agentType: from,
+        direction: 'out',
+        message,
+        status: 'success',
+        processingTime: duration,
+        toolCall: {
+          toolType,
+          method,
+          duration,
+        },
+      });
+
+      // 解析响应
+      if (response.toolResponse) {
+        return {
+          success: response.toolResponse.success,
+          data: response.toolResponse.data,
+          error: response.toolResponse.error ? {
+            code: 'TOOL_ERROR',
+            message: response.toolResponse.error,
+          } : undefined,
+          metadata: {
+            duration,
+            cached: false,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: response.payload.data,
+        metadata: {
+          duration,
+          cached: false,
+        },
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      gameLog.error('agent', 'Tool call failed', {
+        toolType,
+        method,
+        error: errorMessage,
+        duration,
+      });
+
+      // 记录失败的 Tool 调用日志
+      this.queue['addLog']({
+        id: this.queue['generateLogId'](),
+        timestamp: startTime,
+        agentType: from,
+        direction: 'out',
+        message,
+        status: 'error',
+        error: errorMessage,
+        processingTime: duration,
+        toolCall: {
+          toolType,
+          method,
+          duration,
+        },
+      });
+
+      return {
+        success: false,
+        error: {
+          code: 'TOOL_CALL_ERROR',
+          message: errorMessage,
+        },
+        metadata: {
+          duration,
+          cached: false,
+        },
+      };
+    }
+  }
+
+  /**
+   * 创建 Tool 响应消息
+   * @param from 响应方 Agent
+   * @param to 目标 Agent
+   * @param toolType Tool 类型
+   * @param method 方法名
+   * @param result 执行结果
+   * @returns Tool 响应消息
+   */
+  async toolResponse(
+    from: AgentType,
+    to: AgentType,
+    toolType: ToolType,
+    method: string,
+    result: { success: boolean; data?: unknown; error?: string }
+  ): Promise<AgentMessage> {
+    const toolResponsePayload: ToolResponsePayload = {
+      toolType,
+      method,
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    };
+
+    const message: AgentMessage = {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from,
+      to,
+      type: 'tool_response',
+      payload: {
+        action: method,
+        data: (result.data as Record<string, unknown>) ?? {},
+      },
+      metadata: {
+        priority: 'high',
+        requiresResponse: false,
+      },
+      toolResponse: toolResponsePayload,
+    };
+
+    gameLog.debug('agent', 'Tool response created', {
+      toolType,
+      method,
+      success: result.success,
+      from,
+      to,
+    });
+
+    return message;
   }
 
   async send(

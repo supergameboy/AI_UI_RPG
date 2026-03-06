@@ -8,12 +8,53 @@ import type {
   PromptContext,
   PromptVariable,
 } from '@ai-rpg/shared';
-import { AgentType, VARIABLE_PATTERN, BUILTIN_VARIABLES } from '@ai-rpg/shared';
+import { AgentType, VARIABLE_PATTERN, BUILTIN_VARIABLES, ToolType } from '@ai-rpg/shared';
 import { getPromptRepository, PromptRepository } from '../models/PromptRepository';
 import { getLLMService } from './llm/LLMService';
+import { gameLog } from './GameLogService';
+import { 
+  loadModule,
+  combineAndCompile,
+  type PromptModule,
+  type InjectOptions,
+} from '../prompts/modules';
+import { getToolSchemaGenerator, type OpenAIToolSchema } from './ToolSchemaGenerator';
+import { 
+  getExamples, 
+  formatExamplesAsText, 
+  type ExampleCategory,
+  type ToolCallExample,
+} from '../prompts/examples';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * 提示词构建选项
+ */
+export interface PromptOptions {
+  /** 是否包含决策日志 */
+  includeDecisionLog?: boolean;
+  /** 决策日志数量限制 */
+  decisionLogLimit?: number;
+  /** 是否包含 Tool Schema */
+  includeToolSchema?: boolean;
+  /** 指定包含的 Tool 类型 */
+  toolTypes?: ToolType[];
+  /** 是否包含示例 */
+  includeExamples?: boolean;
+  /** 示例分类 */
+  exampleCategories?: ExampleCategory[];
+  /** 使用的模块列表 */
+  modules?: string[];
+  /** 变量对象 */
+  variables?: Record<string, unknown>;
+}
+
+/**
+ * 占位符模式
+ */
+const PLACEHOLDER_PATTERN = /\{\{(tool_list|tool_examples|decision_log)\}\}/g;
 
 export class PromptService {
   private repository: PromptRepository;
@@ -31,18 +72,18 @@ export class PromptService {
       return;
     }
 
-    console.log('[PromptService] Initializing...');
+    gameLog.info('backend', '[PromptService] Initializing...');
 
     await this.loadTemplatesFromFiles();
     await this.loadTemplatesFromDatabase();
 
     this.initialized = true;
-    console.log(`[PromptService] Initialized with ${this.templateCache.size} templates`);
+    gameLog.info('backend', `[PromptService] Initialized with ${this.templateCache.size} templates`);
   }
 
   private async loadTemplatesFromFiles(): Promise<void> {
     if (!fs.existsSync(this.promptsDir)) {
-      console.log('[PromptService] Prompts directory not found, skipping file load');
+      gameLog.info('backend', '[PromptService] Prompts directory not found, skipping file load');
       return;
     }
 
@@ -68,7 +109,7 @@ export class PromptService {
       const agentType = agentTypeMap[baseName];
 
       if (!agentType) {
-        console.warn(`[PromptService] Unknown agent type for file: ${file}`);
+        gameLog.warn('backend', `[PromptService] Unknown agent type for file: ${file}`);
         continue;
       }
 
@@ -102,7 +143,7 @@ export class PromptService {
 
         const savedTemplate = this.repository.toPromptTemplate(saved);
         this.templateCache.set(agentType, savedTemplate);
-        console.log(`[PromptService] Loaded template from file: ${baseName}`);
+        gameLog.info('backend', `[PromptService] Loaded template from file: ${baseName}`);
       }
     }
   }
@@ -274,15 +315,357 @@ export class PromptService {
     }
   }
 
-  buildSystemPrompt(agentType: AgentType, context: PromptContext): string {
+  /**
+   * 从模块构建提示词
+   * @param moduleNames 模块名称列表
+   * @param variables 变量对象
+   * @param options 注入选项
+   * @returns 构建后的提示词内容
+   */
+  buildPromptFromModules(
+    moduleNames: string[], 
+    variables: Record<string, unknown>,
+    options: InjectOptions = {}
+  ): string {
+    gameLog.debug('backend', '[PromptService] Building prompt from modules', {
+      moduleCount: moduleNames.length,
+      variableCount: Object.keys(variables).length,
+    });
+
+    const modules: PromptModule[] = [];
+    const missingModules: string[] = [];
+
+    for (const name of moduleNames) {
+      const module = loadModule(name);
+      if (module) {
+        modules.push(module);
+      } else {
+        missingModules.push(name);
+      }
+    }
+
+    if (missingModules.length > 0) {
+      gameLog.warn('backend', '[PromptService] Some modules not found', {
+        missingModules,
+      });
+    }
+
+    if (modules.length === 0) {
+      gameLog.error('backend', '[PromptService] No valid modules found');
+      return '';
+    }
+
+    // 使用 combineAndCompile 进行组合和编译
+    const content = combineAndCompile(moduleNames, variables, { injectOptions: options });
+
+    gameLog.info('backend', '[PromptService] Prompt built from modules', {
+      moduleCount: modules.length,
+      contentLength: content.length,
+    });
+
+    return content;
+  }
+
+  /**
+   * 注入 Tool Schema 到提示词中
+   * @param prompt 原始提示词
+   * @param toolTypes 指定的 Tool 类型列表，不指定则使用所有
+   * @returns 注入后的提示词
+   */
+  injectToolSchema(prompt: string, toolTypes?: ToolType[]): string {
+    const generator = getToolSchemaGenerator();
+    let schemas: OpenAIToolSchema[];
+
+    if (toolTypes && toolTypes.length > 0) {
+      // 获取指定 Tool 类型的 Schema
+      schemas = [];
+      for (const toolType of toolTypes) {
+        const cached = generator.getCachedSchema(toolType);
+        if (cached) {
+          schemas.push(...cached);
+        }
+      }
+    } else {
+      // 获取所有 Tool 的 Schema
+      schemas = generator.generateAllSchemas();
+    }
+
+    if (schemas.length === 0) {
+      gameLog.warn('backend', '[PromptService] No tool schemas available for injection');
+      return prompt;
+    }
+
+    // 格式化 Schema 为文本
+    const schemaText = this.formatToolSchemasAsText(schemas);
+
+    // 替换占位符
+    const result = prompt.replace(/\{\{tool_list\}\}/g, schemaText);
+
+    gameLog.debug('backend', '[PromptService] Tool schema injected', {
+      schemaCount: schemas.length,
+      textLength: schemaText.length,
+    });
+
+    return result;
+  }
+
+  /**
+   * 格式化 Tool Schema 为文本
+   */
+  private formatToolSchemasAsText(schemas: OpenAIToolSchema[]): string {
+    const lines: string[] = [];
+    lines.push('## 可用工具列表');
+    lines.push('');
+    lines.push('以下是你可以调用的工具函数：');
+    lines.push('');
+
+    for (const schema of schemas) {
+      lines.push(`### ${schema.function.name}`);
+      lines.push(schema.function.description);
+      lines.push('');
+      
+      if (Object.keys(schema.function.parameters.properties).length > 0) {
+        lines.push('**参数**:');
+        lines.push('```json');
+        lines.push(JSON.stringify(schema.function.parameters, null, 2));
+        lines.push('```');
+        lines.push('');
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 注入示例到提示词中
+   * @param prompt 原始提示词
+   * @param categories 示例分类，不指定则使用所有
+   * @returns 注入后的提示词
+   */
+  injectExamples(prompt: string, categories?: ExampleCategory[]): string {
+    const examples = getExamples(categories);
+
+    if (examples.length === 0) {
+      gameLog.warn('backend', '[PromptService] No examples available for injection');
+      return prompt;
+    }
+
+    // 格式化示例为文本
+    const examplesText = this.formatExamplesSection(examples);
+
+    // 替换占位符
+    const result = prompt.replace(/\{\{tool_examples\}\}/g, examplesText);
+
+    gameLog.debug('backend', '[PromptService] Examples injected', {
+      exampleCount: examples.length,
+      categories: categories || ['all'],
+      textLength: examplesText.length,
+    });
+
+    return result;
+  }
+
+  /**
+   * 格式化示例部分
+   */
+  private formatExamplesSection(examples: ToolCallExample[]): string {
+    const lines: string[] = [];
+    lines.push('## 工具调用示例');
+    lines.push('');
+    lines.push('以下是正确调用工具的示例：');
+    lines.push('');
+
+    // 限制示例数量，避免提示词过长
+    const maxExamples = 5;
+    const limitedExamples = examples.slice(0, maxExamples);
+
+    lines.push(formatExamplesAsText(limitedExamples));
+
+    if (examples.length > maxExamples) {
+      lines.push('');
+      lines.push(`... 还有 ${examples.length - maxExamples} 个示例未显示`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 注入决策日志到提示词中
+   * @param prompt 原始提示词
+   * @param decisionLogs 决策日志列表
+   * @param limit 限制数量
+   * @returns 注入后的提示词
+   */
+  injectDecisionLog(prompt: string, decisionLogs: unknown[], limit?: number): string {
+    if (!decisionLogs || decisionLogs.length === 0) {
+      // 移除占位符
+      return prompt.replace(/\{\{decision_log\}\}/g, '');
+    }
+
+    const limitedLogs = limit ? decisionLogs.slice(-limit) : decisionLogs;
+    const logText = this.formatDecisionLogs(limitedLogs);
+
+    const result = prompt.replace(/\{\{decision_log\}\}/g, logText);
+
+    gameLog.debug('backend', '[PromptService] Decision log injected', {
+      logCount: limitedLogs.length,
+    });
+
+    return result;
+  }
+
+  /**
+   * 格式化决策日志
+   */
+  private formatDecisionLogs(logs: unknown[]): string {
+    const lines: string[] = [];
+    lines.push('## 历史决策记录');
+    lines.push('');
+    lines.push('以下是最近的决策记录，供参考：');
+    lines.push('```json');
+    lines.push(JSON.stringify(logs, null, 2));
+    lines.push('```');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 构建提示词（新方法，支持完整选项）
+   * @param options 提示词构建选项
+   * @returns 构建后的提示词
+   */
+  buildPrompt(options: PromptOptions): string {
+    const parts: string[] = [];
+
+    // 1. 如果指定了模块，从模块构建
+    if (options.modules && options.modules.length > 0) {
+      const moduleContent = this.buildPromptFromModules(
+        options.modules,
+        options.variables || {}
+      );
+      parts.push(moduleContent);
+    }
+
+    // 2. 处理 Tool Schema 注入
+    if (options.includeToolSchema) {
+      const schemas = this.getToolSchemas(options.toolTypes);
+      if (schemas.length > 0) {
+        parts.push(this.formatToolSchemasAsText(schemas));
+      }
+    }
+
+    // 3. 处理示例注入
+    if (options.includeExamples) {
+      const examples = getExamples(options.exampleCategories);
+      if (examples.length > 0) {
+        parts.push(this.formatExamplesSection(examples));
+      }
+    }
+
+    // 4. 如果有变量，注入变量
+    let result = parts.join('\n\n---\n\n');
+    if (options.variables) {
+      result = this.injectVariablesFromRecord(result, options.variables);
+    }
+
+    gameLog.info('backend', '[PromptService] Prompt built with options', {
+      hasModules: !!options.modules?.length,
+      hasToolSchema: options.includeToolSchema,
+      hasExamples: options.includeExamples,
+      contentLength: result.length,
+    });
+
+    return result;
+  }
+
+  /**
+   * 从 Record 注入变量
+   */
+  private injectVariablesFromRecord(content: string, variables: Record<string, unknown>): string {
+    let result = content;
+    for (const [key, value] of Object.entries(variables)) {
+      const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      const valueStr = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+      result = result.replace(pattern, valueStr);
+    }
+    return result;
+  }
+
+  /**
+   * 获取 Tool Schemas
+   */
+  private getToolSchemas(toolTypes?: ToolType[]): OpenAIToolSchema[] {
+    const generator = getToolSchemaGenerator();
+
+    if (toolTypes && toolTypes.length > 0) {
+      const schemas: OpenAIToolSchema[] = [];
+      for (const toolType of toolTypes) {
+        const cached = generator.getCachedSchema(toolType);
+        if (cached) {
+          schemas.push(...cached);
+        }
+      }
+      return schemas;
+    }
+
+    return generator.generateAllSchemas();
+  }
+
+  /**
+   * 构建系统提示词（更新版本，支持新选项）
+   * @param agentType Agent 类型
+   * @param context 提示词上下文
+   * @param options 可选的提示词选项
+   * @returns 构建后的系统提示词
+   */
+  buildSystemPrompt(agentType: AgentType, context: PromptContext, options?: PromptOptions): string {
     const template = this.templateCache.get(agentType);
     
     if (!template) {
-      console.warn(`[PromptService] No template found for agent type: ${agentType}`);
+      gameLog.warn('backend', `[PromptService] No template found for agent type: ${agentType}`);
       return `You are a ${agentType} agent in an AI-RPG game.`;
     }
 
-    return this.injectVariables(template.content, context);
+    // 基础变量注入
+    let result = this.injectVariables(template.content, context);
+
+    // 处理选项
+    if (options) {
+      // 注入 Tool Schema
+      if (options.includeToolSchema) {
+        result = this.injectToolSchema(result, options.toolTypes);
+      }
+
+      // 注入示例
+      if (options.includeExamples) {
+        result = this.injectExamples(result, options.exampleCategories);
+      }
+
+      // 注入决策日志（如果有）
+      if (options.includeDecisionLog && context.custom?.decisionLogs) {
+        result = this.injectDecisionLog(
+          result, 
+          context.custom.decisionLogs as unknown[], 
+          options.decisionLogLimit
+        );
+      }
+
+      // 注入额外变量
+      if (options.variables) {
+        result = this.injectVariablesFromRecord(result, options.variables);
+      }
+    }
+
+    // 清理未替换的占位符
+    result = result.replace(PLACEHOLDER_PATTERN, '');
+
+    gameLog.debug('backend', '[PromptService] System prompt built', {
+      agentType,
+      contentLength: result.length,
+      hasOptions: !!options,
+    });
+
+    return result;
   }
 
   getVersions(agentType: AgentType): PromptVersion[] {
@@ -470,3 +853,6 @@ export async function initializePromptService(): Promise<PromptService> {
   await service.initialize();
   return service;
 }
+
+// 导出类型
+export type { ExampleCategory } from '../prompts/examples';

@@ -20,6 +20,7 @@ import { initializeQuestService } from './services/QuestService';
 import { initializeMapService } from './services/MapService';
 import { initializeNPCService } from './services/NPCService';
 import { initializeCombatService } from './services/CombatService';
+import { initializeTools } from './tools';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import agentRoutes from './routes/agentRoutes';
@@ -37,6 +38,12 @@ import npcRoutes from './routes/npcRoutes';
 import dialogueRoutes from './routes/dialogueRoutes';
 import combatRoutes from './routes/combatRoutes';
 import tokenRoutes from './routes/tokenRoutes';
+import bindingsRoutes from './routes/bindings';
+import toolsRoutes from './routes/tools';
+import gameRoutes from './routes/game';
+import initializationRoutes from './routes/initializationRoutes';
+import contextRoutes from './routes/contextRoutes';
+import decisionLogRoutes from './routes/decisionLogRoutes';
 import type { Message, ChatOptions } from '@ai-rpg/shared';
 import type { LogLevel, LogSource } from './services/GameLogService';
 
@@ -443,6 +450,12 @@ app.use('/api/npc', npcRoutes);
 app.use('/api/dialogue', dialogueRoutes);
 app.use('/api/combat', combatRoutes);
 app.use('/api/token', tokenRoutes);
+app.use('/api/bindings', bindingsRoutes);
+app.use('/api/tools', toolsRoutes);
+app.use('/api/game', gameRoutes);
+app.use('/api/initialization', initializationRoutes);
+app.use('/api/context', contextRoutes);
+app.use('/api/decision-logs', decisionLogRoutes);
 
 app.get('/api/logs/llm', (_req, res) => {
   try {
@@ -538,6 +551,14 @@ app.use(errorHandler);
 
 async function initializeApp() {
   console.log('Initializing application...');
+
+  // 初始化 Tools
+  try {
+    initializeTools();
+    console.log('Tools initialized');
+  } catch (error) {
+    console.error('Failed to initialize tools:', error);
+  }
 
   try {
     await initDatabaseService();

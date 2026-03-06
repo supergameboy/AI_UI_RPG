@@ -667,6 +667,720 @@ if (this.memory.shortTerm.length > 40) {
 
 ---
 
-*文档版本: v1.0*
+## 八、新架构组件
+
+### 8.1 Tool 层架构
+
+Tool 层是 Agent 访问游戏数据的统一接口，提供类型安全的方法调用和权限控制。
+
+#### ToolBase 基类
+
+**文件位置**: `packages/backend/src/tools/ToolBase.ts`
+
+所有 Tool 的基类，提供：
+- 方法注册和元数据管理
+- 读写权限区分
+- 统一的错误处理
+- 状态监控
+
+```typescript
+abstract class ToolBase {
+  protected abstract readonly toolType: ToolType;      // Tool 类型标识
+  protected abstract readonly toolDescription: string; // Tool 描述
+  protected abstract readonly toolVersion: string;     // 版本号
+
+  // 注册方法（子类实现）
+  protected abstract registerMethods(): void;
+  protected abstract executeMethod<T>(method: string, params: Record<string, unknown>, context: ToolCallContext): Promise<ToolResponse<T>>;
+
+  // 权限控制
+  isReadMethod(method: string): boolean;
+  isWriteMethod(method: string): boolean;
+  getReadMethods(): string[];
+  getWriteMethods(): string[];
+
+  // 执行入口
+  async execute<T>(method: string, params: Record<string, unknown>, context: ToolCallContext): Promise<ToolResponse<T>>;
+
+  // 状态管理
+  getStatus(): ToolStatus;
+  getConfig(): ToolConfig;
+}
+```
+
+#### ToolRegistry
+
+**文件位置**: `packages/backend/src/tools/ToolRegistry.ts`
+
+Tool 注册和管理中心：
+- Tool 注册和注销
+- 统一的执行入口
+- 并发控制
+- 状态监控
+
+```typescript
+class ToolRegistry {
+  registerTool(tool: ToolBase): void;
+  unregisterTool(toolType: ToolType): boolean;
+  getTool<T>(toolType: ToolType): T | undefined;
+  listTools(): ToolType[];
+  listToolStatuses(): ToolStatus[];
+
+  async executeTool<T>(toolType: ToolType, method: string, params: Record<string, unknown>, context: ToolCallContext): Promise<ToolResponse<T>>;
+  async initializeAll(): Promise<void>;
+  async disposeAll(): Promise<void>;
+}
+```
+
+#### 已实现的 Tool
+
+| Tool | 类型标识 | 职责 | 文件位置 |
+|------|----------|------|----------|
+| InventoryDataTool | `inventory_data` | 物品管理、装备系统、交易处理 | tools/implementations/InventoryDataTool.ts |
+| SkillDataTool | `skill_data` | 技能管理、冷却管理 | tools/implementations/SkillDataTool.ts |
+| MapDataTool | `map_data` | 位置查询、移动验证、区域管理 | tools/implementations/MapDataTool.ts |
+| QuestDataTool | `quest_data` | 任务 CRUD、进度追踪、奖励发放 | tools/implementations/QuestDataTool.ts |
+| NPCDataTool | `npc_data` | NPC CRUD、关系管理、队伍管理 | tools/implementations/NPCDataTool.ts |
+| EventDataTool | `event_data` | 事件 CRUD、条件检查、事件链 | tools/implementations/EventDataTool.ts |
+| StoryDataTool | `story_data` | 剧情节点管理、选择记录 | tools/implementations/StoryDataTool.ts |
+| UIDataTool | `ui_data` | UI 状态管理、指令队列 | tools/implementations/UIDataTool.ts |
+| DialogueDataTool | `dialogue_data` | 对话历史管理、上下文构建 | tools/implementations/DialogueDataTool.ts |
+| CombatDataTool | `combat_data` | 战斗状态管理、回合处理 | tools/implementations/CombatDataTool.ts |
+| NumericalTool | `numerical` | 属性计算、伤害公式、经验曲线 | tools/implementations/NumericalTool.ts |
+
+#### Tool 调用流程
+
+```
+Agent
+  │
+  │ callTool(toolType, method, params, permission)
+  ▼
+ToolRegistry
+  │
+  │ executeTool(toolType, method, params, context)
+  ▼
+ToolBase
+  │
+  │ execute(method, params, context)
+  ▼
+executeMethod (子类实现)
+  │
+  │ 调用对应 Service
+  ▼
+ToolResponse
+```
+
+---
+
+### 8.2 Agent 层架构
+
+Agent 层负责游戏逻辑决策和 LLM 调用，通过 Tool 层访问数据。
+
+#### AgentBase 基类更新
+
+**文件位置**: `packages/backend/src/agents/AgentBase.ts`
+
+新架构中 AgentBase 的关键变更：
+- 移除 `canCallAgents` 和 `dataAccess` 属性
+- 新增 `tools` 属性：声明依赖的 Tool 类型
+- 新增 `bindings` 属性：声明可调用的 Agent 及其条件
+- 提供 `callTool()` 方法调用 Tool
+- 提供 `callAgent()` 方法调用其他 Agent
+
+```typescript
+abstract class AgentBase implements Agent {
+  abstract readonly type: AgentType;
+  abstract readonly tools: ToolType[];           // 依赖的 Tool 列表
+  abstract readonly bindings: AgentBinding[];    // 可调用的 Agent 绑定
+  abstract readonly systemPrompt: string;
+
+  protected toolRegistry: ToolRegistry;
+
+  // Tool 调用
+  getTool<T>(toolType: ToolType): T | undefined;
+  async callTool<T>(toolType: ToolType, method: string, params: unknown, permission?: ToolPermission): Promise<ToolResponse<T>>;
+
+  // Agent 调用
+  async callAgent(agentType: AgentType, message: AgentMessage): Promise<AgentResponse>;
+
+  // LLM 调用
+  async callLLM(messages: Message[], options?): Promise<ChatResponse>;
+  async *callLLMStream(messages: Message[], options?): AsyncIterable<StreamChunk>;
+}
+```
+
+#### AgentBinding 配置
+
+定义 Agent 可以调用的其他 Agent 及其条件：
+
+```typescript
+interface AgentBinding {
+  agentType: AgentType;          // 目标 Agent 类型
+  condition?: {
+    messageType?: string | string[];
+    context?: Record<string, unknown>;
+  };
+  priority?: number;             // 调用优先级
+  enabled?: boolean;             // 是否启用
+}
+```
+
+#### Agent 示例
+
+```typescript
+export class InventoryAgent extends AgentBase {
+  readonly type = AgentType.INVENTORY;
+  readonly tools: ToolType[] = [
+    ToolType.INVENTORY_DATA,
+    ToolType.NUMERICAL,
+  ];
+  readonly bindings: AgentBinding[] = [
+    { agentType: AgentType.COORDINATOR, enabled: true },
+    { agentType: AgentType.NUMERICAL, enabled: true },
+  ];
+  readonly systemPrompt = '...';
+
+  async processMessage(message: AgentMessage): Promise<AgentResponse> {
+    // 使用 Tool 获取数据
+    const inventory = await this.callTool(
+      ToolType.INVENTORY_DATA,
+      'getInventory',
+      { saveId, characterId },
+      'read'
+    );
+
+    // 使用 Tool 修改数据
+    const result = await this.callTool(
+      ToolType.INVENTORY_DATA,
+      'addItem',
+      { saveId, characterId, item },
+      'write'
+    );
+
+    return { success: true, data: result.data };
+  }
+}
+```
+
+---
+
+### 8.3 Binding 路由系统
+
+Binding 路由系统负责将玩家输入路由到正确的 Agent 处理。
+
+#### BindingRouter
+
+**文件位置**: `packages/backend/src/routing/BindingRouter.ts`
+
+```typescript
+class BindingRouter {
+  private bindings: Binding[];
+  private cache: Map<string, CacheEntry>;
+  private defaultAgentId: AgentType;
+
+  // 路由方法
+  route(messageType: string, context: Record<string, unknown>): BindingRouteResult;
+
+  // Binding 管理
+  setBindings(bindings: Binding[]): void;
+  addBinding(binding: Binding): void;
+  removeBinding(bindingId: string): boolean;
+  getBindings(): Binding[];
+
+  // 测试和统计
+  test(request: BindingTestRequest): BindingTestResult;
+  getStats(): { bindingCount: number; enabledCount: number; cacheSize: number };
+}
+```
+
+#### Binding 配置结构
+
+```typescript
+interface Binding {
+  id: string;                    // Binding 唯一标识
+  agentId: AgentType;            // 目标 Agent
+  match: BindingMatch;           // 匹配条件
+  priority: number;              // 优先级（越高越优先）
+  enabled: boolean;              // 是否启用
+  description?: string;          // 描述
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface BindingMatch {
+  messageType?: string | '*';    // 消息类型匹配
+  context?: {                    // 上下文条件
+    inCombat?: boolean;
+    inDialogue?: boolean;
+    location?: string;
+    [key: string]: unknown;
+  };
+  custom?: {                     // 自定义条件
+    field: string;
+    operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'matches';
+    value: unknown;
+  }[];
+}
+```
+
+#### 路由流程
+
+```
+玩家输入
+    │
+    ▼
+┌─────────────────┐
+│ BindingRouter   │
+│ .route()        │
+└─────────────────┘
+    │
+    │ 1. 检查缓存
+    │ 2. 遍历 Bindings（按优先级排序）
+    │ 3. 匹配 messageType 和 context
+    │ 4. 计算匹配分数
+    ▼
+┌─────────────────┐
+│ BindingRoute    │
+│ Result          │
+│ - agentId       │
+│ - binding       │
+│ - matched       │
+│ - matchDetails  │
+└─────────────────┘
+    │
+    ▼
+目标 Agent 处理
+```
+
+#### 默认 Bindings
+
+| ID | Agent | 匹配条件 | 优先级 | 描述 |
+|----|-------|----------|--------|------|
+| game_init | coordinator | messageType: game_init | 100 | 游戏初始化 |
+| dialogue_request | dialogue | messageType: dialogue_request | 10 | 对话请求 |
+| npc_interaction | dialogue | messageType: npc_interaction | 8 | NPC 交互 |
+| combat_action | combat | messageType: combat_action | 10 | 战斗行动 |
+| combat_context | combat | context.inCombat: true | 5 | 战斗上下文 |
+| generate_item | inventory | messageType: generate_item | 10 | 生成物品 |
+| generate_skill | skill | messageType: generate_skill | 10 | 生成技能 |
+| generate_area | map | messageType: generate_area | 10 | 生成地图区域 |
+| quest_event | quest | messageType: quest_event | 10 | 任务事件 |
+| default_fallback | coordinator | messageType: * | 0 | 默认回退 |
+
+---
+
+### 8.4 上下文管理系统
+
+上下文管理系统负责管理全局游戏状态和各 Agent 的上下文数据。
+
+#### ContextManager
+
+**文件位置**: `packages/backend/src/context/ContextManager.ts`
+
+```typescript
+class ContextManager {
+  private globalContext: GlobalContext;
+  private agentContexts: Map<AgentType, AgentContextManager>;
+  private snapshots: ContextSnapshot[];
+  private conflictResolutionRules: ConflictResolutionRule[];
+
+  // 全局上下文
+  getGlobalContext(): GlobalContext;
+  updateGlobalContext(updates: Partial<GlobalContext>): void;
+
+  // Agent 上下文
+  getAgentContext(agentId: AgentType): AgentContextManager;
+  hasAgentContext(agentId: AgentType): boolean;
+  getAllAgentContexts(): Map<AgentType, AgentContextManager>;
+
+  // 快照
+  createSnapshot(requestId: string): ContextSnapshot;
+  getLatestSnapshot(): ContextSnapshot | undefined;
+
+  // 合并和冲突解决
+  mergeContexts(agentIds?: AgentType[]): ContextMergeResult;
+  diffContexts(before: GlobalContext, after: GlobalContext): ContextDiff[];
+
+  // 重置
+  clearAgentContexts(): void;
+  reset(): void;
+}
+```
+
+#### AgentContextManager
+
+每个 Agent 的独立上下文管理：
+
+```typescript
+class AgentContextManager {
+  private agentId: AgentType;
+  private data: Record<string, unknown>;
+  private changes: ContextData[];
+  private version: number;
+
+  // 数据访问
+  get(path: string): unknown;
+  set(path: string, value: unknown, reason: string): void;
+  delete(path: string, reason: string): boolean;
+  getAll(): Record<string, unknown>;
+  setAll(data: Record<string, unknown>, reason: string): void;
+
+  // 变更追踪
+  getChanges(since?: number): ContextData[];
+  getChangesSince(version: number): ContextData[];
+  clearChanges(): void;
+
+  // 快照
+  snapshot(): Record<string, unknown>;
+  restore(snapshot: Record<string, unknown>): void;
+
+  // 版本
+  getVersion(): number;
+  toAgentContext(): AgentContext;
+}
+```
+
+#### GlobalContext 结构
+
+```typescript
+interface GlobalContext {
+  player: {
+    id: string;
+    name: string;
+    race: string;
+    class: string;
+    background: string;
+    level: number;
+    experience: number;
+    attributes: Record<string, number>;
+    health: number;
+    maxHealth: number;
+    mana: number;
+    maxMana: number;
+    location: string;
+  };
+  world: {
+    id: string;
+    name: string;
+    currentTime: number;
+    weather: string;
+    exploredAreas: string[];
+    worldState: Record<string, unknown>;
+  };
+  combat: CombatState | null;
+  inventory: InventoryState;
+  quests: QuestState;
+  npcs: NPCState;
+  story: StoryState;
+  dialogue: DialogueState;
+  metadata: {
+    createdAt: number;
+    updatedAt: number;
+    saveVersion: string;
+    templateId: string;
+    gameMode: string;
+  };
+}
+```
+
+#### 冲突解决策略
+
+| 策略 | 描述 |
+|------|------|
+| `timestamp` | 使用最新的修改（默认） |
+| `priority` | 按预设的 Agent 优先级选择 |
+| `manual` | 需要手动解决，不自动合并 |
+| `abort` | 遇到冲突时中止合并 |
+
+---
+
+### 8.5 决策日志系统
+
+决策日志系统记录 Agent 的决策过程，用于调试和审计。
+
+#### DecisionLogService
+
+**文件位置**: `packages/backend/src/services/DecisionLogService.ts`
+
+```typescript
+class DecisionLogService {
+  private logs: Map<string, DecisionLog>;
+  private currentLog: DecisionLog | null;
+  private currentAgents: Map<AgentType, DecisionLogAgent>;
+
+  // 日志生命周期
+  startLog(requestId: string, playerId: string, saveId: string, playerInput: string, inputType: string): DecisionLog;
+  endLog(): DecisionLog | null;
+
+  // Agent 日志
+  startAgentLog(agentId: AgentType, contextSnapshot: Record<string, unknown>): void;
+  endAgentLog(agentId: AgentType): void;
+
+  // 记录内容
+  addDecision(agentId: AgentType, decision: DecisionLogAgentDecision): void;
+  addLLMCall(agentId: AgentType, llmCall: DecisionLogLLMCall): void;
+  addToolCall(agentId: AgentType, toolCall: DecisionLogToolCall): void;
+  addContextChange(agentId: AgentType, change: ContextData): void;
+  addConflict(conflict: DecisionLogConflict): void;
+  setResult(result: DecisionLogResult): void;
+
+  // 查询
+  getLog(logId: string): DecisionLog | undefined;
+  getLogByRequestId(requestId: string): DecisionLog | undefined;
+  queryLogs(query: DecisionLogQuery): DecisionLogSummary[];
+  traceback(logId: string): DecisionLogTraceback | null;
+
+  // 维护
+  cleanup(retentionDays?: number): number;
+  getStats(): { totalLogs: number; totalSize: number; oldestTimestamp: number | null; newestTimestamp: number | null };
+}
+```
+
+#### DecisionLog 结构
+
+```typescript
+interface DecisionLog {
+  id: string;
+  timestamp: number;
+  requestId: string;
+  playerId: string;
+  saveId: string;
+  playerInput: string;
+  inputType: string;
+  agents: DecisionLogAgent[];
+  conflicts: DecisionLogConflict[];
+  result: DecisionLogResult;
+  metadata: {
+    totalTokens: number;
+    totalDuration: number;
+    agentCount: number;
+    toolCallCount: number;
+    conflictCount: number;
+    version: string;
+  };
+}
+
+interface DecisionLogAgent {
+  agentId: AgentType;
+  contextSnapshot: Record<string, unknown>;
+  decisions: DecisionLogAgentDecision[];
+  contextChanges: ContextData[];
+  duration: number;
+}
+
+interface DecisionLogAgentDecision {
+  timestamp: number;
+  action: string;
+  reasoning: string;
+  llmCall?: DecisionLogLLMCall;
+  toolCalls: DecisionLogToolCall[];
+  result: unknown;
+}
+
+interface DecisionLogToolCall {
+  toolType: ToolType;
+  method: string;
+  params: Record<string, unknown>;
+  result: ToolResponse;
+  duration: number;
+}
+```
+
+---
+
+## 九、架构图
+
+### 9.1 整体架构
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              前端 (Frontend)                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │  React UI   │  │  GameStore  │  │ API Client  │  │  WebSocket  │    │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTP / WebSocket
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              后端 (Backend)                              │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                        Routing Layer                              │   │
+│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐        │   │
+│  │  │ BindingRouter │  │ Express Routes│  │ WebSocket Svc │        │   │
+│  │  └───────────────┘  └───────────────┘  └───────────────┘        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    │                                    │
+│                                    ▼                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                         Agent Layer                               │   │
+│  │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐        │   │
+│  │  │Coordinator│ │ Dialogue  │ │  Combat   │ │ Inventory │ ...    │   │
+│  │  │   Agent   │ │   Agent   │ │   Agent   │ │   Agent   │        │   │
+│  │  └───────────┘ └───────────┘ └───────────┘ └───────────┘        │   │
+│  │        │              │              │              │            │   │
+│  │        └──────────────┴──────────────┴──────────────┘            │   │
+│  │                              │                                    │   │
+│  │                              ▼                                    │   │
+│  │  ┌─────────────────────────────────────────────────────────┐     │   │
+│  │  │              Tool Layer (ToolRegistry)                   │     │   │
+│  │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐        │     │   │
+│  │  │  │Inventory│ │  Skill  │ │   Map   │ │  Quest  │ ...    │     │   │
+│  │  │  │DataTool │ │DataTool │ │DataTool │ │DataTool │        │     │   │
+│  │  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘        │     │   │
+│  │  └─────────────────────────────────────────────────────────┘     │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    │                                    │
+│                                    ▼                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                       Service Layer                              │   │
+│  │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐        │   │
+│  │  │ Inventory │ │   Skill   │ │    Map    │ │   Quest   │ ...    │   │
+│  │  │  Service  │ │  Service  │ │  Service  │ │  Service  │        │   │
+│  │  └───────────┘ └───────────┘ └───────────┘ └───────────┘        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    │                                    │
+│                                    ▼                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                     Infrastructure Layer                          │   │
+│  │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐        │   │
+│  │  │    LLM    │ │  Context  │ │ Decision  │ │ Database  │        │   │
+│  │  │  Service  │ │  Manager  │ │LogService │ │  Service  │        │   │
+│  │  └───────────┘ └───────────┘ └───────────┘ └───────────┘        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           数据存储 (Storage)                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                     │
+│  │   SQLite    │  │  Game Data  │  │   Prompts   │                     │
+│  │  Database   │  │    Files    │  │   Config    │                     │
+│  └─────────────┘  └─────────────┘  └─────────────┘                     │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.2 数据流
+
+```
+玩家输入
+    │
+    ▼
+┌─────────────────┐
+│ BindingRouter   │ ─── 路由到目标 Agent
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Agent.process   │
+│ Message()       │
+└─────────────────┘
+    │
+    ├─── callTool() ───▶ ToolRegistry ─── Tool ─── Service
+    │
+    ├─── callLLM() ───▶ LLMService ─── LLM Provider
+    │
+    └─── callAgent() ─▶ 其他 Agent
+    │
+    ▼
+┌─────────────────┐
+│ AgentResponse   │ ─── 返回前端
+└─────────────────┘
+```
+
+---
+
+## 十、迁移指南
+
+### 10.1 从旧架构迁移
+
+#### 1. 更新 Agent 导入路径
+
+```typescript
+// 旧架构
+import { AgentBase } from './agents/AgentBase';
+
+// 新架构（路径不变，但接口有变化）
+import { AgentBase } from './agents/AgentBase';
+```
+
+#### 2. 更新 Agent 定义
+
+```typescript
+// 旧架构
+class MyAgent extends AgentBase {
+  readonly canCallAgents: AgentType[] = ['coordinator', 'numerical'];
+  readonly dataAccess: string[] = ['inventory_state', 'character_state'];
+  // ...
+}
+
+// 新架构
+class MyAgent extends AgentBase {
+  readonly tools: ToolType[] = [ToolType.INVENTORY_DATA, ToolType.NUMERICAL];
+  readonly bindings: AgentBinding[] = [
+    { agentType: AgentType.COORDINATOR, enabled: true },
+    { agentType: AgentType.NUMERICAL, enabled: true },
+  ];
+  // ...
+}
+```
+
+#### 3. 使用新的 Tool 接口
+
+```typescript
+// 旧架构：直接访问 Service
+const inventory = this.inventoryService.getInventory(saveId, characterId);
+
+// 新架构：通过 Tool 访问
+const result = await this.callTool(
+  ToolType.INVENTORY_DATA,
+  'getInventory',
+  { saveId, characterId },
+  'read'
+);
+if (result.success) {
+  const inventory = result.data;
+}
+```
+
+#### 4. 配置 Binding 规则
+
+```typescript
+// 在 BindingConfigService 中配置
+const binding: Binding = {
+  id: 'my_custom_binding',
+  agentId: AgentType.MY_AGENT,
+  match: {
+    messageType: 'custom_action',
+    context: { inCombat: false },
+  },
+  priority: 10,
+  enabled: true,
+  description: '自定义绑定',
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+};
+```
+
+#### 5. 更新前端 Store
+
+前端 Store 主要通过 API 与后端交互，无需直接访问 Tool 或 Agent。确保 API 路由正确即可。
+
+### 10.2 类型定义更新
+
+所有共享类型定义位于 `packages/shared/src/types/` 目录：
+
+| 文件 | 内容 |
+|------|------|
+| `tool.ts` | ToolType, ToolConfig, ToolResponse, ToolCallContext 等 |
+| `agent.ts` | AgentType, Agent, AgentBinding, AgentMessage 等 |
+| `binding.ts` | Binding, BindingMatch, BindingRouterOptions 等 |
+| `context.ts` | GlobalContext, AgentContext, ContextData 等 |
+| `decision-log.ts` | DecisionLog, DecisionLogAgent, DecisionLogToolCall 等 |
+
+---
+
+*文档版本: v2.0*
 *创建日期: 2026-03-03*
-*最后更新: 2026-03-03*
+*最后更新: 2026-03-04*

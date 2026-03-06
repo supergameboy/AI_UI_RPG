@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
 import { SaveManager } from '../save';
 import { useGameStore, useThemeStore, useSettingsStore } from '../../stores';
+import { mockGameService } from '../../services/mockGameService';
 import styles from './MainMenu.module.css';
 
 export const MainMenu: React.FC = () => {
-  const { startNewGame, openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen } = useGameStore();
+  const { openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
   const { settings } = useSettingsStore();
   const [showSaveManager, setShowSaveManager] = useState(false);
@@ -31,7 +32,8 @@ export const MainMenu: React.FC = () => {
   };
 
   const handleDevModeGame = () => {
-    startNewGame();
+    const mockData = mockGameService.loadMockDataWithoutDynamicUI();
+    useGameStore.getState().updateGameState(mockData, 'user');
     setScreen('game');
   };
 

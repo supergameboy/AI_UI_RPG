@@ -1,4 +1,4 @@
-7aaaaaaaqexport interface APIResponse<T = unknown> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: APIError;

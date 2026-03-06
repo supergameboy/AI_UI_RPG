@@ -2,8 +2,11 @@ import { create } from 'zustand';
 import { saveService, Save, CreateSaveData } from '../services/saveService';
 import { dialogueService } from '../services/dialogueService';
 import { combatService } from '../services/combatService';
+import { decisionLogService, QueryOptions } from '../services/decisionLogService';
+import { contextService } from '../services/contextService';
+import { initializationService } from '../services/initializationService';
+import { websocketService } from '../services/websocketService';
 import type { 
-  StoryTemplate, 
   Character, 
   DialogueOption,
   CombatInstanceData,
@@ -12,6 +15,28 @@ import type {
   EnemyInitData,
   AllyInitData,
   CombatResult,
+  GlobalContext,
+  DecisionLog,
+  DecisionLogTraceback,
+  NPC,
+  NPCRelationship,
+  SkillState,
+  InventoryGameState,
+  EquipmentState,
+  MapGameState,
+  JournalEntry,
+  DynamicUIData,
+  GameStateUpdateLog,
+  GameStateUpdateSource,
+} from '@ai-rpg/shared';
+import { 
+  InitializationStatus, 
+  GameTemplate, 
+  InitializationData,
+  DEFAULT_SKILL_STATE,
+  DEFAULT_INVENTORY_STATE,
+  DEFAULT_EQUIPMENT_STATE,
+  DEFAULT_MAP_STATE,
 } from '@ai-rpg/shared';
 
 export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
@@ -58,7 +83,7 @@ export interface GameState {
   
   templateId: string | null;
   gameMode: 'text_adventure' | 'turn_based_rpg' | 'visual_novel' | 'dynamic_combat' | null;
-  selectedTemplate: StoryTemplate | null;
+  selectedTemplate: GameTemplate | null;
   
   character: CharacterState;
   currentLocation: string;
@@ -82,6 +107,31 @@ export interface GameState {
   isInCombat: boolean;
   isPlayerTurn: boolean;
   
+  // 全局上下文和决策日志
+  globalContext: GlobalContext | null;
+  decisionLogs: DecisionLog[];
+  contextLoading: boolean;
+  decisionLogsLoading: boolean;
+  
+  // 初始化相关
+  initializationStatus: InitializationStatus | null;
+  isInitializing: boolean;
+  initializationData: InitializationData | null;
+  
+  // NPC 相关
+  npcs: NPC[];
+  npcRelationships: Record<string, NPCRelationship>;
+  selectedNpcId: string | null;
+  
+  // 新增游戏状态字段
+  skills: SkillState;
+  inventory: InventoryGameState;
+  equipment: EquipmentState;
+  map: MapGameState;
+  journal: JournalEntry[];
+  dynamicUI: DynamicUIData | null;
+  updateLogs: GameStateUpdateLog[];
+  
   setScreen: (screen: GameScreen) => void;
   startNewGame: () => void;
   loadGame: (save: Save) => Promise<void>;
@@ -101,7 +151,7 @@ export interface GameState {
   fetchSaves: () => Promise<void>;
   
   setTemplate: (templateId: string, gameMode: GameState['gameMode']) => void;
-  setSelectedTemplate: (template: StoryTemplate | null) => void;
+  setSelectedTemplate: (template: GameTemplate | null) => void;
   onCharacterCreated: (character: Character) => void;
   setCharacter: (character: Partial<CharacterState>) => void;
   setLocation: (location: string) => void;
@@ -130,6 +180,41 @@ export interface GameState {
   endCombat: () => Promise<void>;
   addCombatLog: (action: CombatAction) => void;
   clearCombat: () => void;
+  
+  // 全局上下文和决策日志方法
+  fetchGlobalContext: () => Promise<void>;
+  fetchDecisionLogs: (options?: QueryOptions) => Promise<void>;
+  tracebackProblem: (requestId: string) => Promise<DecisionLogTraceback>;
+  
+  // 初始化方法
+  startInitialization: (saveId: string, character: Character, template: GameTemplate) => Promise<InitializationStatus>;
+  fetchInitializationStatus: (saveId: string) => Promise<InitializationStatus | null>;
+  retryInitialization: (saveId: string, character: Character, template: GameTemplate) => Promise<InitializationStatus>;
+  /** 从初始化响应批量设置数据 */
+  initializeFromResponse: (data: InitializationData) => void;
+  /** 设置初始化数据 */
+  setInitializationData: (data: InitializationData | null) => void;
+  
+  // NPC 相关方法
+  setNpcs: (npcs: NPC[]) => void;
+  addNpc: (npc: NPC) => void;
+  updateNpcRelationship: (npcId: string, relationship: Partial<NPCRelationship>) => void;
+  setSelectedNpc: (npcId: string | null) => void;
+  
+  // 统一游戏状态更新方法
+  updateGameState: (data: Partial<{
+    character: Character | null;
+    skills: SkillState;
+    inventory: InventoryGameState;
+    equipment: EquipmentState;
+    map: MapGameState;
+    journal: JournalEntry[];
+    dynamicUI: DynamicUIData | null;
+  }>, source?: GameStateUpdateSource, sourceId?: string) => void;
+  
+  // 数据流转监控方法
+  getUpdateLogs: () => GameStateUpdateLog[];
+  clearUpdateLogs: () => void;
 }
 
 const defaultCharacter: CharacterState = {
@@ -179,6 +264,31 @@ export const useGameStore = create<GameState>((set, get) => ({
   combatLog: [],
   isInCombat: false,
   isPlayerTurn: false,
+  
+  // 全局上下文和决策日志初始状态
+  globalContext: null,
+  decisionLogs: [],
+  contextLoading: false,
+  decisionLogsLoading: false,
+  
+  // 初始化状态
+  initializationStatus: null,
+  isInitializing: false,
+  initializationData: null,
+  
+  // NPC 状态
+  npcs: [],
+  npcRelationships: {},
+  selectedNpcId: null,
+  
+  // 新增游戏状态字段初始值
+  skills: DEFAULT_SKILL_STATE,
+  inventory: DEFAULT_INVENTORY_STATE,
+  equipment: DEFAULT_EQUIPMENT_STATE,
+  map: DEFAULT_MAP_STATE,
+  journal: [],
+  dynamicUI: null,
+  updateLogs: [],
   
   setScreen: (screen: GameScreen) => {
     set({ screen });
@@ -402,11 +512,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ templateId, gameMode });
   },
   
-  setSelectedTemplate: (template: StoryTemplate | null) => {
+  setSelectedTemplate: (template: GameTemplate | null) => {
     set({ selectedTemplate: template, templateId: template?.id ?? null, gameMode: template?.gameMode ?? null });
   },
   
-  onCharacterCreated: (character: Character) => {
+  onCharacterCreated: async (character: Character) => {
+    const template = get().selectedTemplate as GameTemplate;
+    if (!template) {
+      console.error('No template selected');
+      return;
+    }
+    
     const baseAttrs = character.baseAttributes;
     const attributes: Record<string, number> = {
       strength: baseAttrs.strength,
@@ -437,9 +553,29 @@ export const useGameStore = create<GameState>((set, get) => ({
       sessionStartTime: Date.now(),
     });
     
-    setTimeout(() => {
-      get().generateInitialScene();
-    }, 100);
+    // 创建存档并开始初始化
+    try {
+      // 先创建存档
+      const saveName = `${character.name} 的冒险`;
+      await get().saveGame(saveName);
+      
+      const saveId = get().currentSaveId;
+      if (saveId) {
+        // 开始初始化流程
+        await get().startInitialization(saveId, character, template);
+      }
+      
+      // 初始化完成后生成初始场景
+      setTimeout(() => {
+        get().generateInitialScene();
+      }, 100);
+    } catch (error) {
+      console.error('Failed to initialize game:', error);
+      // 即使初始化失败，也尝试生成初始场景
+      setTimeout(() => {
+        get().generateInitialScene();
+      }, 100);
+    }
   },
   
   setCharacter: (character: Partial<CharacterState>) => {
@@ -889,4 +1025,283 @@ export const useGameStore = create<GameState>((set, get) => ({
       isPlayerTurn: false,
     });
   },
+  
+  // ==================== 全局上下文和决策日志方法 ====================
+  
+  fetchGlobalContext: async () => {
+    const state = get();
+    if (!state.currentSaveId) {
+      return;
+    }
+    
+    set({ contextLoading: true });
+    try {
+      const result = await contextService.getGlobalContext(state.currentSaveId);
+      set({
+        globalContext: result.context,
+        contextLoading: false,
+      });
+    } catch (error) {
+      console.error('Failed to fetch global context:', error);
+      set({ contextLoading: false });
+    }
+  },
+  
+  fetchDecisionLogs: async (options?: QueryOptions) => {
+    const state = get();
+    set({ decisionLogsLoading: true });
+    try {
+      const queryOptions: QueryOptions = {
+        ...options,
+        saveId: state.currentSaveId ?? undefined,
+        limit: options?.limit ?? 50,
+      };
+      const result = await decisionLogService.getLogs(queryOptions);
+      set({
+        decisionLogs: result.logs,
+        decisionLogsLoading: false,
+      });
+    } catch (error) {
+      console.error('Failed to fetch decision logs:', error);
+      set({ decisionLogsLoading: false });
+    }
+  },
+  
+  tracebackProblem: async (requestId: string) => {
+    set({ decisionLogsLoading: true });
+    try {
+      const result = await decisionLogService.traceback(requestId);
+      set({ decisionLogsLoading: false });
+      return result;
+    } catch (error) {
+      console.error('Failed to traceback problem:', error);
+      set({ decisionLogsLoading: false });
+      throw error;
+    }
+  },
+  
+  // ==================== 初始化方法 ====================
+  
+  startInitialization: async (saveId: string, character: Character, template: GameTemplate) => {
+    set({ isInitializing: true, initializationStatus: null, initializationData: null });
+    
+    try {
+      const response = await initializationService.startInitialization({
+        saveId,
+        character,
+        template,
+      });
+      
+      // 处理返回的初始化数据
+      if (response.success && response.data) {
+        get().initializeFromResponse(response.data);
+      }
+      
+      set({ 
+        initializationStatus: response.status,
+        initializationData: response.data || null,
+        isInitializing: false,
+      });
+      
+      return response.status;
+    } catch (error) {
+      set({ isInitializing: false });
+      console.error('Failed to start initialization:', error);
+      throw error;
+    }
+  },
+  
+  fetchInitializationStatus: async (saveId: string) => {
+    try {
+      const response = await initializationService.getStatus(saveId);
+      if (response.success && response.status) {
+        set({ initializationStatus: response.status });
+        return response.status;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch initialization status:', error);
+      return null;
+    }
+  },
+  
+  retryInitialization: async (saveId: string, character: Character, template: GameTemplate) => {
+    set({ isInitializing: true });
+    
+    try {
+      const response = await initializationService.retryInitialization(saveId, {
+        character,
+        templateId: template.id,
+      });
+      
+      // 处理返回的初始化数据
+      if (response.success && response.data) {
+        get().initializeFromResponse(response.data);
+      }
+      
+      set({ 
+        initializationStatus: response.status,
+        initializationData: response.data || null,
+        isInitializing: false,
+      });
+      
+      return response.status;
+    } catch (error) {
+      set({ isInitializing: false });
+      console.error('Failed to retry initialization:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * 从初始化响应批量设置数据
+   */
+  initializeFromResponse: (data: InitializationData) => {
+    // 更新位置信息
+    if (data.scene?.location) {
+      set({ currentLocation: data.scene.location.name });
+    }
+    
+    // 更新任务列表
+    if (data.quests?.createdQuests && data.quests.createdQuests.length > 0) {
+      // 这里可以根据任务ID获取任务详情，暂时只记录ID
+      console.log('[GameStore] 初始化任务:', data.quests.createdQuests);
+    }
+    
+    // 更新NPC列表
+    if (data.npcs?.npcIds && data.npcs.npcIds.length > 0) {
+      console.log('[GameStore] 初始化NPC:', data.npcs.npcIds);
+    }
+    
+    // 更新角色属性（如果有数值数据）
+    if (data.numerical?.attributes) {
+      set((s) => ({
+        character: {
+          ...s.character,
+          attributes: {
+            ...s.character.attributes,
+            ...data.numerical!.attributes,
+          },
+        },
+      }));
+    }
+    
+    // 记录初始化数据
+    console.log('[GameStore] 初始化数据已同步:', {
+      skills: data.skills?.learnedSkills?.length || 0,
+      items: data.inventory?.addedItems?.length || 0,
+      equipment: data.equipment?.equippedItems?.length || 0,
+      quests: data.quests?.createdQuests?.length || 0,
+      npcs: data.npcs?.npcIds?.length || 0,
+    });
+  },
+  
+  /**
+   * 设置初始化数据
+   */
+  setInitializationData: (data: InitializationData | null) => {
+    set({ initializationData: data });
+  },
+  
+  // ==================== NPC 相关 Actions ====================
+  
+  setNpcs: (npcs: NPC[]) => {
+    set({ npcs });
+  },
+  
+  addNpc: (npc: NPC) => {
+    set((state) => ({
+      npcs: [...state.npcs, npc],
+      hasUnsavedChanges: true,
+    }));
+  },
+  
+  updateNpcRelationship: (npcId: string, relationship: Partial<NPCRelationship>) => {
+    set((state) => ({
+      npcRelationships: {
+        ...state.npcRelationships,
+        [npcId]: {
+          ...state.npcRelationships[npcId],
+          ...relationship,
+        } as NPCRelationship,
+      },
+      hasUnsavedChanges: true,
+    }));
+  },
+  
+  setSelectedNpc: (npcId: string | null) => {
+    set({ selectedNpcId: npcId });
+  },
+  
+  // ==================== 统一游戏状态更新方法 ====================
+  
+  updateGameState: (data, source = 'system', sourceId) => {
+    const state = get();
+    
+    const logEntry: GameStateUpdateLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+      source,
+      sourceId,
+      updates: data,
+    };
+    
+    const newUpdateLogs = [...state.updateLogs, logEntry].slice(-100);
+    
+    set({
+      ...data,
+      updateLogs: newUpdateLogs,
+      hasUnsavedChanges: true,
+    } as Partial<GameState>);
+    
+    console.log('[GameStore] updateGameState:', {
+      source,
+      sourceId,
+      updatedFields: Object.keys(data),
+    });
+  },
+  
+  // ==================== 数据流转监控方法 ====================
+  
+  getUpdateLogs: () => {
+    return get().updateLogs;
+  },
+  
+  clearUpdateLogs: () => {
+    set({ updateLogs: [] });
+  },
 }));
+
+// ==================== WebSocket 监听器设置 ====================
+
+let websocketUnsubscribe: (() => void) | null = null;
+
+type GameStateUpdateData = Parameters<GameState['updateGameState']>[0];
+
+export const setupGameStateWebSocketListener = (): void => {
+  if (websocketUnsubscribe) {
+    return;
+  }
+  
+  websocketUnsubscribe = websocketService.subscribe((message) => {
+    if (message.type === 'agent_message') {
+      const payload = message.payload as { action?: string; data?: unknown };
+      if (payload?.action === 'game_state_update' && payload?.data) {
+        const gameStateData = payload.data as GameStateUpdateData;
+        if (gameStateData) {
+          useGameStore.getState().updateGameState(gameStateData, 'websocket');
+        }
+      }
+    }
+  });
+  
+  console.log('[GameStore] WebSocket listener for game_state_update registered');
+};
+
+export const cleanupGameStateWebSocketListener = (): void => {
+  if (websocketUnsubscribe) {
+    websocketUnsubscribe();
+    websocketUnsubscribe = null;
+    console.log('[GameStore] WebSocket listener cleaned up');
+  }
+};

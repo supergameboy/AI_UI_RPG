@@ -3,8 +3,10 @@ import type {
   AgentMessage,
   AgentResponse,
   UIInstruction,
+  AgentBinding,
+  ToolType,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== 事件类型定义 ====================
@@ -184,25 +186,23 @@ interface EventStatistics {
 export class EventAgent extends AgentBase {
   readonly type: AgentType = AT.EVENT;
 
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.STORY_CONTEXT,
-    AT.QUEST,
-    AT.NPC_PARTY,
-    AT.MAP,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.EVENT_DATA,
+    ToolTypeEnum.MAP_DATA,
+    ToolTypeEnum.INVENTORY_DATA,
+    ToolTypeEnum.NUMERICAL,
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.QUEST_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'events',
-    'event_chains',
-    'event_history',
-    'player_location',
-    'player_inventory',
-    'player_stats',
-    'story_flags',
-    'quest_progress',
-    'npc_states',
-    'world_time',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.STORY_CONTEXT, enabled: true },
+    { agentType: AT.QUEST, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
+    { agentType: AT.MAP, enabled: true },
   ];
 
   readonly systemPrompt = `你是事件管理智能体，负责管理游戏中的所有事件系统。

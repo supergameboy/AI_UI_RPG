@@ -22,14 +22,36 @@ export interface AgentConfig {
   maxRetries: number;
 }
 
+/**
+ * Agent 绑定配置
+ * 定义 Agent 可以调用的其他 Agent 及其条件
+ */
+export interface AgentBinding {
+  /** 目标 Agent 类型 */
+  agentType: AgentType;
+  /** 调用条件（可选，不设置则默认可调用） */
+  condition?: {
+    /** 消息类型匹配 */
+    messageType?: string | string[];
+    /** 上下文条件 */
+    context?: Record<string, unknown>;
+  };
+  /** 调用优先级 */
+  priority?: number;
+  /** 是否启用 */
+  enabled?: boolean;
+}
+
 export interface Agent {
   id: string;
   name: string;
   type: AgentType;
   description: string;
   capabilities: string[];
-  canCallAgents: AgentType[];
-  dataAccess: string[];
+  /** 依赖的 Tool 类型列表 */
+  tools: string[];
+  /** 可调用的 Agent 绑定配置 */
+  bindings: AgentBinding[];
   config: AgentConfig;
   memory: AgentMemorySystem;
   systemPrompt: string;
@@ -52,7 +74,31 @@ export interface AgentMemory {
 }
 
 export type MessagePriority = 'low' | 'normal' | 'high' | 'critical';
-export type MessageType = 'request' | 'response' | 'notification' | 'error';
+export type MessageType = 'request' | 'response' | 'notification' | 'error' | 'tool_call' | 'tool_response';
+
+import type { ToolType, ToolPermission } from './tool';
+
+/**
+ * Tool 调用消息载荷
+ */
+export interface ToolCallPayload {
+  toolType: ToolType;
+  method: string;
+  params: Record<string, unknown>;
+  permission: ToolPermission;
+}
+
+/**
+ * Tool 响应消息载荷
+ */
+export interface ToolResponsePayload {
+  toolType: ToolType;
+  method: string;
+  success: boolean;
+  data?: unknown;
+  error?: string;
+  duration?: number;
+}
 
 export interface AgentMessage {
   id: string;
@@ -72,6 +118,10 @@ export interface AgentMessage {
     retryCount?: number;
   };
   correlationId?: string;
+  /** Tool 调用载荷，当 type 为 'tool_call' 时使用 */
+  toolCall?: ToolCallPayload;
+  /** Tool 响应载荷，当 type 为 'tool_response' 时使用 */
+  toolResponse?: ToolResponsePayload;
 }
 
 export interface AgentResponse {
@@ -105,6 +155,12 @@ export interface AgentLog {
   processingTime?: number;
   status: 'pending' | 'success' | 'error' | 'timeout';
   error?: string;
+  /** Tool 调用相关信息 */
+  toolCall?: {
+    toolType: ToolType;
+    method: string;
+    duration?: number;
+  };
 }
 
 export interface AgentStatus {

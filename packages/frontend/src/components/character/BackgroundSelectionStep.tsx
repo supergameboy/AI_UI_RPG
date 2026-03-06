@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { useCharacterCreationStore, useSettingsStore, useGameStore } from '../../stores';
 import { OptionCard } from './OptionCard';
 import { Icon } from '../common';
@@ -16,14 +16,16 @@ export const BackgroundSelectionStep: React.FC = () => {
     selectedBackground,
     templateAttributes,
     selectBackground,
-    generateAIBackgrounds,
     isLoading,
     error,
-    clearError,
   } = useCharacterCreationStore();
 
   const { settings } = useSettingsStore();
   const openSettings = useGameStore((state) => state.openSettings);
+
+  // 使用 ref 存储稳定的引用
+  const storeRef = useRef(useCharacterCreationStore.getState());
+  storeRef.current = useCharacterCreationStore.getState();
 
   const aiRandomGeneration = settings.gameplay.aiRandomGeneration;
   const hasGeneratedRef = useRef(false);
@@ -31,26 +33,34 @@ export const BackgroundSelectionStep: React.FC = () => {
 
   const needsConfig = useMemo(() => isConfigurationError(error), [error]);
 
-  const handleGenerateAIBackgrounds = useCallback(() => {
-    if (isGeneratingRef.current) return;
-    isGeneratingRef.current = true;
-    hasGeneratedRef.current = true;
-    clearError();
-    generateAIBackgrounds().finally(() => {
-      isGeneratingRef.current = false;
-    });
-  }, [generateAIBackgrounds, clearError]);
-
-  const handleRetry = useCallback(() => {
-    hasGeneratedRef.current = false;
-    handleGenerateAIBackgrounds();
-  }, [handleGenerateAIBackgrounds]);
-
   useEffect(() => {
     if (aiRandomGeneration && aiGeneratedBackgrounds.length === 0 && !hasGeneratedRef.current && !isLoading && !isGeneratingRef.current) {
-      handleGenerateAIBackgrounds();
+      hasGeneratedRef.current = true;
+      isGeneratingRef.current = true;
+      storeRef.current.clearError();
+      storeRef.current.generateAIBackgrounds().finally(() => {
+        isGeneratingRef.current = false;
+      });
     }
-  }, [aiRandomGeneration, aiGeneratedBackgrounds.length, isLoading, handleGenerateAIBackgrounds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiRandomGeneration, aiGeneratedBackgrounds.length, isLoading]);
+
+  const handleRetry = () => {
+    hasGeneratedRef.current = false;
+    isGeneratingRef.current = true;
+    storeRef.current.clearError();
+    storeRef.current.generateAIBackgrounds().finally(() => {
+      isGeneratingRef.current = false;
+    });
+  };
+
+  const handleGenerateAIBackgrounds = () => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+    storeRef.current.generateAIBackgrounds().finally(() => {
+      isGeneratingRef.current = false;
+    });
+  };
 
   return (
     <div className={styles.stepContent}>

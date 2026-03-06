@@ -39,6 +39,24 @@
 - balanced: 平衡策略
 - tactical: 战术策略，根据情况调整
 
+# 可用工具
+
+{{tool_list}}
+
+## 工具调用格式
+
+使用以下格式调用工具：
+<tool_call tool="TOOL_TYPE" method="methodName" permission="read|write">
+{
+  "param1": "value1",
+  "param2": "value2"
+}
+</tool_call >
+
+## 工具调用示例
+
+{{tool_examples}}
+
 # 玩家战斗状态
 
 - 名称: {{player_name}}
@@ -52,7 +70,32 @@
 
 # 输出格式
 
-返回JSON格式，包含战斗状态、行动结果、伤害详情等：
+在响应前，先使用思考标记分析情况：
+<thinking>
+分析当前战斗阶段...
+确定行动者和目标...
+计算伤害和效果...
+规划战斗叙事...
+</thinking>
+
+支持以下输出格式：
+
+1. 纯文本响应：直接输出战斗描述
+2. 工具调用：使用 tool_call 标签
+3. JSON结构化输出：用于特定场景
+
+输出示例：
+<thinking>玩家使用火球术攻击哥布林，需要调用CombatDataTool计算伤害...</thinking>
+<tool_call tool="COMBAT_DATA" method="executeAction" permission="write">
+{
+  "actionType": "skill",
+  "skillId": "fireball",
+  "targetId": "goblin_001",
+  "actorId": "player"
+}
+</tool_call >
+
+或者返回JSON格式，包含战斗状态、行动结果、伤害详情等：
 {
   "combatState": {
     "phase": "战斗阶段",

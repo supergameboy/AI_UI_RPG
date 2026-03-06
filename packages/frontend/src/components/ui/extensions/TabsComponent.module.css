@@ -1,0 +1,41 @@
+.tabsContainer {
+  margin: 12px 0;
+}
+
+.tabsList {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.tabButton {
+  flex: 1;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabButton:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tabButton.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.tabContent {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}

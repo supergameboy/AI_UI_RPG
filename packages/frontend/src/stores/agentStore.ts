@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import type { AgentType, AgentStatus, AgentConfig, AgentLog } from '@ai-rpg/shared';
+import type { AgentType, AgentStatus, AgentConfig, AgentLog, ToolStatus, Binding } from '@ai-rpg/shared';
 import { agentService, AgentServiceStatus, AgentConfigWithMeta, AgentLogQuery } from '../services/agentService';
+import { toolService } from '../services/toolService';
+import { bindingService } from '../services/bindingService';
 
 export type { AgentType } from '@ai-rpg/shared';
 export type { AgentConfigWithMeta, AgentLogQuery };
@@ -19,6 +21,12 @@ export interface AgentState {
   editingConfig: AgentConfigWithMeta | null;
   refreshInterval: number;
   autoRefresh: boolean;
+  
+  // 工具和绑定状态
+  tools: ToolStatus[];
+  bindings: Binding[];
+  toolsLoading: boolean;
+  bindingsLoading: boolean;
 
   fetchStatus: () => Promise<void>;
   fetchStatuses: () => Promise<void>;
@@ -41,6 +49,13 @@ export interface AgentState {
   setRefreshInterval: (interval: number) => void;
   setAutoRefresh: (enabled: boolean) => void;
   clearError: () => void;
+  
+  // 工具和绑定方法
+  fetchTools: () => Promise<void>;
+  fetchBindings: () => Promise<void>;
+  updateBinding: (bindingId: string, updates: Partial<Binding>) => Promise<void>;
+  toggleBinding: (bindingId: string, enabled: boolean) => Promise<void>;
+  testBinding: (messageType: string, context: Record<string, unknown>) => Promise<import('@ai-rpg/shared').BindingTestResult>;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:6756';
@@ -81,6 +96,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   editingConfig: null,
   refreshInterval: 5000,
   autoRefresh: true,
+  
+  // 工具和绑定初始状态
+  tools: [],
+  bindings: [],
+  toolsLoading: false,
+  bindingsLoading: false,
 
   fetchStatus: async () => {
     set({ loading: true, error: null });
@@ -284,5 +305,94 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  // ==================== 工具相关方法 ====================
+
+  fetchTools: async () => {
+    set({ toolsLoading: true, error: null });
+    try {
+      const result = await toolService.getStatuses();
+      set({
+        tools: result.tools,
+        toolsLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : '获取工具状态失败',
+        toolsLoading: false,
+      });
+    }
+  },
+
+  // ==================== 绑定相关方法 ====================
+
+  fetchBindings: async () => {
+    set({ bindingsLoading: true, error: null });
+    try {
+      const result = await bindingService.getBindings();
+      set({
+        bindings: result.bindings,
+        bindingsLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : '获取绑定失败',
+        bindingsLoading: false,
+      });
+    }
+  },
+
+  updateBinding: async (bindingId: string, updates: Partial<Binding>) => {
+    set({ saving: true, error: null });
+    try {
+      const updated = await bindingService.updateBinding(bindingId, updates);
+      set((state) => ({
+        bindings: state.bindings.map((b) =>
+          b.id === bindingId ? updated : b
+        ),
+        saving: false,
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : '更新绑定失败',
+        saving: false,
+      });
+      throw error;
+    }
+  },
+
+  toggleBinding: async (bindingId: string, enabled: boolean) => {
+    set({ saving: true, error: null });
+    try {
+      const updated = await bindingService.toggleBinding(bindingId, enabled);
+      set((state) => ({
+        bindings: state.bindings.map((b) =>
+          b.id === bindingId ? updated : b
+        ),
+        saving: false,
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : '切换绑定状态失败',
+        saving: false,
+      });
+      throw error;
+    }
+  },
+
+  testBinding: async (messageType: string, context: Record<string, unknown>) => {
+    set({ loading: true, error: null });
+    try {
+      const result = await bindingService.testBinding({ messageType, context });
+      set({ loading: false });
+      return result;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : '测试绑定失败',
+        loading: false,
+      });
+      throw error;
+    }
   },
 }));

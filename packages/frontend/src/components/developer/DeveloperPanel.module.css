@@ -927,3 +927,1007 @@
   gap: var(--spacing-sm);
   margin-top: var(--spacing-md);
 }
+
+/* 状态检查器新增样式 */
+.stateTypeSelector {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.stateTypeButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.stateTypeButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.stateTypeButton.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* 冲突高亮样式 */
+.hasConflict {
+  background: var(--color-warning-light, rgba(234, 179, 8, 0.1));
+  border-left: 3px solid var(--color-warning);
+}
+
+.conflictBadge {
+  background: var(--color-warning);
+  color: white;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  margin-left: var(--spacing-xs);
+}
+
+.conflictDetail {
+  margin: var(--spacing-xs) 0;
+  padding: var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-warning);
+}
+
+.conflictHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+}
+
+.conflictResolution {
+  color: var(--color-text-secondary);
+  font-weight: normal;
+}
+
+.conflictValues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.conflictValueItem {
+  display: flex;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  flex-wrap: wrap;
+}
+
+.conflictAgent {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.conflictValue {
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.conflictReason {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* 冲突列表样式 */
+.conflictsSection {
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.conflictsHeader {
+  background: var(--color-warning-light, rgba(234, 179, 8, 0.1));
+  padding: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
+.conflictsList {
+  padding: var(--spacing-sm);
+}
+
+.conflictItem {
+  padding: var(--spacing-xs) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.conflictItem:last-child {
+  border-bottom: none;
+}
+
+.conflictPath {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.conflictAgents {
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+/* Agent 上下文样式 */
+.agentContextContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.agentContextGroup {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.agentContextHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.agentContextHeader:hover {
+  background: var(--color-surface-hover);
+}
+
+.agentType {
+  color: var(--color-primary);
+}
+
+.agentCount {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.agentContextList {
+  padding: var(--spacing-sm);
+}
+
+.agentContextItem {
+  padding: var(--spacing-sm);
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.agentContextItem:last-child {
+  margin-bottom: 0;
+}
+
+.agentContextMeta {
+  display: flex;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.changesSection {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.changesLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: var(--spacing-xs);
+}
+
+.changesList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.changeItem {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+.changePath {
+  color: var(--color-primary);
+  font-family: monospace;
+}
+
+.changeReason {
+  color: var(--color-text-tertiary);
+}
+
+/* Tool 状态样式 */
+.toolStateContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.toolStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.toolStatItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.toolStatLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.toolStatValue {
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.toolList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.toolItem {
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.toolHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.toolName {
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.toolStatus {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.toolStatus.idle {
+  background: var(--color-success-light, rgba(34, 197, 94, 0.1));
+  color: var(--color-success);
+}
+
+.toolStatus.busy {
+  background: var(--color-warning-light, rgba(234, 179, 8, 0.1));
+  color: var(--color-warning);
+}
+
+.toolStatus.error {
+  background: var(--color-error-light, rgba(239, 68, 68, 0.1));
+  color: var(--color-error);
+}
+
+.toolLastCall {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+/* 上下文对比样式 */
+.diffContainer {
+  margin-top: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.diffHeader {
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.diffSelectors {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.diffSelect {
+  flex: 1;
+  min-width: 150px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.diffArrow {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.diffButton {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.diffButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.diffResults {
+  padding: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.diffSummary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.diffList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.diffItem {
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-border);
+}
+
+.diffItem.added {
+  border-left-color: var(--color-success);
+  background: var(--color-success-light, rgba(34, 197, 94, 0.05));
+}
+
+.diffItem.removed {
+  border-left-color: var(--color-error);
+  background: var(--color-error-light, rgba(239, 68, 68, 0.05));
+}
+
+.diffItem.modified {
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-light, rgba(234, 179, 8, 0.05));
+}
+
+.diffPath {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+}
+
+.diffType {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.diffItem.added .diffType {
+  background: var(--color-success);
+  color: white;
+}
+
+.diffItem.removed .diffType {
+  background: var(--color-error);
+  color: white;
+}
+
+.diffItem.modified .diffType {
+  background: var(--color-warning);
+  color: white;
+}
+
+.diffValues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.oldValue,
+.newValue {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.valueLabel {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.oldValue {
+  color: var(--color-error);
+  text-decoration: line-through;
+}
+
+.newValue {
+  color: var(--color-success);
+}
+
+.diffAgent {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-xs);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+/* 日志统计栏 */
+.logStatsBar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.logStatsItem {
+  color: var(--color-text-secondary);
+}
+
+.logStatsItem strong {
+  color: var(--color-text);
+  margin-left: 4px;
+}
+
+.logStatsError {
+  color: var(--color-error);
+}
+
+.logStatsError strong {
+  color: var(--color-error);
+}
+
+.logStatsWarning {
+  color: var(--color-warning);
+}
+
+.logStatsWarning strong {
+  color: var(--color-warning);
+}
+
+/* 日志分组 */
+.logGroup {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.logGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-background-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast);
+}
+
+.logGroupHeader:hover {
+  background: var(--color-surface-hover);
+}
+
+.logGroupName {
+  flex: 1;
+}
+
+.logGroupCount {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.logGroupContent {
+  background: var(--color-surface);
+}
+
+/* 日志来源特殊样式 */
+.logSourceDecision {
+  border-left: 3px solid var(--color-info, #3b82f6);
+}
+
+.logSourceContext {
+  border-left: 3px solid var(--color-success, #22c55e);
+}
+
+.logSourceConflict {
+  border-left: 3px solid var(--color-error, #ef4444);
+  background: var(--color-error-light, rgba(239, 68, 68, 0.05));
+}
+
+/* 日志数据特殊渲染 */
+.logDataSpecial {
+  padding: var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  margin: var(--spacing-xs) var(--spacing-sm);
+}
+
+.logDataField {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.logDataField:last-child {
+  margin-bottom: 0;
+}
+
+.logDataLabel {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.logDataValue {
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.logDataValuePath {
+  color: var(--color-primary);
+  font-family: monospace;
+  background: var(--color-primary-light);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.logSuccess {
+  color: var(--color-success);
+}
+
+.logFailure {
+  color: var(--color-error);
+}
+
+/* 日志跳转按钮 */
+.logJumpButton {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.logJumpButton:hover {
+  opacity: 0.9;
+}
+
+/* 上下文变更差异显示 */
+.logDataDiff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.logDataOldValue,
+.logDataNewValue {
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+}
+
+.logDataOldValue {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.logDataOldValue pre {
+  color: var(--color-error);
+  margin: 0;
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.logDataNewValue {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.logDataNewValue pre {
+  color: var(--color-success);
+  margin: 0;
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 冲突日志样式 */
+.logDataConflict {
+  border: 1px solid var(--color-error-light, rgba(239, 68, 68, 0.3));
+}
+
+.logDataConflictValues {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.logDataConflictValue {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+}
+
+.logDataConflictValue pre {
+  margin: var(--spacing-xs) 0 0 0;
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.logDataAgentTag {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* Agent Communication 新增样式 */
+
+/* 消息类型样式 */
+.toolCall {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.toolResponse {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.contextChange {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.conflictDetected {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+/* 详情子标签 */
+.detailSubLabel {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  margin-right: var(--spacing-xs);
+}
+
+/* Tool 调用详情 */
+.toolCallDetail,
+.toolResponseDetail,
+.contextChangeDetail,
+.conflictDetail {
+  padding: var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.toolType {
+  color: #8b5cf6;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+.methodName {
+  color: var(--color-primary);
+  font-family: monospace;
+}
+
+.permission {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.permission.read {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.permission.write {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 代码区域 */
+.codeSection {
+  margin-top: var(--spacing-sm);
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.copyButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* 响应状态 */
+.responseStatus {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.responseStatus.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+}
+
+.responseStatus.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+}
+
+/* 错误区域 */
+.errorSection {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: rgba(239, 68, 68, 0.05);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-error);
+}
+
+.errorHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-bottom: var(--spacing-xs);
+}
+
+.errorBlock {
+  margin: 0;
+  padding: var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 上下文变更 */
+.pathDisplay {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.pathText {
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-primary);
+}
+
+.changeComparison {
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.changeItem {
+  flex: 1;
+}
+
+.changeLabel {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.changeArrow {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-tertiary);
+}
+
+.changeMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* 冲突检测 */
+.conflictHeader {
+  color: var(--color-warning);
+}
+
+.warningIcon {
+  margin-left: 4px;
+  color: var(--color-warning);
+}
+
+.resolutionBadge {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  margin-left: var(--spacing-xs);
+}
+
+.resolutionBadge.auto {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+}
+
+.resolutionBadge.manual {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.resolutionBadge.priority {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.resolutionBadge.timestamp {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.conflictDescription {
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.conflictType {
+  color: var(--color-warning);
+  font-weight: 500;
+}
+
+.conflictingParties {
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+.partyTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+
+.partyTag {
+  padding: 1px 6px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.resolutionInfo {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+/* 消息列表提示 */
+.toolHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.toolHint.warning {
+  color: var(--color-warning);
+}
+
+/* 过滤器栏增强 */
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}

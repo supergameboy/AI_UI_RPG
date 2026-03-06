@@ -1,6 +1,6 @@
 {
   "name": "@ai-rpg/frontend",
-  "version": "0.2.0",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,16 +12,19 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
+    "@ai-rpg/shared": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "zustand": "^4.5.0",
-    "@ai-rpg/shared": "workspace:*"
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "vite": "^5.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
   }
 }

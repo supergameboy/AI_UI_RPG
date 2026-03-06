@@ -7,16 +7,34 @@ import { LogViewer } from './LogViewer';
 import { StateInspector } from './StateInspector';
 import { PromptEditor } from './PromptEditor';
 import { TokenUsagePanel } from './TokenUsagePanel';
+import { ToolStatusPanel } from '../ToolStatusPanel';
+import { BindingConfigPanel } from '../BindingConfigPanel';
+import { DecisionLogViewer } from '../decision-log';
+import { DynamicUITester } from '../dev/DynamicUITester';
+import { StateDebugger } from '../dev/StateDebugger';
+import { MarkdownPreviewer } from '../dev/MarkdownPreviewer';
+import { WebSocketSimulator } from '../dev/WebSocketSimulator';
+import { DataFlowMonitor } from '../dev/DataFlowMonitor';
 import styles from './DeveloperPanel.module.css';
 
-const TABS: { id: 'requests' | 'agents' | 'logs' | 'state' | 'prompts' | 'tokens'; label: string; icon: IconName }[] = [
+const TABS: { id: DeveloperTab; label: string; icon: IconName }[] = [
   { id: 'requests', label: '请求', icon: 'send' },
   { id: 'agents', label: '智能体', icon: 'developer' },
+  { id: 'tools', label: '工具', icon: 'inventory' },
+  { id: 'bindings', label: '绑定', icon: 'equipment' },
+  { id: 'decisions', label: '决策', icon: 'quests' },
   { id: 'logs', label: '日志', icon: 'folder' },
   { id: 'state', label: '状态', icon: 'character' },
   { id: 'prompts', label: '提示词', icon: 'edit' },
   { id: 'tokens', label: 'Token', icon: 'token' },
+  { id: 'dynamicUI', label: '动态UI', icon: 'quests' },
+  { id: 'stateDebugger', label: '状态调试', icon: 'character' },
+  { id: 'markdownPreview', label: 'MD预览', icon: 'edit' },
+  { id: 'wsSimulator', label: 'WS模拟', icon: 'send' },
+  { id: 'dataFlow', label: '数据流', icon: 'quests' },
 ];
+
+type DeveloperTab = 'requests' | 'agents' | 'tools' | 'bindings' | 'decisions' | 'logs' | 'state' | 'prompts' | 'tokens' | 'dynamicUI' | 'stateDebugger' | 'markdownPreview' | 'wsSimulator' | 'dataFlow';
 
 export const DeveloperPanel: React.FC = () => {
   const { settings } = useSettingsStore();
@@ -97,6 +115,12 @@ export const DeveloperPanel: React.FC = () => {
         return <RequestMonitor />;
       case 'agents':
         return <AgentCommunication />;
+      case 'tools':
+        return <ToolStatusPanel />;
+      case 'bindings':
+        return <BindingConfigPanel />;
+      case 'decisions':
+        return <DecisionLogViewer />;
       case 'logs':
         return <LogViewer />;
       case 'state':
@@ -105,6 +129,16 @@ export const DeveloperPanel: React.FC = () => {
         return <PromptEditor />;
       case 'tokens':
         return <TokenUsagePanel />;
+      case 'dynamicUI':
+        return <DynamicUITester />;
+      case 'stateDebugger':
+        return <StateDebugger />;
+      case 'markdownPreview':
+        return <MarkdownPreviewer />;
+      case 'wsSimulator':
+        return <WebSocketSimulator />;
+      case 'dataFlow':
+        return <DataFlowMonitor />;
       default:
         return null;
     }

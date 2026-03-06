@@ -1,0 +1,417 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 85vh;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.closeBtn:hover {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+/* 统计摘要 */
+.summaryStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--color-background);
+  border-radius: var(--radius-md);
+}
+
+.summaryValue {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.summaryLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* 性能指标 */
+.performanceStats {
+  display: flex;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.performanceItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+}
+
+.performanceLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.progressBar {
+  flex: 1;
+  height: 8px;
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.progressFill {
+  height: 100%;
+  transition: width var(--transition-normal);
+}
+
+.performanceValue {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 60px;
+  text-align: right;
+}
+
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) 0;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.filterControls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.filterSelect {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.searchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--spacing-sm);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.searchInput {
+  padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-xs) calc(var(--spacing-sm) * 2 + 16px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  width: 180px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.refreshControls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.autoRefreshLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.autoRefreshLabel input {
+  cursor: pointer;
+}
+
+.refreshSelect {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.refreshSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.refreshSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 错误提示 */
+.error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  color: #ef4444;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.error button {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  padding: 0;
+  line-height: 1;
+}
+
+/* 工具列表 */
+.toolList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm) 0;
+}
+
+.toolGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-md);
+}
+
+/* 工具卡片 */
+.toolCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  transition: all var(--transition-fast);
+}
+
+.toolCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.toolHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.toolInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.statusIndicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.toolName {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.toolType {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.toolDescription {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-sm) 0;
+  line-height: 1.4;
+}
+
+.toolStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xs);
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.statValue {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.errorValue {
+  color: #ef4444;
+}
+
+.lastCall {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-sm);
+  text-align: right;
+}
+
+/* 空状态 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text-secondary);
+}
+
+.emptyState p {
+  margin: var(--spacing-sm) 0 0 0;
+}
+
+.emptyState .hint {
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+}
+
+/* 错误横幅 */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-md);
+  color: #ef4444;
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-md);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .summaryStats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .performanceStats {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .performanceItem {
+    width: 100%;
+  }
+
+  .toolGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterControls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .searchInput {
+    flex: 1;
+    width: auto;
+  }
+
+  .refreshControls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

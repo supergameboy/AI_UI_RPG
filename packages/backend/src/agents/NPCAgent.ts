@@ -3,8 +3,13 @@ import type {
   AgentMessage,
   AgentResponse,
   Message,
+  AgentBinding,
+  ToolType,
+  GameTemplate,
+  AgentInitializationResult,
+  Character,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== NPC 类型定义 ====================
@@ -186,21 +191,21 @@ export interface NPCAgentState {
 export class NPCAgent extends AgentBase {
   readonly type: AgentType = AT.NPC_PARTY;
   
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.STORY_CONTEXT,
-    AT.QUEST,
-    AT.DIALOGUE,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.DIALOGUE_DATA,
+    ToolTypeEnum.QUEST_DATA,
+    ToolTypeEnum.MAP_DATA,
+    ToolTypeEnum.INVENTORY_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'npc_data',
-    'npc_relations',
-    'party_state',
-    'dialogue_state',
-    'quest_state',
-    'player_location',
-    'inventory_state',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.STORY_CONTEXT, enabled: true },
+    { agentType: AT.QUEST, enabled: true },
+    { agentType: AT.DIALOGUE, enabled: true },
   ];
 
   readonly systemPrompt = `你是NPC和队伍管理智能体，负责管理游戏中的所有NPC及其与玩家的关系。
@@ -283,6 +288,97 @@ NPC标记：
       'affection_system',
       'dialogue_coordination',
     ];
+  }
+
+  /**
+   * 初始化 NPC
+   * 从模板的 initialNPCs 获取初始 NPC 列表
+   */
+  async initialize(params: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<AgentInitializationResult> {
+    const { character, template } = params;
+    
+    try {
+      const initialNPCs = template.initialNPCs || [];
+      const createdNPCs: string[] = [];
+      const failedNPCs: string[] = [];
+      
+      for (const npcDef of initialNPCs) {
+        const npcId = npcDef.id || this.generateNPCId();
+        const now = Date.now();
+        
+        const npc: NPCData = {
+          id: npcId,
+          name: npcDef.name,
+          title: npcDef.title,
+          race: 'human',
+          occupation: npcDef.role || 'commoner',
+          description: npcDef.description || '',
+          appearance: '',
+          backstory: '',
+          location: {
+            currentLocationId: 'start',
+            defaultLocationId: 'start',
+          },
+          flags: {
+            isCompanion: npcDef.role === 'ally',
+            isMerchant: npcDef.role === 'merchant',
+            isQuestGiver: npcDef.role === 'quest_giver',
+            isRomanceable: false,
+            isEssential: false,
+            isHostile: npcDef.role === 'enemy',
+          },
+          behavior: {
+            personality: npcDef.personality || '普通',
+            traits: [],
+            dialogueStyle: 'normal',
+            preferences: {
+              likes: [],
+              dislikes: [],
+              fears: [],
+            },
+          },
+          stats: npcDef.stats ? {
+            level: npcDef.stats.level || 1,
+            hp: npcDef.stats.hp || 100,
+            maxHp: npcDef.stats.hp || 100,
+            mp: 0,
+            maxMp: 0,
+            attack: npcDef.stats.attack || 0,
+            defense: npcDef.stats.defense || 0,
+          } : undefined,
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+        
+        this.npcState.npcs.set(npcId, npc);
+        createdNPCs.push(npcId);
+      }
+      
+      this.addMemory(
+        `初始化NPC: ${character.name}, NPC数: ${createdNPCs.length}/${initialNPCs.length}`,
+        'assistant',
+        7,
+        { characterId: character.id, createdNPCs, failedNPCs }
+      );
+      
+      return {
+        success: true,
+        data: {
+          createdNPCs,
+          failedNPCs,
+          npcCount: createdNPCs.length,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'NPC初始化失败',
+      };
+    }
   }
 
   /**

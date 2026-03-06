@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { useCharacterCreationStore, useSettingsStore, useGameStore } from '../../stores';
 import { OptionCard } from './OptionCard';
 import { Icon } from '../common';
@@ -16,40 +16,50 @@ export const RaceSelectionStep: React.FC = () => {
     selectedRace,
     templateAttributes,
     selectRace,
-    generateAIRaces,
     isLoading,
     error,
-    clearError,
   } = useCharacterCreationStore();
 
   const { settings } = useSettingsStore();
   const openSettings = useGameStore((state) => state.openSettings);
+
+  // 使用 ref 存储稳定的引用
+  const storeRef = useRef(useCharacterCreationStore.getState());
+  storeRef.current = useCharacterCreationStore.getState();
 
   const needsConfig = useMemo(() => isConfigurationError(error), [error]);
   const aiRandomGeneration = settings.gameplay.aiRandomGeneration;
   const hasGeneratedRef = useRef(false);
   const isGeneratingRef = useRef(false);
 
-  const handleGenerateAIRaces = useCallback(() => {
-    if (isGeneratingRef.current) return;
-    isGeneratingRef.current = true;
-    hasGeneratedRef.current = true;
-    clearError();
-    generateAIRaces().finally(() => {
-      isGeneratingRef.current = false;
-    });
-  }, [generateAIRaces, clearError]);
-
-  const handleRetry = useCallback(() => {
-    hasGeneratedRef.current = false;
-    handleGenerateAIRaces();
-  }, [handleGenerateAIRaces]);
-
   useEffect(() => {
     if (aiRandomGeneration && aiGeneratedRaces.length === 0 && !hasGeneratedRef.current && !isLoading && !isGeneratingRef.current) {
-      handleGenerateAIRaces();
+      hasGeneratedRef.current = true;
+      isGeneratingRef.current = true;
+      storeRef.current.clearError();
+      storeRef.current.generateAIRaces().finally(() => {
+        isGeneratingRef.current = false;
+      });
     }
-  }, [aiRandomGeneration, aiGeneratedRaces.length, isLoading, handleGenerateAIRaces]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiRandomGeneration, aiGeneratedRaces.length, isLoading]);
+
+  const handleRetry = () => {
+    hasGeneratedRef.current = false;
+    isGeneratingRef.current = true;
+    storeRef.current.clearError();
+    storeRef.current.generateAIRaces().finally(() => {
+      isGeneratingRef.current = false;
+    });
+  };
+
+  const handleGenerateAIRaces = () => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+    storeRef.current.generateAIRaces().finally(() => {
+      isGeneratingRef.current = false;
+    });
+  };
 
   return (
     <div className={styles.stepContent}>

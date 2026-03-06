@@ -9,6 +9,7 @@ export {
   type GameplaySettings,
   type DeveloperSettings,
   type ProviderConfig,
+  type AgentLLMConfig,
   type TextSpeed,
   type SettingsState,
 } from './settingsStore';
@@ -22,6 +23,10 @@ export {
   type CharacterCreationState,
   type CharacterCreationActions,
 } from './characterCreationStore';
+export {
+  useDecisionLogStore,
+  type DecisionLogState,
+} from './decisionLogStore';
 export {
   type LLMRequestRecord,
   type AgentMessageRecord,

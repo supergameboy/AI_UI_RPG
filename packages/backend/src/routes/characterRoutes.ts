@@ -276,7 +276,7 @@ router.post('/calculate-attributes', async (req: Request, res: Response) => {
     }
 
     console.log('[CharacterRoutes] Calculating attributes...');
-    const attributes = characterService.calculateAttributes(
+    const attributes = await characterService.calculateAttributes(
       template.characterCreation.attributes,
       race,
       cls,

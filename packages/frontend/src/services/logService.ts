@@ -1,6 +1,48 @@
 import type { LogLevel, LogSource, LogEntry } from '@ai-rpg/shared';
+import type {
+  ToolCallPayload,
+  ToolResponsePayload,
+} from '@ai-rpg/shared';
 
 export type { LogLevel, LogSource, LogEntry };
+export type {
+  ToolCallPayload,
+  ToolResponsePayload,
+};
+
+/** 扩展的消息类型 */
+export type ExtendedMessageType =
+  | 'request'
+  | 'response'
+  | 'notification'
+  | 'error'
+  | 'tool_call'
+  | 'tool_response'
+  | 'context_change'
+  | 'conflict_detected';
+
+/**
+ * 上下文变更载荷
+ */
+export interface ContextChangePayload {
+  path: string;
+  oldValue: unknown;
+  newValue: unknown;
+  source: string;
+  reason?: string;
+}
+
+/**
+ * 冲突检测载荷
+ */
+export interface ConflictDetectedPayload {
+  conflictType: 'data' | 'state' | 'action' | 'resource';
+  description: string;
+  conflictingParties: string[];
+  conflictingData?: Record<string, unknown>;
+  resolution?: 'auto' | 'manual' | 'priority' | 'timestamp';
+  resolvedBy?: string;
+}
 
 export interface LLMRequestRecord {
   id: string;
@@ -27,6 +69,11 @@ export interface AgentMessageRecord {
   status: 'sent' | 'received' | 'error';
   payload?: Record<string, unknown>;
   error?: string;
+  /** 扩展消息类型的载荷 */
+  toolCall?: ToolCallPayload;
+  toolResponse?: ToolResponsePayload;
+  contextChange?: ContextChangePayload;
+  conflictDetected?: ConflictDetectedPayload;
 }
 
 const MAX_LOGS = 1000;

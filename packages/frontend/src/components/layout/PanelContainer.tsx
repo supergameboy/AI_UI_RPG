@@ -7,6 +7,9 @@ import { InventoryPanel } from '../panels/InventoryPanel';
 import { SkillsPanel } from '../panels/SkillsPanel';
 import { EquipmentPanel } from '../panels/EquipmentPanel';
 import { QuestPanel } from '../panels/QuestPanel';
+import { JournalPanel } from '../panels/JournalPanel';
+import { NPCPanel } from '../panels/NPCPanel';
+import { MapPanel } from '../panels/MapPanel';
 import styles from './PanelContainer.module.css';
 
 export const PanelContainer: React.FC = () => {
@@ -37,26 +40,11 @@ export const PanelContainer: React.FC = () => {
       case 'quests':
         return <QuestPanel />;
       case 'npc':
-        return (
-          <div className={styles.placeholder}>
-            <h3>NPC列表</h3>
-            <p>遇到的NPC和关系信息将在这里显示</p>
-          </div>
-        );
+        return <NPCPanel />;
       case 'journal':
-        return (
-          <div className={styles.placeholder}>
-            <h3>故事记录</h3>
-            <p>对话历史和重要事件记录将在这里显示</p>
-          </div>
-        );
+        return <JournalPanel />;
       case 'map':
-        return (
-          <div className={styles.placeholder}>
-            <h3>世界地图</h3>
-            <p>完整的世界地图将在这里显示</p>
-          </div>
-        );
+        return <MapPanel />;
       default:
         return null;
     }

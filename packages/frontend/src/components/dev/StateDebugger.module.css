@@ -1,0 +1,355 @@
+.stateDebugger {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mainContent {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.leftPanel {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+}
+
+.rightPanel {
+  width: 60%;
+  display: flex;
+  flex-direction: column;
+}
+
+.stateSelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.stateButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.stateButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.stateButton.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.stateTree {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-sm);
+}
+
+.stateNode {
+  font-size: var(--font-size-xs);
+}
+
+.stateNodeHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 2px 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.stateNodeHeader:hover {
+  background: var(--color-surface-hover);
+}
+
+.expandIcon {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.expandPlaceholder {
+  width: 12px;
+}
+
+.stateKey {
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.stateType {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.stateValue {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.stateValue:hover {
+  text-decoration: underline;
+  color: var(--color-text);
+}
+
+.stateValue.null {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.stateValue.string {
+  color: var(--color-success);
+}
+
+.stateValue.number {
+  color: var(--color-info);
+}
+
+.stateValue.boolean {
+  color: var(--color-warning);
+}
+
+.stateChildren {
+  margin-left: 16px;
+  border-left: 1px dashed var(--color-border);
+  padding-left: 4px;
+}
+
+.editorSection {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-background-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.editorPath {
+  color: var(--color-primary);
+  font-family: monospace;
+}
+
+.editorContent {
+  flex: 1;
+  padding: var(--spacing-sm);
+  overflow: auto;
+}
+
+.editorTextarea {
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-family: monospace;
+  resize: none;
+}
+
+.editorTextarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.editorActions {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-top: 1px solid var(--color-border);
+}
+
+.editorButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.editorButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.editorButton.primary {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.editorButton.primary:hover {
+  opacity: 0.9;
+}
+
+.editorButton.danger {
+  background: var(--color-error);
+  color: white;
+  border-color: var(--color-error);
+}
+
+.historySection {
+  border-top: 1px solid var(--color-border);
+  max-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-background-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.historyList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.historyItem:hover {
+  background: var(--color-surface-hover);
+}
+
+.historyTime {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.historySource {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.historyFields {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.error {
+  padding: var(--spacing-sm);
+  background: var(--color-error-light, rgba(239, 68, 68, 0.1));
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  color: var(--color-error);
+  font-size: var(--font-size-xs);
+  margin: var(--spacing-sm);
+}
+
+.quickActions {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.quickActionButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quickActionButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.jsonPreview {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow: auto;
+}

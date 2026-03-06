@@ -6,8 +6,13 @@ import type {
   SkillEffect,
   SkillRequirement,
   UIInstruction,
+  AgentBinding,
+  ToolType,
+  GameTemplate,
+  AgentInitializationResult,
+  Character,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== 扩展类型定义 ====================
@@ -216,21 +221,18 @@ interface SkillStatistics {
 export class SkillAgent extends AgentBase {
   readonly type: AgentType = AT.SKILL;
 
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.NUMERICAL,
-    AT.COMBAT,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.SKILL_DATA,
+    ToolTypeEnum.NUMERICAL,
+    ToolTypeEnum.COMBAT_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'skills',
-    'skill_templates',
-    'skill_trees',
-    'character_skills',
-    'character_stats',
-    'character_resources',
-    'cooldowns',
-    'skill_effects_log',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.NUMERICAL, enabled: true },
+    { agentType: AT.COMBAT, enabled: true },
   ];
 
   readonly systemPrompt = `你是技能管理智能体，负责管理游戏中的所有技能系统。
@@ -314,6 +316,60 @@ export class SkillAgent extends AgentBase {
       'skill_tree_navigation',
       'cost_calculation',
     ];
+  }
+
+  /**
+   * 初始化角色技能
+   * 从模板的 initialData.skills[classId] 获取初始技能列表
+   */
+  async initialize(params: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<AgentInitializationResult> {
+    const { character, template } = params;
+    
+    try {
+      const classId = character.class || 'warrior';
+      const initialSkillIds = template.initialData?.skills?.[classId] || [];
+      
+      const learnedSkills: string[] = [];
+      const failedSkills: string[] = [];
+      
+      for (const skillId of initialSkillIds) {
+        const learnResult = this.handleLearnSkill({
+          skillId,
+          characterId: character.id,
+          source: 'level_up',
+        });
+        
+        if (learnResult.success) {
+          learnedSkills.push(skillId);
+        } else {
+          failedSkills.push(skillId);
+        }
+      }
+      
+      this.addMemory(
+        `初始化角色技能: ${character.name}, 职业: ${classId}, 学习技能: ${learnedSkills.length}/${initialSkillIds.length}`,
+        'assistant',
+        7,
+        { characterId: character.id, learnedSkills, failedSkills }
+      );
+      
+      return {
+        success: true,
+        data: {
+          learnedSkills,
+          failedSkills,
+          classId,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '技能初始化失败',
+      };
+    }
   }
 
   /**

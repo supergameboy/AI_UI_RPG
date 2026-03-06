@@ -1039,6 +1039,625 @@ ComponentName/
 
 ---
 
+## Tool 开发指南
+
+### 概述
+
+Tool 是智能体访问游戏数据的统一接口。每个 Tool 封装特定领域的数据操作，提供读写分离的方法注册机制。
+
+### 架构设计
+
+```
+tools/
+├── ToolBase.ts              # 抽象基类
+├── ToolRegistry.ts          # 工具注册中心
+└── implementations/         # 具体实现
+    ├── UIDataTool.ts
+    ├── StoryDataTool.ts
+    ├── SkillDataTool.ts
+    ├── QuestDataTool.ts
+    ├── NumericalTool.ts
+    ├── NPCDataTool.ts
+    ├── MapDataTool.ts
+    ├── InventoryDataTool.ts
+    ├── EventDataTool.ts
+    ├── DialogueDataTool.ts
+    └── CombatDataTool.ts
+```
+
+### 创建新 Tool
+
+#### 步骤 1: 继承 ToolBase 基类
+
+```typescript
+// packages/backend/src/tools/implementations/MyDataTool.ts
+import type {
+  ToolResponse,
+  ToolCallContext,
+} from '@ai-rpg/shared';
+import { ToolType } from '@ai-rpg/shared';
+import { ToolBase } from '../ToolBase';
+import { gameLog } from '../../services/GameLogService';
+
+export class MyDataTool extends ToolBase {
+  // 1. 定义 Tool 类型（需要在 shared/types/tool.ts 中添加）
+  protected readonly toolType: ToolType = ToolType.MY_DATA;
+  
+  // 2. 描述信息
+  protected readonly toolDescription = '我的数据工具，负责...';
+  protected readonly toolVersion = '1.0.0';
+
+  // 3. 注册所有方法
+  protected registerMethods(): void {
+    // 读方法（isRead: true）
+    this.registerMethod(
+      'getData',           // 方法名
+      '获取数据',          // 描述
+      true,                // 是否为读方法
+      { id: 'string' },    // 参数定义
+      'MyData'             // 返回类型描述
+    );
+
+    // 写方法（isRead: false）
+    this.registerMethod(
+      'updateData',
+      '更新数据',
+      false,
+      { id: 'string', data: 'object' },
+      'MyData'
+    );
+  }
+
+  // 4. 实现方法分发逻辑
+  protected async executeMethod<T>(
+    method: string,
+    params: Record<string, unknown>,
+    context: ToolCallContext
+  ): Promise<ToolResponse<T>> {
+    try {
+      let result: unknown;
+
+      switch (method) {
+        case 'getData':
+          result = await this.getData(params.id as string);
+          break;
+
+        case 'updateData':
+          result = await this.updateData(
+            params.id as string,
+            params.data as Record<string, unknown>
+          );
+          this.logWriteOperation(method, params, context);
+          break;
+
+        default:
+          return this.createError<T>(
+            'METHOD_NOT_FOUND',
+            `Method '${method}' not found in MyDataTool`
+          );
+      }
+
+      return this.createSuccess<T>(result as T);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      gameLog.error('backend', `MyDataTool error: ${method}`, {
+        error: errorMessage,
+        params,
+        agentId: context.agentId,
+      });
+      return this.createError<T>('EXECUTION_ERROR', errorMessage, { method, params });
+    }
+  }
+
+  // 5. 实现具体方法
+  private async getData(id: string): Promise<unknown> {
+    // 实现获取数据逻辑
+    return { id, data: 'example' };
+  }
+
+  private async updateData(
+    id: string,
+    data: Record<string, unknown>
+  ): Promise<unknown> {
+    // 实现更新数据逻辑
+    return { id, ...data };
+  }
+
+  // 6. 日志记录（可选）
+  private logWriteOperation(
+    method: string,
+    params: Record<string, unknown>,
+    context: ToolCallContext
+  ): void {
+    gameLog.info('backend', `MyDataTool write operation: ${method}`, {
+      agentId: context.agentId,
+      requestId: context.requestId,
+      permission: context.permission,
+    });
+  }
+}
+```
+
+#### 步骤 2: 添加 ToolType 枚举
+
+```typescript
+// packages/shared/src/types/tool.ts
+export enum ToolType {
+  // ... 现有类型
+  MY_DATA = 'my_data',  // 添加新类型
+}
+
+// 同时更新描述和方法列表
+export const TOOL_DESCRIPTIONS: Record<ToolType, string> = {
+  // ... 现有描述
+  [ToolType.MY_DATA]: '我的数据工具描述',
+};
+
+export const TOOL_READ_METHODS: Record<ToolType, string[]> = {
+  // ... 现有方法
+  [ToolType.MY_DATA]: ['getData'],
+};
+
+export const TOOL_WRITE_METHODS: Record<ToolType, string[]> = {
+  // ... 现有方法
+  [ToolType.MY_DATA]: ['updateData'],
+};
+```
+
+#### 步骤 3: 注册 Tool
+
+```typescript
+// packages/backend/src/tools/index.ts 或初始化文件
+import { getToolRegistry } from './ToolRegistry';
+import { MyDataTool } from './implementations/MyDataTool';
+
+const registry = getToolRegistry();
+registry.registerTool(new MyDataTool());
+
+// 初始化所有 Tool
+await registry.initializeAll();
+```
+
+### Tool 基类 API
+
+| 方法/属性 | 说明 |
+|-----------|------|
+| `type` | 获取 Tool 类型 |
+| `description` | 获取 Tool 描述 |
+| `version` | 获取 Tool 版本 |
+| `registerMethod()` | 注册方法元数据 |
+| `getMethodMetadata()` | 获取方法元数据 |
+| `getReadMethods()` | 获取所有读方法 |
+| `getWriteMethods()` | 获取所有写方法 |
+| `execute()` | 执行方法（由 Registry 调用） |
+| `createSuccess()` | 创建成功响应 |
+| `createError()` | 创建错误响应 |
+| `getStatus()` | 获取运行状态 |
+| `initialize()` | 初始化 Tool |
+| `dispose()` | 释放资源 |
+
+### 最佳实践
+
+1. **读写分离**: 明确区分读方法和写方法，写方法需要记录日志
+2. **错误处理**: 所有方法都应该 try-catch，返回标准错误响应
+3. **类型安全**: 使用 TypeScript 泛型确保类型正确
+4. **日志记录**: 写操作必须记录，便于审计和调试
+5. **参数验证**: 在执行前验证参数有效性
+
+---
+
+## Agent 开发指南
+
+### 概述
+
+Agent 是具有独立决策能力的智能体，通过 LLM 进行推理，通过 Tool 访问数据，通过消息队列与其他 Agent 通信。
+
+### 架构设计
+
+```
+agents/
+├── AgentBase.ts           # 抽象基类
+├── CoordinatorAgent.ts    # 统筹智能体
+├── StoryContextAgent.ts   # 故事上下文智能体
+├── UIAgent.ts             # UI智能体
+├── QuestAgent.ts          # 任务智能体
+├── MapAgent.ts            # 地图智能体
+├── NPCAgent.ts            # NPC智能体
+├── NumericalAgent.ts      # 数值智能体
+├── InventoryAgent.ts      # 背包智能体
+├── SkillAgent.ts          # 技能智能体
+├── CombatAgent.ts         # 战斗智能体
+├── DialogueAgent.ts       # 对话智能体
+├── EventAgent.ts          # 事件智能体
+└── index.ts               # 导出
+```
+
+### 创建新 Agent
+
+#### 步骤 1: 继承 AgentBase 基类
+
+```typescript
+// packages/backend/src/agents/MyAgent.ts
+import {
+  AgentType,
+  type AgentMessage,
+  type AgentResponse,
+  type AgentBinding,
+  type ToolType,
+} from '@ai-rpg/shared';
+import { ToolType as ToolTypeEnum } from '@ai-rpg/shared';
+import { AgentBase } from './AgentBase';
+
+export class MyAgent extends AgentBase {
+  // 1. 定义 Agent 类型（需要在 shared/types/agent.ts 中添加）
+  readonly type: AgentType = AgentType.MY_AGENT;
+
+  // 2. 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.MY_DATA,
+    ToolTypeEnum.UI_DATA,
+  ];
+
+  // 3. 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AgentType.COORDINATOR, enabled: true },
+    { agentType: AgentType.UI, enabled: true },
+  ];
+
+  // 4. 系统提示词
+  readonly systemPrompt = `你是我的智能体，负责...
+
+你的职责：
+1. 职责一
+2. 职责二
+
+输出格式要求：
+...`;
+
+  // 5. 实现抽象方法
+  protected getAgentName(): string {
+    return 'My Agent';
+  }
+
+  protected getAgentDescription(): string {
+    return '我的智能体描述';
+  }
+
+  protected getAgentCapabilities(): string[] {
+    return ['capability_1', 'capability_2'];
+  }
+
+  // 6. 实现消息处理逻辑
+  async processMessage(message: AgentMessage): Promise<AgentResponse> {
+    const { action, data } = message.payload;
+    const typedData = data as Record<string, unknown>;
+
+    switch (action) {
+      case 'do_something':
+        return this.handleDoSomething(typedData);
+      
+      case 'query_data':
+        return this.handleQueryData(typedData);
+      
+      default:
+        return {
+          success: false,
+          error: `Unknown action: ${action}`,
+        };
+    }
+  }
+
+  // 7. 实现具体处理方法
+  private async handleDoSomething(
+    data: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    try {
+      // 调用 Tool 获取数据
+      const toolResult = await this.callTool(
+        ToolTypeEnum.MY_DATA,
+        'getData',
+        { id: data.id },
+        'read'
+      );
+
+      if (!toolResult.success) {
+        return {
+          success: false,
+          error: toolResult.error?.message,
+        };
+      }
+
+      // 调用 LLM 进行推理
+      const messages = [
+        {
+          role: 'user' as const,
+          content: `处理数据: ${JSON.stringify(toolResult.data)}`,
+        },
+      ];
+      const response = await this.callLLM(messages);
+
+      // 添加记忆
+      this.addMemory(
+        `处理了数据: ${data.id}`,
+        'assistant',
+        5,
+        { action: 'do_something', data }
+      );
+
+      return {
+        success: true,
+        data: { result: response.content },
+        uiInstructions: [
+          {
+            type: 'update',
+            target: 'my-panel',
+            action: 'update',
+            data: { content: response.content },
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  private async handleQueryData(
+    data: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    // 实现查询逻辑
+    return { success: true, data: {} };
+  }
+}
+```
+
+#### 步骤 2: 添加 AgentType 枚举
+
+```typescript
+// packages/shared/src/types/agent.ts
+export enum AgentType {
+  // ... 现有类型
+  MY_AGENT = 'my_agent',  // 添加新类型
+}
+
+// 同时更新描述和能力
+export const AGENT_DESCRIPTIONS: Record<AgentType, string> = {
+  // ... 现有描述
+  [AgentType.MY_AGENT]: '我的智能体描述',
+};
+
+export const AGENT_CAPABILITIES: Record<AgentType, string[]> = {
+  // ... 现有能力
+  [AgentType.MY_AGENT]: ['capability_1', 'capability_2'],
+};
+```
+
+#### 步骤 3: 注册和启动 Agent
+
+```typescript
+// packages/backend/src/agents/index.ts
+export { MyAgent } from './MyAgent';
+
+// 初始化文件
+import { MyAgent } from './agents';
+
+const myAgent = new MyAgent();
+await myAgent.initialize();
+await myAgent.start();
+```
+
+### Agent 基类 API
+
+| 方法/属性 | 说明 |
+|-----------|------|
+| `type` | Agent 类型 |
+| `tools` | 依赖的 Tool 列表 |
+| `bindings` | 可调用的 Agent 绑定 |
+| `systemPrompt` | 系统提示词 |
+| `config` | LLM 配置 |
+| `memory` | 记忆系统 |
+| `status` | 运行状态 |
+| `getTool()` | 获取 Tool 实例 |
+| `callTool()` | 调用 Tool 方法 |
+| `callAgent()` | 调用其他 Agent |
+| `callLLM()` | 调用 LLM（非流式） |
+| `callLLMStream()` | 调用 LLM（流式） |
+| `sendMessage()` | 发送消息给其他 Agent |
+| `addMemory()` | 添加记忆 |
+| `clearMemory()` | 清除记忆 |
+| `updateConfig()` | 更新配置 |
+| `initialize()` | 初始化 |
+| `start()` | 启动 |
+| `stop()` | 停止 |
+
+### Agent 间通信
+
+```typescript
+// 发送消息给单个 Agent
+const response = await this.sendMessage(
+  AgentType.QUEST,
+  'create_quest',
+  { name: '新任务', description: '任务描述' },
+  { priority: 'normal', requiresResponse: true }
+);
+
+// 发送消息给多个 Agent
+await this.sendMessage(
+  [AgentType.UI, AgentType.QUEST],
+  'notify',
+  { message: '任务更新' },
+  { priority: 'low' }
+);
+
+// 调用其他 Agent 并获取响应
+const agentResponse = await this.callAgent(AgentType.QUEST, {
+  id: 'msg_123',
+  timestamp: Date.now(),
+  from: this.type,
+  to: AgentType.QUEST,
+  type: 'request',
+  payload: {
+    action: 'get_progress',
+    data: { questId: 'quest_001' },
+  },
+  metadata: { priority: 'normal', requiresResponse: true },
+});
+```
+
+### Binding 配置说明
+
+```typescript
+interface AgentBinding {
+  /** 目标 Agent 类型 */
+  agentType: AgentType;
+  
+  /** 调用条件（可选） */
+  condition?: {
+    /** 消息类型匹配 */
+    messageType?: string | string[];
+    /** 上下文条件 */
+    context?: Record<string, unknown>;
+  };
+  
+  /** 调用优先级 */
+  priority?: number;
+  
+  /** 是否启用 */
+  enabled?: boolean;
+}
+
+// 示例：带条件的绑定
+const bindings: AgentBinding[] = [
+  {
+    agentType: AgentType.COMBAT,
+    condition: {
+      messageType: 'combat_action',
+    },
+    priority: 100,
+    enabled: true,
+  },
+  {
+    agentType: AgentType.DIALOGUE,
+    enabled: true,
+  },
+];
+```
+
+### 最佳实践
+
+1. **单一职责**: 每个 Agent 只负责一个领域
+2. **明确依赖**: 在 `tools` 和 `bindings` 中声明所有依赖
+3. **错误处理**: 所有方法都应该返回标准的 `AgentResponse`
+4. **记忆管理**: 重要操作添加记忆，避免上下文过长
+5. **UI 指令**: 返回 `uiInstructions` 让前端更新界面
+6. **日志记录**: 关键操作使用 `gameLog` 记录
+
+---
+
+## 前端集成指南
+
+### 调用后端 API
+
+```typescript
+// packages/frontend/src/services/myService.ts
+import type { APIResponse } from '@ai-rpg/shared';
+
+const API_BASE = '/api';
+
+export async function myAction(data: unknown): Promise<APIResponse> {
+  const response = await fetch(`${API_BASE}/my-endpoint`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  
+  return response.json() as Promise<APIResponse>;
+}
+```
+
+### 使用 Zustand Store
+
+```typescript
+// packages/frontend/src/stores/myStore.ts
+import { create } from 'zustand';
+
+interface MyState {
+  data: unknown;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  fetchData: () => Promise<void>;
+  updateData: (data: unknown) => void;
+  clearError: () => void;
+}
+
+export const useMyStore = create<MyState>((set, get) => ({
+  data: null,
+  isLoading: false,
+  error: null,
+
+  fetchData: async () => {
+    if (get().isLoading) return; // 防止并发请求
+    
+    set({ isLoading: true, error: null });
+    
+    try {
+      const result = await myAction({});
+      if (result.success) {
+        set({ data: result.data, isLoading: false });
+      } else {
+        set({ error: result.error.message, isLoading: false });
+      }
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        isLoading: false 
+      });
+    }
+  },
+
+  updateData: (data) => set({ data }),
+  clearError: () => set({ error: null }),
+}));
+```
+
+### 创建 UI 组件
+
+```typescript
+// packages/frontend/src/components/panels/MyPanel.tsx
+import { useMyStore } from '../../stores/myStore';
+import styles from './MyPanel.module.css';
+
+export function MyPanel() {
+  const { data, isLoading, error, fetchData } = useMyStore();
+
+  if (isLoading) {
+    return <div className={styles.loading}>加载中...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className={styles.error}>
+        <p>错误: {error}</p>
+        <button onClick={() => fetchData()}>重试</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.container}>
+      <h2>我的面板</h2>
+      {/* 渲染数据 */}
+    </div>
+  );
+}
+```
+
+---
+
 ## 相关文档
 
 - [项目设计文档](./project_design.md) - 完整的系统设计
@@ -1047,7 +1666,299 @@ ComponentName/
 
 ---
 
-*文档版本: v2.5*
+*文档版本: v2.7*
 *创建日期: 2026-02-28*
-*最后更新: 2026-03-03*
-*项目版本: 0.9.0*
+*最后更新: 2026-03-05*
+*项目版本: 0.10.0*
+
+---
+
+## 架构重构 (v0.10.0)
+
+### Tool 层架构
+
+**实现时间**: 第十阶段  
+**文件位置**: `packages/backend/src/tools/`
+
+#### 已实现的 Tool (11个)
+
+| Tool | 类型 | 描述 |
+|------|------|------|
+| InventoryDataTool | inventory_data | 背包数据管理 |
+| SkillDataTool | skill_data | 技能数据管理 |
+| MapDataTool | map_data | 地图数据管理 |
+| QuestDataTool | quest_data | 任务数据管理 |
+| NPCPartyDataTool | npc_data | NPC和队伍管理 |
+| EventDataTool | event_data | 事件管理 |
+| StoryDataTool | story_data | 剧情管理 |
+| UIDataTool | ui_data | UI指令管理 |
+| DialogueDataTool | dialogue_data | 对话数据管理 |
+| CombatDataTool | combat_data | 战斗数据管理 |
+| NumericalTool | numerical | 数值计算 |
+
+#### 核心服务
+
+| 服务 | 文件 | 描述 |
+|------|------|------|
+| ToolRegistry | ToolRegistry.ts | Tool注册和管理 |
+| AgentRegistry | AgentRegistry.ts | Agent注册和管理 |
+| ToolSchemaGenerator | ToolSchemaGenerator.ts | Tool Schema生成 |
+| ContextInjectionService | ContextInjectionService.ts | 上下文注入服务 |
+| AgentOutputParser | AgentOutputParser.ts | Agent输出解析器 |
+| ToolCallExecutor | ToolCallExecutor.ts | Tool调用执行器 |
+| WriteOperationReviewService | WriteOperationReviewService.ts | 写操作审核服务 |
+| EventService | EventService.ts | 事件服务 |
+| StoryService | StoryService.ts | 故事服务 |
+| UIService | UIService.ts | UI服务 |
+
+### Binding 路由系统
+
+**实现时间**: 第十阶段  
+**文件位置**: `packages/backend/src/routes/bindings.ts`
+
+#### 已配置的 Binding (10个)
+
+| Binding ID | Agent | 匹配条件 | 优先级 |
+|------------|-------|----------|--------|
+| game_init | coordinator | messageType: game_init | 100 |
+| dialogue_request | dialogue | messageType: dialogue_request | 10 |
+| combat_action | combat | messageType: combat_action | 10 |
+| generate_item | inventory | messageType: generate_item | 10 |
+| generate_skill | skill | messageType: generate_skill | 10 |
+| generate_area | map | messageType: generate_area | 10 |
+| quest_event | quest | messageType: quest_event | 10 |
+| npc_interaction | dialogue | messageType: npc_interaction | 8 |
+| combat_context | combat | context.inCombat: true | 5 |
+| default_fallback | coordinator | messageType: * | 0 |
+
+### 决策日志系统
+
+**实现时间**: 第十阶段  
+**文件位置**: `packages/backend/src/services/DecisionLogService.ts`
+
+#### 核心功能
+
+- **决策记录**: 记录每个Agent的决策过程
+- **问题回溯**: 支持按请求ID、时间范围查询
+- **冲突检测**: 检测并记录上下文冲突
+- **统计分析**: 提供决策统计信息
+
+### 前端开发者工具
+
+**实现时间**: 第十阶段  
+**文件位置**: `packages/frontend/src/components/`
+
+#### 新增组件
+
+| 组件 | 文件位置 | 描述 |
+|------|----------|------|
+| ToolStatusPanel | components/ToolStatusPanel/ | Tool状态监控面板 |
+| BindingConfigPanel | components/BindingConfigPanel/ | Binding配置管理面板 |
+| DecisionLogViewer | components/decision-log/ | 决策日志查看器 |
+| ContextDiffViewer | components/ContextDiffViewer/ | 上下文差异对比器 |
+
+#### 开发发者工具适配
+
+| 组件 | 更新内容 |
+|------|----------|
+| DeveloperPanel | 新增 tools/bindings/decisions Tabs |
+| AgentCommunication | 新增 tool_call/tool_response/context_change/conflict_detected 消息类型 |
+| StateInspector | 新增 GlobalContext/AgentContext/ToolState 状态类型 |
+| LogViewer | 新增 decision/context/conflict 日志类型 |
+
+### 设置弹窗适配
+
+**实现时间**: 第十阶段
+
+#### Settings.tsx 更新
+
+- 新增 Agent 配置面板
+- 新增 Binding 配置面板
+- 新增 Tool 配置面板
+- 新增 决策日志配置面板
+
+#### LLMConfigModal.tsx 更新
+
+- 新增 Per-Agent 模型选择
+- 新增 Per-Agent 参数配置
+- 新增 模型故障转移配置
+- 保留 全局默认模型配置
+
+### API 路由
+
+**实现时间**: 第十阶段
+
+| 路由 | 文件 | 描述 |
+|------|------|------|
+| /api/bindings | routes/bindings.ts | Binding配置管理 |
+| /api/tools | routes/tools.ts | Tool状态查询 |
+| /api/game | routes/game.ts | 游戏初始化 |
+
+---
+
+## 动态 UI 生成系统 (v0.11.0)
+
+**实现时间**: 第十一阶段  
+**文件位置**: 
+- 共享类型: `packages/shared/src/types/game-state.ts`
+- 前端组件: `packages/frontend/src/components/ui/`
+- 后端智能体: `packages/backend/src/agents/UIAgent.ts`
+- 后端工具: `packages/backend/src/tools/implementations/UIDataTool.ts`
+
+### 核心功能
+
+- **Markdown 动态 UI 渲染**: 支持标准 Markdown + 自定义扩展组件
+- **统一状态更新**: `updateGameState` 方法支持所有游戏数据类型
+- **Agent 架构**: CoordinatorAgent 预制初始化方法，UIAgent 动态 UI 生成
+- **开发者工具**: 动态 UI 测试、状态调试、Markdown 预览、WebSocket 模拟器、数据流转监控
+
+### Markdown 扩展组件
+
+| 组件 | 语法 | 用途 |
+|------|------|------|
+| 选项按钮 | `:::options` | 显示可点击的选项按钮组 |
+| 进度条 | `:::progress{value=75 max=100}` | 显示进度条 |
+| 标签页 | `:::tabs` | 显示标签页切换 |
+| 系统通知 | `:::system-notify{type=achievement}` | 显示系统通知框 |
+| 徽章 | `:::badge{color=legendary}` | 显示徽章标签 |
+| 悬浮提示 | `[文本](tooltip:提示内容)` | 显示悬浮提示 |
+| 条件显示 | `:::if{condition="..."}` | 条件渲染内容 |
+| 装备强化 | `:::enhancement` | 装备强化界面 |
+| 仓库 | `:::warehouse` | 仓库管理界面 |
+| Action 链接 | `[链接](action:xxx)` | 可点击操作按钮 |
+
+### 动态 UI 类型
+
+```typescript
+type DynamicUIType = 
+  | 'welcome'       // 欢迎界面
+  | 'notification'  // 系统通知
+  | 'dialog'        // 对话框
+  | 'enhancement'   // 装备强化
+  | 'warehouse'     // 仓库/银行
+  | 'shop'          // 商店
+  | 'custom';       // 自定义
+```
+
+### 统一状态更新
+
+```typescript
+// gameStore.updateGameState 方法
+updateGameState(data: Partial<GameState>, source?: GameStateUpdateSource, sourceId?: string): void
+
+// 支持的状态字段
+interface GameState {
+  character: Character | null;
+  skills: SkillState;
+  inventory: InventoryGameState;
+  equipment: EquipmentState;
+  quests: QuestState;
+  npcs: NPCGameState;
+  map: MapGameState;
+  journal: JournalEntry[];
+  dynamicUI: DynamicUIData | null;
+}
+```
+
+### 数据流架构
+
+```
+后端 Agent/Tool
+      ↓ 调用 UIDataTool.updateGameState({ character, skills, ... })
+WebSocket broadcast('game_state_update', data)
+      ↓
+前端监听 WebSocket 消息
+      ↓
+gameStore.updateGameState(data)
+      ↓
+React 组件自动更新
+```
+
+### 动态 UI 生成约束
+
+**核心约束**: 动态 UI 生成只能由 UIAgent 调用，因为涉及 AI 生成内容。
+
+```
+CoordinatorAgent（统筹智能体）
+      ↓ 自然语言描述动态 UI 需求
+Agent 间消息通信
+      ↓
+UIAgent 接收需求
+      ↓ 调用 LLM 生成 Markdown
+generateDynamicUI()
+      ↓ 返回 DynamicUIData
+UIDataTool.updateGameState({ dynamicUI })
+      ↓ WebSocket 推送
+前端 gameStore.updateGameState({ dynamicUI })
+      ↓
+DynamicUIPanel 渲染 MarkdownRenderer
+```
+
+### 前端组件
+
+| 组件 | 文件位置 | 描述 |
+|------|----------|------|
+| MarkdownRenderer | components/ui/MarkdownRenderer.tsx | 核心 Markdown 渲染器 |
+| DynamicUIPanel | components/ui/DynamicUIPanel.tsx | 通用动态 UI 面板 |
+| OptionsComponent | components/ui/extensions/OptionsComponent.tsx | 选项按钮组 |
+| ProgressComponent | components/ui/extensions/ProgressComponent.tsx | 进度条 |
+| TabsComponent | components/ui/extensions/TabsComponent.tsx | 标签页 |
+| SystemNotifyComponent | components/ui/extensions/SystemNotifyComponent.tsx | 系统通知 |
+| BadgeComponent | components/ui/extensions/BadgeComponent.tsx | 徽章 |
+| TooltipComponent | components/ui/extensions/TooltipComponent.tsx | 悬浮提示 |
+| ConditionalComponent | components/ui/extensions/ConditionalComponent.tsx | 条件显示 |
+| EnhancementComponent | components/ui/extensions/EnhancementComponent.tsx | 装备强化 |
+| WarehouseComponent | components/ui/extensions/WarehouseComponent.tsx | 仓库 |
+
+### 开发者工具
+
+| 组件 | 文件位置 | 描述 |
+|------|----------|------|
+| DynamicUITester | components/dev/DynamicUITester.tsx | 动态 UI 测试组件 |
+| StateDebugger | components/dev/StateDebugger.tsx | 状态调试面板 |
+| MarkdownPreviewer | components/dev/MarkdownPreviewer.tsx | Markdown 组件预览 |
+| WebSocketSimulator | components/dev/WebSocketSimulator.tsx | WebSocket 模拟器 |
+| DataFlowMonitor | components/dev/DataFlowMonitor.tsx | 数据流转监控 |
+
+### 模拟数据服务
+
+**文件位置**: 
+- `packages/frontend/src/data/mockGameData.ts`
+- `packages/frontend/src/services/mockGameService.ts`
+
+**功能**: 开发者模式下提供纯前端模拟数据，不经过后端 API。
+
+### Agent 初始化方法
+
+| Agent | 方法 | 功能 |
+|-------|------|------|
+| NumericalAgent | initialize() | 初始化角色数值 |
+| SkillAgent | initialize() | 从模板获取初始技能 |
+| InventoryAgent | initialize() | 从模板获取初始物品 |
+| QuestAgent | initialize() | 从模板获取初始任务 |
+| MapAgent | initialize() | 从模板获取地图配置 |
+| NPCAgent | initialize() | 从模板获取初始NPC |
+
+### CoordinatorAgent 预制初始化
+
+```typescript
+async initializeNewGame(params: {
+  saveId: string;
+  character: Character;
+  template: GameTemplate;
+}): Promise<InitializationResult>
+```
+
+流程：
+1. 并行初始化各专业 Agent
+2. 整合游戏状态数据
+3. 调用 UIDataTool.updateGameState 更新前端
+4. 调用 UIAgent 生成欢迎界面动态 UI
+5. 再次调用 UIDataTool.updateGameState 显示动态 UI
+
+---
+
+*文档版本: v2.8*
+*创建日期: 2026-02-28*
+*最后更新: 2026-03-06*
+*项目版本: 0.11.0*

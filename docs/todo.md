@@ -4,7 +4,7 @@
 
 ---
 
-## 一、已完成功能概览 (v0.9.0)
+## 一、已完成功能概览 (v0.10.0)
 
 详见 [development.md](./development.md)
 
@@ -31,6 +31,10 @@
 - **对话系统** (初始场景生成、玩家输入、快速选项)
 - **战斗系统** (回合制战斗、AI决策、战斗UI、伤害计算)
 - **开发者工具增强** (Token计费、详细日志、数据流转追踪)
+- **Tool层架构** (11个Tool实现、统一数据访问接口)
+- **Binding路由系统** (10个Binding配置、智能体路由)
+- **决策日志系统** (决策记录、问题回溯)
+- **前端开发者工具** (ToolStatusPanel、BindingConfigPanel、DecisionLogViewer、ContextDiffViewer)
 
 ---
 
@@ -248,21 +252,34 @@
 
 ---
 
-### Phase 5: 游戏初始化
+### Phase 5: 游戏初始化 ✅ 已完成
 
-#### 2.5.1 角色创建后初始化流程
+> **测试状态**: ✅ 类型检查通过 (2026-03-05)
+> - 初始化服务: InitializationService 已创建
+> - 初始化路由: /api/initialization/* 已实现
+> - 前端组件: InitializationProgress 已创建
+
+#### 2.5.1 角色创建后初始化流程 ✅
 **优先级**: P0 | **依赖**: 所有基础系统
 
 | 步骤 | 描述 | 状态 |
 |------|------|------|
-| 1. 数值初始化 | 计算初始属性、HP/MP | 未开始 |
-| 2. 技能初始化 | 添加初始技能 | 未开始 |
-| 3. 背包初始化 | 添加初始物品、金币 | 未开始 |
-| 4. 装备初始化 | 自动装备初始装备 | 未开始 |
-| 5. 任务初始化 | 创建隐藏主线任务 | 未开始 |
-| 6. 地图初始化 | 设置初始场景 | 未开始 |
-| 7. NPC初始化 | 加载场景NPC | 未开始 |
-| 8. 初始场景对话 | 生成故事背景、快速选项 | 未开始 |
+| 1. 数值初始化 | 计算初始属性、HP/MP | ✅ 已完成 |
+| 2. 技能初始化 | 添加初始技能 | ✅ 已完成 |
+| 3. 背包初始化 | 添加初始物品、金币 | ✅ 已完成 |
+| 4. 装备初始化 | 自动装备初始装备 | ✅ 已完成 |
+| 5. 任务初始化 | 创建隐藏主线任务 | ✅ 已完成 |
+| 6. 地图初始化 | 设置初始场景 | ✅ 已完成 |
+| 7. NPC初始化 | 加载场景NPC | ✅ 已完成 |
+| 8. 初始场景对话 | 生成故事背景、快速选项 | ✅ 已完成 |
+
+**关键文件**:
+- `packages/shared/src/types/initialization.ts` ✅
+- `packages/backend/src/services/InitializationService.ts` ✅
+- `packages/backend/src/routes/initializationRoutes.ts` ✅
+- `packages/backend/src/data/initialData.ts` ✅
+- `packages/frontend/src/services/initializationService.ts` ✅
+- `packages/frontend/src/components/game/InitializationProgress.tsx` ✅
 
 ---
 
@@ -340,13 +357,13 @@ interface APIResponse<T> {
 ✅ P1 (重要 - Phase 3): 地图系统 → NPC系统 [已完成]
 ✅ P1 (重要 - Phase 4): 对话系统 [已完成]
 ✅ P2 (次要 - Phase 4): 战斗系统 [已完成]
-P0 (必须 - Phase 5): 游戏初始化流程
+✅ P0 (必须 - Phase 5): 游戏初始化流程 [已完成]
 P3 (可选): 成就系统、图鉴系统、多人模式
 ```
 
 ---
 
-*文档版本: v2.7*
+*文档版本: v2.9*
 *创建日期: 2026-02-28*
-*最后更新: 2026-03-03*
-*项目版本: 0.9.0*
+*最后更新: 2026-03-05*
+*项目版本: 0.10.0*

@@ -2,8 +2,10 @@ import type {
   AgentType,
   AgentMessage,
   AgentResponse,
+  AgentBinding,
+  ToolType,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // 剧情节点类型
@@ -137,20 +139,21 @@ interface CompressionConfig {
  */
 export class StoryContextAgent extends AgentBase {
   readonly type: AgentType = AT.STORY_CONTEXT;
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.QUEST,
-    AT.NPC_PARTY,
-    AT.MAP,
+
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.STORY_DATA,
+    ToolTypeEnum.QUEST_DATA,
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.MAP_DATA,
   ];
-  readonly dataAccess: string[] = [
-    'story_nodes',
-    'player_choices',
-    'story_summaries',
-    'quest_progress',
-    'npc_relations',
-    'player_location',
-    'game_flags',
+
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.QUEST, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
+    { agentType: AT.MAP, enabled: true },
   ];
 
   readonly systemPrompt = `你是故事上下文管理智能体，负责维护游戏的故事主线和上下文一致性。

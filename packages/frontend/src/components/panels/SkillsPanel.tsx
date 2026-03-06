@@ -35,130 +35,13 @@ const COST_TYPE_NAMES: Record<CostType, string> = {
   custom: '特殊',
 };
 
-/**
- * 模拟技能数据（用于演示）
- */
-const MOCK_SKILLS: Array<{
-  id: string;
-  name: string;
-  description: string;
-  type: SkillType;
-  category: SkillCategory;
-  level: number;
-  maxLevel: number;
-  cost: { type: CostType; value: number };
-  cooldown: number;
-  effects: Array<{ type: string; value: number }>;
-}> = [
-  {
-    id: 'skill_001',
-    name: '猛击',
-    description: '用武器猛烈攻击敌人，造成150%攻击力伤害。',
-    type: 'active',
-    category: 'combat',
-    level: 3,
-    maxLevel: 10,
-    cost: { type: 'stamina', value: 15 },
-    cooldown: 2,
-    effects: [{ type: 'damage', value: 150 }],
-  },
-  {
-    id: 'skill_002',
-    name: '火球术',
-    description: '发射一颗火球，对目标造成魔法伤害并有几率点燃。',
-    type: 'active',
-    category: 'magic',
-    level: 5,
-    maxLevel: 10,
-    cost: { type: 'mana', value: 30 },
-    cooldown: 3,
-    effects: [{ type: 'magic_damage', value: 80 }, { type: 'burn_chance', value: 20 }],
-  },
-  {
-    id: 'skill_003',
-    name: '铁壁',
-    description: '提升自身防御力20%，持续3回合。',
-    type: 'active',
-    category: 'combat',
-    level: 2,
-    maxLevel: 5,
-    cost: { type: 'stamina', value: 10 },
-    cooldown: 4,
-    effects: [{ type: 'defense_boost', value: 20 }],
-  },
-  {
-    id: 'skill_004',
-    name: '武器精通',
-    description: '被动提升武器攻击力10%。',
-    type: 'passive',
-    category: 'combat',
-    level: 4,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'attack_boost', value: 10 }],
-  },
-  {
-    id: 'skill_005',
-    name: '治疗术',
-    description: '恢复目标30%最大生命值。',
-    type: 'active',
-    category: 'magic',
-    level: 3,
-    maxLevel: 10,
-    cost: { type: 'mana', value: 40 },
-    cooldown: 5,
-    effects: [{ type: 'heal', value: 30 }],
-  },
-  {
-    id: 'skill_006',
-    name: '锻造',
-    description: '可以锻造和修理金属装备。',
-    type: 'passive',
-    category: 'craft',
-    level: 2,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'craft_ability', value: 1 }],
-  },
-  {
-    id: 'skill_007',
-    name: '说服',
-    description: '在对话中更容易说服NPC。',
-    type: 'passive',
-    category: 'social',
-    level: 1,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'persuasion', value: 15 }],
-  },
-  {
-    id: 'skill_008',
-    name: '追踪',
-    description: '可以追踪野兽和敌人的踪迹。',
-    type: 'passive',
-    category: 'exploration',
-    level: 2,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'tracking', value: 1 }],
-  },
-];
-
-/**
- * 技能面板组件
- * 显示已学技能列表、分类筛选、技能详情
- */
 export const SkillsPanel: React.FC = () => {
   const character = useGameStore((state) => state.character);
+  const skillsState = useGameStore((state) => state.skills);
   const [category, setCategory] = useState<SkillCategory | 'all'>('all');
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
 
-  // 使用模拟数据
-  const skills = MOCK_SKILLS;
+  const skills = skillsState.skills;
 
   // 过滤技能
   const filteredSkills = useMemo(() => {
@@ -303,16 +186,14 @@ export const SkillsPanel: React.FC = () => {
           <p className={styles.detailDescription}>{selectedSkill.description}</p>
 
           <div className={styles.detailStats}>
-            {/* 消耗 */}
-            {selectedSkill.cost.value > 0 && (
+            {selectedSkill.costs.length > 0 && selectedSkill.costs.some(c => c.value > 0) && (
               <div className={styles.detailStat}>
                 <span className={styles.detailStatLabel}>消耗</span>
                 <span className={styles.detailStatValue}>
-                  {selectedSkill.cost.value} {COST_TYPE_NAMES[selectedSkill.cost.type]}
+                  {selectedSkill.costs.map(c => `${c.value} ${COST_TYPE_NAMES[c.type]}`).join(', ')}
                 </span>
               </div>
             )}
-            {/* 冷却 */}
             {selectedSkill.cooldown > 0 && (
               <div className={styles.detailStat}>
                 <span className={styles.detailStatLabel}>冷却</span>
@@ -321,7 +202,6 @@ export const SkillsPanel: React.FC = () => {
                 </span>
               </div>
             )}
-            {/* 等级 */}
             <div className={styles.detailStat}>
               <span className={styles.detailStatLabel}>等级</span>
               <span className={styles.detailStatValue}>

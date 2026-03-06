@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AgentType } from '@ai-rpg/shared';
 
 export type TextSpeed = 'slow' | 'normal' | 'fast' | 'instant';
 
@@ -8,9 +9,32 @@ export interface ProviderConfig {
   defaultModel?: string;
 }
 
+/**
+ * Per-Agent LLM 配置
+ * 允许为每个 Agent 单独配置模型和参数
+ */
+export interface AgentLLMConfig {
+  /** 使用的模型，不设置则使用全局默认 */
+  model?: string;
+  /** 温度参数 (0-2) */
+  temperature?: number;
+  /** 最大 token 数 */
+  maxTokens?: number;
+  /** Top P 采样参数 (0-1) */
+  topP?: number;
+  /** 是否启用故障转移 */
+  fallbackEnabled?: boolean;
+  /** 故障转移时使用的备用模型 */
+  fallbackModel?: string;
+  /** 故障转移策略 */
+  fallbackStrategy?: 'auto' | 'specified';
+}
+
 export interface AISettings {
   defaultProvider: string;
   providers: Record<string, ProviderConfig>;
+  /** Per-Agent 模型配置 */
+  agentConfigs?: Partial<Record<AgentType, AgentLLMConfig>>;
 }
 
 export interface GameplaySettings {
@@ -90,6 +114,8 @@ export interface SettingsState {
   updateDeveloperSettings: (updates: Partial<DeveloperSettings>) => void;
   updateProvider: (provider: string, config: ProviderConfig) => void;
   setDefaultProvider: (provider: string) => void;
+  updateAgentConfig: (agentType: AgentType, config: Partial<AgentLLMConfig>) => void;
+  clearAgentConfig: (agentType: AgentType) => void;
   resetToDefaults: () => void;
 }
 
@@ -156,6 +182,38 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       ai: {
         ...get().settings.ai,
         defaultProvider: provider,
+      },
+    };
+    saveSettings(newSettings);
+    set({ settings: newSettings });
+  },
+
+  updateAgentConfig: (agentType: AgentType, config: Partial<AgentLLMConfig>) => {
+    const newSettings = {
+      ...get().settings,
+      ai: {
+        ...get().settings.ai,
+        agentConfigs: {
+          ...get().settings.ai.agentConfigs,
+          [agentType]: {
+            ...get().settings.ai.agentConfigs?.[agentType],
+            ...config,
+          },
+        },
+      },
+    };
+    saveSettings(newSettings);
+    set({ settings: newSettings });
+  },
+
+  clearAgentConfig: (agentType: AgentType) => {
+    const agentConfigs = { ...get().settings.ai.agentConfigs };
+    delete agentConfigs[agentType];
+    const newSettings = {
+      ...get().settings,
+      ai: {
+        ...get().settings.ai,
+        agentConfigs,
       },
     };
     saveSettings(newSettings);

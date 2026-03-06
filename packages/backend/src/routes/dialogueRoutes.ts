@@ -78,6 +78,34 @@ function removeCombatMarkers(content: string): string {
     .trim();
 }
 
+function formatWorldSetting(worldSetting: unknown): string {
+  if (!worldSetting) return '';
+  if (typeof worldSetting === 'string') return worldSetting;
+  if (typeof worldSetting === 'object') {
+    const ws = worldSetting as {
+      name?: string;
+      description?: string;
+      era?: string;
+      technologyLevel?: string;
+      magicSystem?: string;
+      customFields?: Record<string, string>;
+    };
+    const parts: string[] = [];
+    if (ws.name) parts.push(`名称: ${ws.name}`);
+    if (ws.era) parts.push(`时代: ${ws.era}`);
+    if (ws.technologyLevel) parts.push(`科技水平: ${ws.technologyLevel}`);
+    if (ws.magicSystem) parts.push(`魔法系统: ${ws.magicSystem}`);
+    if (ws.description) parts.push(`描述: ${ws.description}`);
+    if (ws.customFields && Object.keys(ws.customFields).length > 0) {
+      for (const [key, value] of Object.entries(ws.customFields)) {
+        parts.push(`${key}: ${value}`);
+      }
+    }
+    return parts.join('\n');
+  }
+  return String(worldSetting);
+}
+
 router.post('/initial', async (req: Request, res: Response) => {
   try {
     const request = req.body as InitialSceneRequest;
@@ -92,6 +120,7 @@ router.post('/initial', async (req: Request, res: Response) => {
     gameLog.info('dialogue', '收到初始场景请求', { characterId: request.characterId, templateId: request.templateId });
 
     const llmService = getLLMService();
+    const worldSettingStr = formatWorldSetting(request.worldSetting);
 
     const systemPrompt = `你是一个RPG游戏的叙事者。请为玩家生成一个引人入胜的开场场景。
 
@@ -101,7 +130,7 @@ router.post('/initial', async (req: Request, res: Response) => {
 - 职业: ${request.characterClass}
 ${request.characterBackground ? `- 背景: ${request.characterBackground}` : ''}
 
-${request.worldSetting ? `世界设定: ${request.worldSetting}` : ''}
+${worldSettingStr ? `世界设定:\n${worldSettingStr}` : ''}
 
 请生成开场场景，包含：
 1. 场景描述（环境、氛围）

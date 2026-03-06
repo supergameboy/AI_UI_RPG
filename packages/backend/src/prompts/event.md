@@ -44,6 +44,27 @@
 - flag: 设置标志
 - custom: 自定义结果
 
+# 可用工具
+
+{{tool_list}}
+
+## 工具调用格式
+
+<tool_call tool="TOOL_TYPE" method="methodName" permission="read|write">
+{
+  "param1": "value1"
+}
+</tool_call >
+
+## 权限说明
+
+- read权限：查询数据，不修改游戏状态
+- write权限：修改数据，需要审核通过后执行
+
+## 工具调用示例
+
+{{tool_examples}}
+
 # 当前游戏状态
 
 - 当前章节: {{current_chapter}}
@@ -58,6 +79,15 @@
 - 属性: {{player_attributes}}
 
 # 输出格式
+
+<thinking>
+分析请求...
+确定需要的工具操作...
+</thinking>
+
+<tool_call tool="event" method="..." permission="...">
+{...}
+</tool_call >
 
 返回JSON格式：
 {

@@ -2,10 +2,12 @@ import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 import { gameLog } from './GameLogService';
+import { MigrationRunner } from './DatabaseMigration';
 
 export interface DatabaseConfig {
   dbPath: string;
   dbName: string;
+  autoMigrate: boolean;
 }
 
 export class DatabaseService {
@@ -13,11 +15,13 @@ export class DatabaseService {
   private db: Database | null = null;
   private SQL: SqlJsStatic | null = null;
   private config: DatabaseConfig;
+  private migrationRunner: MigrationRunner | null = null;
 
   private constructor(config?: Partial<DatabaseConfig>) {
     this.config = {
       dbPath: config?.dbPath || this.getDefaultDbPath(),
       dbName: config?.dbName || 'ai-rpg.db',
+      autoMigrate: config?.autoMigrate ?? true,
     };
   }
 
@@ -71,6 +75,17 @@ export class DatabaseService {
 
       this.db.run('PRAGMA journal_mode = WAL');
       this.db.run('PRAGMA foreign_keys = ON');
+
+      this.migrationRunner = new MigrationRunner(this.db, () => this.save());
+
+      if (this.config.autoMigrate) {
+        const result = this.migrationRunner.runMigrations();
+        if (result.errors.length > 0) {
+          gameLog.error('system', 'Database migration errors', { errors: result.errors });
+        } else if (result.applied > 0) {
+          gameLog.info('system', 'Database migrations applied', { count: result.applied });
+        }
+      }
 
       gameLog.info('system', `Database connected: ${fullPath}`);
       return this.db;
@@ -133,6 +148,25 @@ export class DatabaseService {
       this.getDb().run('ROLLBACK');
       throw error;
     }
+  }
+
+  public getMigrationRunner(): MigrationRunner {
+    if (!this.migrationRunner) {
+      throw new Error('Database not connected');
+    }
+    return this.migrationRunner;
+  }
+
+  public getMigrationStatus(): { currentVersion: number; latestVersion: number; pendingCount: number } {
+    if (!this.migrationRunner) {
+      return { currentVersion: 0, latestVersion: 0, pendingCount: 0 };
+    }
+    const status = this.migrationRunner.getMigrationStatus();
+    return {
+      currentVersion: status.currentVersion,
+      latestVersion: status.latestVersion,
+      pendingCount: status.pendingCount,
+    };
   }
 }
 

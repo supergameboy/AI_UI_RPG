@@ -1,8 +1,32 @@
 import type { TokenStatistics, TokenUsageRecord, TokenUsageQuery } from '@ai-rpg/shared';
 
-const API_BASE = '/api/token';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:6756';
 
 class TokenService {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE}${endpoint}`;
+
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `HTTP error ${response.status}`);
+    }
+
+    const json = await response.json();
+    // 后端返回 { success, data, meta } 格式，需要提取 data
+    return json.data !== undefined ? json.data : json;
+  }
+
   async getStatistics(query?: TokenUsageQuery): Promise<TokenStatistics> {
     const params = new URLSearchParams();
     if (query?.startTime) params.set('startTime', String(query.startTime));
@@ -10,9 +34,7 @@ class TokenService {
     if (query?.agentType) params.set('agentType', query.agentType);
     if (query?.provider) params.set('provider', query.provider);
 
-    const response = await fetch(`${API_BASE}/statistics?${params}`);
-    const data = await response.json();
-    return data.data;
+    return this.request<TokenStatistics>(`/api/token/statistics?${params}`);
   }
 
   async getUsage(query?: TokenUsageQuery): Promise<TokenUsageRecord[]> {
@@ -23,13 +45,11 @@ class TokenService {
     if (query?.provider) params.set('provider', query.provider);
     if (query?.limit) params.set('limit', String(query.limit));
 
-    const response = await fetch(`${API_BASE}/usage?${params}`);
-    const data = await response.json();
-    return data.data;
+    return this.request<TokenUsageRecord[]>(`/api/token/usage?${params}`);
   }
 
   async reset(): Promise<void> {
-    await fetch(`${API_BASE}/reset`, { method: 'POST' });
+    await this.request<void>('/api/token/reset', { method: 'POST' });
   }
 }
 

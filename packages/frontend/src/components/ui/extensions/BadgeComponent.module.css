@@ -1,0 +1,46 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge.default {
+  background: #4b5563;
+  color: #e5e7eb;
+}
+
+.badge.common {
+  background: #6b7280;
+  color: white;
+}
+
+.badge.uncommon {
+  background: #22c55e;
+  color: white;
+}
+
+.badge.rare {
+  background: #3b82f6;
+  color: white;
+}
+
+.badge.epic {
+  background: #8b5cf6;
+  color: white;
+}
+
+.badge.legendary {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  color: #1f2937;
+}
+
+.badge.gold {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #1f2937;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}

@@ -1,0 +1,171 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin: 0 0 32px 0;
+  text-align: center;
+}
+
+/* 进度条区域 */
+.progressSection {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.progressBar {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  border-radius: 6px;
+  transition: width 0.3s ease-out;
+}
+
+.progressText {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4facfe;
+  min-width: 48px;
+  text-align: right;
+}
+
+/* 步骤列表 */
+.steps {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.step.completed {
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.step.current {
+  background: rgba(79, 172, 254, 0.15);
+  border: 1px solid rgba(79, 172, 254, 0.3);
+}
+
+.step.pending {
+  opacity: 0.5;
+}
+
+.stepIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.iconCheck {
+  width: 20px;
+  height: 20px;
+  color: #4caf50;
+}
+
+.circle {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+}
+
+/* 加载动画 */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(79, 172, 254, 0.3);
+  border-top-color: #4facfe;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stepLabel {
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+.step.completed .stepLabel {
+  color: #4caf50;
+}
+
+.step.current .stepLabel {
+  color: #4facfe;
+  font-weight: 500;
+}
+
+/* 错误区域 */
+.error {
+  width: 100%;
+  margin-top: 32px;
+  padding: 16px;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.errorText {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #f44336;
+}
+
+.retryButton {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #f44336 0%, #e53935 100%);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+.retryButton:active {
+  transform: translateY(0);
+}

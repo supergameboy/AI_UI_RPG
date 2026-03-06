@@ -10,19 +10,35 @@ import type {
   GeneratedBackgroundOption,
   AttributeCalculationResult,
   Character,
+  ToolCallContext,
+  CalculateAttributesResponse,
 } from '@ai-rpg/shared';
+import { ToolType, AgentType } from '@ai-rpg/shared';
 import { AIGenerateService } from './AIGenerateService';
 import { gameLog } from './GameLogService';
+import { getToolRegistry } from '../tools/ToolRegistry';
+import { getDecisionLogService } from './DecisionLogService';
+import { getWriteOperationReviewService } from './WriteOperationReviewService';
+import { ContextManager } from '../context/ContextManager';
 
 export interface CharacterGenerationOptions {
   generateImagePrompt: boolean;
 }
 
 export class CharacterGenerationService {
+  private contextManager: ContextManager | null = null;
+
   constructor(
     private llmService: LLMService,
     private aiGenerateService: AIGenerateService
   ) {}
+
+  /**
+   * 设置 ContextManager
+   */
+  setContextManager(contextManager: ContextManager): void {
+    this.contextManager = contextManager;
+  }
 
   async generateRaceOptions(template: StoryTemplate, count: number = 3): Promise<GeneratedRaceOption[]> {
     const races = await this.aiGenerateService.generateRaces({
@@ -90,7 +106,98 @@ export class CharacterGenerationService {
     }));
   }
 
-  calculateAttributes(
+  /**
+   * 计算属性
+   * 优先使用 NumericalTool，如果不可用则使用原有逻辑
+   */
+  async calculateAttributes(
+    attributes: AttributeDefinition[],
+    race: RaceDefinition | GeneratedRaceOption,
+    cls: ClassDefinition | GeneratedClassOption,
+    _background: BackgroundDefinition | GeneratedBackgroundOption
+  ): Promise<AttributeCalculationResult> {
+    // 尝试使用 NumericalTool
+    const toolRegistry = getToolRegistry();
+    const numericalTool = toolRegistry.getTool(ToolType.NUMERICAL);
+
+    if (numericalTool) {
+      try {
+        const context: ToolCallContext = {
+          agentId: AgentType.COORDINATOR,
+          requestId: `char_gen_${Date.now()}`,
+          timestamp: Date.now(),
+          permission: 'read',
+        };
+
+        const result = await numericalTool.execute<AttributeCalculationResult>(
+          'calculateBaseAttributes',
+          {
+            level: 1,
+            race: race.id,
+            class: cls.id,
+          },
+          context
+        );
+
+        if (result.success && result.data) {
+          gameLog.debug('system', 'calculateAttributes using NumericalTool', {
+            race: race.id,
+            class: cls.id,
+          });
+          
+          // 将 NumericalTool 返回的属性转换为 AttributeCalculationResult 格式
+          const calcResponse = result.data as unknown as CalculateAttributesResponse;
+          return this.convertToAttributeCalculationResult(
+            calcResponse.attributes,
+            attributes,
+            race,
+            cls
+          );
+        }
+      } catch (error) {
+        gameLog.warn('system', 'NumericalTool calculateAttributes failed, using fallback', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Fallback to original logic
+    return this.calculateAttributesFallback(attributes, race, cls, _background);
+  }
+
+  /**
+   * 将 NumericalTool 返回的属性转换为 AttributeCalculationResult 格式
+   */
+  private convertToAttributeCalculationResult(
+    calculatedAttrs: Record<string, number>,
+    attributes: AttributeDefinition[],
+    race: RaceDefinition | GeneratedRaceOption,
+    cls: ClassDefinition | GeneratedClassOption
+  ): AttributeCalculationResult {
+    const result: AttributeCalculationResult = {};
+
+    for (const attr of attributes) {
+      const finalValue = calculatedAttrs[attr.id] ?? calculatedAttrs[attr.abbreviation] ?? attr.defaultValue;
+      const raceBonus = race.bonuses[attr.id] || race.bonuses[attr.abbreviation] || 0;
+      const racePenalty = race.penalties[attr.id] || race.penalties[attr.abbreviation] || 0;
+      const classBonus = cls.primaryAttributes.includes(attr.id) || cls.primaryAttributes.includes(attr.abbreviation) ? 1 : 0;
+
+      result[attr.id] = {
+        baseValue: attr.defaultValue,
+        raceBonus: raceBonus - racePenalty,
+        classBonus,
+        backgroundBonus: 0,
+        finalValue: Math.max(attr.minValue, Math.min(attr.maxValue, finalValue)),
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * 原有的属性计算逻辑（作为 fallback）
+   */
+  private calculateAttributesFallback(
     attributes: AttributeDefinition[],
     race: RaceDefinition | GeneratedRaceOption,
     cls: ClassDefinition | GeneratedClassOption,
@@ -98,7 +205,7 @@ export class CharacterGenerationService {
   ): AttributeCalculationResult {
     const result: AttributeCalculationResult = {};
     
-    gameLog.debug('system', 'calculateAttributes called');
+    gameLog.debug('system', 'calculateAttributes fallback called');
     gameLog.debug('system', 'attributes', { data: attributes.map(a => ({ id: a.id, abbr: a.abbreviation })) });
     gameLog.debug('system', 'race', { data: { name: race.name, bonuses: race.bonuses, penalties: race.penalties } });
     gameLog.debug('system', 'class', { data: { name: cls.name, primaryAttributes: cls.primaryAttributes } });
@@ -228,7 +335,8 @@ ${options.generateImagePrompt ? '请同时生成英文的AI绘图提示词。' :
     attributes: AttributeDefinition[],
     options: CharacterGenerationOptions
   ): Promise<Character> {
-    const calculatedAttributes = this.calculateAttributes(attributes, race, cls, background);
+    // 计算属性（使用 NumericalTool 或 fallback）
+    const calculatedAttributes = await this.calculateAttributes(attributes, race, cls, background);
     const { appearance, imagePrompt } = await this.generateAppearance(
       template,
       characterName,
@@ -261,7 +369,7 @@ ${options.generateImagePrompt ? '请同时生成英文的AI绘图提示词。' :
     const hitDieValue = parseInt(cls.hitDie.replace('d', '')) || 8;
     const maxHp = hitDieValue + constitutionBonus;
 
-    return {
+    const character: Character = {
       id: `char_${Date.now()}`,
       name: characterName,
       race: race.id,
@@ -297,6 +405,110 @@ ${options.generateImagePrompt ? '请同时生成英文的AI绘图提示词。' :
         playTime: 0,
       },
     };
+
+    // 写操作审核
+    await this.reviewCharacterCreation(character);
+
+    // 记录决策日志
+    this.recordCharacterCreationDecision(character, race, cls, background);
+
+    // 写入全局上下文
+    this.writeCharacterToContext(character);
+
+    return character;
+  }
+
+  /**
+   * 审核角色创建操作
+   */
+  private async reviewCharacterCreation(character: Character): Promise<void> {
+    const reviewService = getWriteOperationReviewService();
+    if (!reviewService) {
+      gameLog.debug('system', 'WriteOperationReviewService not available, skipping review');
+      return;
+    }
+
+    try {
+      const review = await reviewService.reviewOperation({
+        toolType: ToolType.INVENTORY_DATA,
+        method: 'createCharacter',
+        params: { character },
+        context: { saveId: 'new', agentId: 'character_generation' },
+      });
+
+      if (!review.approved) {
+        gameLog.warn('system', 'Character creation review failed', {
+          violations: review.violations,
+          characterId: character.id,
+        });
+      } else {
+        gameLog.debug('system', 'Character creation review passed', {
+          characterId: character.id,
+        });
+      }
+    } catch (error) {
+      gameLog.error('system', 'Error during character creation review', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * 记录角色创建决策
+   */
+  private recordCharacterCreationDecision(
+    character: Character,
+    race: RaceDefinition | GeneratedRaceOption,
+    cls: ClassDefinition | GeneratedClassOption,
+    background: BackgroundDefinition | GeneratedBackgroundOption
+  ): void {
+    const decisionLogService = getDecisionLogService();
+    if (!decisionLogService) {
+      gameLog.debug('system', 'DecisionLogService not available, skipping decision log');
+      return;
+    }
+
+    try {
+      decisionLogService.addDecision(AgentType.COORDINATOR, {
+        action: 'character_created',
+        reasoning: `创建新角色: ${character.name}，种族: ${race.name}，职业: ${cls.name}，背景: ${background.name}`,
+        toolCalls: [],
+      });
+
+      gameLog.debug('system', 'Character creation decision logged', {
+        characterId: character.id,
+        race: race.id,
+        class: cls.id,
+        background: background.id,
+      });
+    } catch (error) {
+      gameLog.error('system', 'Error logging character creation decision', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * 将角色数据写入全局上下文
+   */
+  private writeCharacterToContext(character: Character): void {
+    if (!this.contextManager) {
+      gameLog.debug('system', 'ContextManager not available, skipping context write');
+      return;
+    }
+
+    try {
+      const agentContext = this.contextManager.getAgentContext(AgentType.COORDINATOR);
+      agentContext.set('character', character, 'character_created');
+
+      gameLog.debug('system', 'Character written to global context', {
+        characterId: character.id,
+      });
+    } catch (error) {
+      gameLog.error('system', 'Error writing character to context', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -308,8 +520,14 @@ export function getCharacterGenerationService(): CharacterGenerationService | nu
 
 export function initializeCharacterGenerationService(
   llmService: LLMService,
-  aiGenerateService: AIGenerateService
+  aiGenerateService: AIGenerateService,
+  contextManager?: ContextManager
 ): CharacterGenerationService {
   characterGenerationService = new CharacterGenerationService(llmService, aiGenerateService);
+  
+  if (contextManager) {
+    characterGenerationService.setContextManager(contextManager);
+  }
+  
   return characterGenerationService;
 }

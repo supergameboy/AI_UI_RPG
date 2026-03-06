@@ -137,3 +137,42 @@ export interface DialogueHistoryResponse {
   total: number;
   hasMore: boolean;
 }
+
+/**
+ * 对话历史条目
+ * 用于 Tool 层的对话历史记录
+ */
+export interface DialogueHistoryEntry {
+  id: string;
+  characterId: string;
+  npcId?: string;
+  role: 'player' | 'npc' | 'system';
+  content: string;
+  emotion?: string;
+  timestamp: number;
+}
+
+/**
+ * 情绪记录
+ * 记录 NPC 或玩家在对话中的情绪变化
+ */
+export interface EmotionRecord {
+  npcId: string;
+  emotion: string;
+  intensity: number;
+  reason?: string;
+  timestamp: number;
+}
+
+/**
+ * 对话上下文
+ * 包含对话历史、情绪状态等信息
+ */
+export interface DialogueContext {
+  characterId: string;
+  history: DialogueHistoryEntry[];
+  emotions: EmotionRecord[];
+  currentNpcId?: string;
+  lastInteraction?: number;
+  summary?: string;
+}

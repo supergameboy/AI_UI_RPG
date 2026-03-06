@@ -3,7 +3,21 @@ import type { LLMRequestRecord, AgentMessageRecord, LogEntry } from '../services
 import type { WSConnectionState, LLMRequestLog, AgentMessageLog } from '@ai-rpg/shared';
 import { websocketService } from '../services/websocketService';
 
-export type DeveloperTab = 'requests' | 'agents' | 'logs' | 'state' | 'prompts' | 'tokens';
+export type DeveloperTab = 
+  | 'requests' 
+  | 'agents' 
+  | 'tools' 
+  | 'bindings' 
+  | 'decisions' 
+  | 'logs' 
+  | 'state' 
+  | 'prompts' 
+  | 'tokens'
+  | 'dynamicUI'
+  | 'stateDebugger'
+  | 'markdownPreview'
+  | 'wsSimulator'
+  | 'dataFlow';
 
 export interface DeveloperState {
   isDeveloperPanelVisible: boolean;
@@ -82,6 +96,10 @@ function convertAgentMessageLog(log: AgentMessageLog): AgentMessageRecord {
     status: log.status,
     payload: log.payload as Record<string, unknown> | undefined,
     error: log.error,
+    toolCall: log.toolCall,
+    toolResponse: log.toolResponse,
+    contextChange: log.contextChange,
+    conflictDetected: log.conflictDetected,
   };
 }
 

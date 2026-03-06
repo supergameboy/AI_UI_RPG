@@ -6,11 +6,11 @@ import { RaceSelectionStep } from './RaceSelectionStep';
 import { ClassSelectionStep } from './ClassSelectionStep';
 import { BackgroundSelectionStep } from './BackgroundSelectionStep';
 import { CharacterConfirmStep } from './CharacterConfirmStep';
-import type { StoryTemplate, Character } from '@ai-rpg/shared';
+import type { Character, GameTemplate } from '@ai-rpg/shared';
 import styles from './CharacterCreation.module.css';
 
 interface CharacterCreationProps {
-  template: StoryTemplate;
+  template: GameTemplate;
   onComplete: (character: Character) => void;
   onCancel: () => void;
 }

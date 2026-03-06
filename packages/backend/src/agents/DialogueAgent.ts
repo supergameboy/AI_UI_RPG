@@ -4,8 +4,10 @@ import type {
   AgentResponse,
   Message,
   UIInstruction,
+  AgentBinding,
+  ToolType,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== 对话类型定义 ====================
@@ -164,22 +166,20 @@ export interface DialogueAgentState {
 export class DialogueAgent extends AgentBase {
   readonly type: AgentType = AT.DIALOGUE;
 
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.STORY_CONTEXT,
-    AT.NPC_PARTY,
-    AT.QUEST,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.DIALOGUE_DATA,
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.QUEST_DATA,
+    ToolTypeEnum.STORY_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'dialogue_sessions',
-    'dialogue_history',
-    'npc_data',
-    'npc_relations',
-    'quest_state',
-    'player_state',
-    'story_context',
-    'inventory_state',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.STORY_CONTEXT, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
+    { agentType: AT.QUEST, enabled: true },
   ];
 
   readonly systemPrompt = `你是对话管理智能体，负责管理游戏中的所有对话系统。

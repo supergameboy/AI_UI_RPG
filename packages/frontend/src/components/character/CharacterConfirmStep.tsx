@@ -13,18 +13,27 @@ export const CharacterConfirmStep: React.FC = () => {
     generatedAppearance,
     generatedImagePrompt,
     generatedBackstory,
-    calculateAttributes,
   } = useCharacterCreationStore();
 
   const { settings } = useSettingsStore();
+  
+  // 使用 ref 存储稳定的引用
+  const storeRef = useRef(useCharacterCreationStore.getState());
+  storeRef.current = useCharacterCreationStore.getState();
+  
   const hasCalculatedRef = useRef(false);
 
   useEffect(() => {
-    if (!hasCalculatedRef.current && Object.keys(calculatedAttributes).length === 0) {
-      hasCalculatedRef.current = true;
-      calculateAttributes();
+    // 只在首次渲染且未计算时执行
+    if (!hasCalculatedRef.current) {
+      const state = storeRef.current;
+      if (Object.keys(state.calculatedAttributes).length === 0 && state.selectedRace && state.selectedClass && state.selectedBackground) {
+        hasCalculatedRef.current = true;
+        state.calculateAttributes();
+      }
     }
-  }, [calculateAttributes, calculatedAttributes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 空依赖数组，只在挂载时执行一次
 
   const getAttributeName = (attrId: string): string => {
     const attr = templateAttributes.find((a) => a.id === attrId);

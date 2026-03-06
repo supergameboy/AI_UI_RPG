@@ -6,21 +6,34 @@ import type {
   AgentResponse,
   AgentMemory,
   AgentMemorySystem,
+  AgentBinding,
   MessagePriority,
   Message,
   ChatResponse,
   StreamChunk,
   PromptContext,
+  ToolType,
+  ToolResponse,
+  ToolCallContext,
+  ToolPermission,
+  GameTemplate,
+  AgentInitializationResult,
+  Character,
 } from '@ai-rpg/shared';
 import { getMessageRouter, getMessageQueue } from '../services/MessageQueue';
 import { getLLMService } from '../services/llm/LLMService';
 import { getAgentConfigService } from '../services/AgentConfigService';
 import { getDeveloperLogService } from '../services/DeveloperLogService';
+import { getToolRegistry, ToolRegistry } from '../tools/ToolRegistry';
+import type { ToolBase } from '../tools/ToolBase';
+import { gameLog } from '../services/GameLogService';
 
 export abstract class AgentBase implements Agent {
   abstract readonly type: AgentType;
-  abstract readonly canCallAgents: AgentType[];
-  abstract readonly dataAccess: string[];
+  /** 依赖的 Tool 类型列表 */
+  abstract readonly tools: ToolType[];
+  /** 可调用的 Agent 绑定配置 */
+  abstract readonly bindings: AgentBinding[];
   abstract readonly systemPrompt: string;
 
   id: string;
@@ -34,8 +47,9 @@ export abstract class AgentBase implements Agent {
   protected isRunning: boolean = false;
   protected processInterval: ReturnType<typeof setInterval> | null = null;
   protected processIntervalMs: number = 100;
+  protected toolRegistry: ToolRegistry;
 
-  constructor(config?: Partial<AgentConfig>) {
+  constructor(config?: Partial<AgentConfig>, toolRegistry?: ToolRegistry) {
     this.id = this.generateId();
     this.name = this.getAgentName();
     this.description = this.getAgentDescription();
@@ -54,11 +68,132 @@ export abstract class AgentBase implements Agent {
       longTerm: [],
       compressed: '',
     };
+    // 使用传入的 ToolRegistry 或获取全局实例
+    this.toolRegistry = toolRegistry ?? getToolRegistry();
   }
 
   abstract processMessage(message: AgentMessage): Promise<AgentResponse>;
 
-  async initialize(): Promise<void> {
+  /**
+   * 从 ToolRegistry 获取 Tool 实例
+   * @param toolType Tool 类型
+   * @returns Tool 实例或 undefined
+   */
+  getTool<T extends ToolBase>(toolType: ToolType): T | undefined {
+    return this.toolRegistry.getTool<T>(toolType);
+  }
+
+  /**
+   * 调用 Tool 方法
+   * @param toolType Tool 类型
+   * @param method 方法名
+   * @param params 参数
+   * @param permission 权限类型，默认 'read'
+   * @returns Tool 响应
+   */
+  async callTool<T = unknown>(
+    toolType: ToolType,
+    method: string,
+    params: unknown,
+    permission: ToolPermission = 'read'
+  ): Promise<ToolResponse<T>> {
+    // 检查 Tool 是否存在
+    if (!this.toolRegistry.hasTool(toolType)) {
+      gameLog.warn('agent', `Tool '${toolType}' not found in registry`, {
+        agentType: this.type,
+        method,
+      });
+      return {
+        success: false,
+        error: {
+          code: 'TOOL_NOT_FOUND',
+          message: `Tool '${toolType}' not found in registry`,
+        },
+      };
+    }
+
+    // 构建调用上下文
+    const context: ToolCallContext = {
+      agentId: this.type,
+      requestId: this.generateMessageId(),
+      timestamp: Date.now(),
+      permission,
+    };
+
+    gameLog.debug('agent', `Calling tool: ${toolType}.${method}`, {
+      agentType: this.type,
+      requestId: context.requestId,
+      permission,
+    });
+
+    return this.toolRegistry.executeTool<T>(
+      toolType,
+      method,
+      params as Record<string, unknown>,
+      context
+    );
+  }
+
+  /**
+   * 调用其他 Agent
+   * @param agentType 目标 Agent 类型
+   * @param message Agent 消息
+   * @returns Agent 响应
+   */
+  async callAgent(
+    agentType: AgentType,
+    message: AgentMessage
+  ): Promise<AgentResponse> {
+    // 检查是否在绑定配置中允许调用该 Agent
+    const binding = this.bindings.find(
+      (b) => b.agentType === agentType && b.enabled !== false
+    );
+
+    if (!binding) {
+      gameLog.warn('agent', `Agent '${agentType}' not in bindings or disabled`, {
+        callerAgent: this.type,
+        targetAgent: agentType,
+      });
+      return {
+        success: false,
+        error: `Agent '${agentType}' is not accessible from '${this.type}'`,
+      };
+    }
+
+    gameLog.debug('agent', `Calling agent: ${agentType}`, {
+      callerAgent: this.type,
+      targetAgent: agentType,
+      action: message.payload.action,
+    });
+
+    // 发送消息到目标 Agent
+    const responseMessage = await this.sendMessage(
+      agentType,
+      message.payload.action,
+      message.payload.data,
+      {
+        priority: message.metadata.priority,
+        requiresResponse: true,
+        timeout: message.metadata.timeout ?? this.config.timeout,
+        context: message.payload.context,
+      }
+    );
+
+    // 解析响应
+    const data = responseMessage.payload.data as Record<string, unknown>;
+    return {
+      success: data.success !== false,
+      data: data.data ?? data,
+      error: data.error as string | undefined,
+      uiInstructions: data.uiInstructions as AgentResponse['uiInstructions'],
+      requiresFollowUp: data.requiresFollowUp as boolean | undefined,
+    };
+  }
+
+  async initialize(_params?: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<void | AgentInitializationResult> {
     console.log(`[${this.name}] Initializing...`);
     this.status = 'idle';
   }

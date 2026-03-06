@@ -31,6 +31,7 @@ export interface CharacterCreationState {
   aiGeneratedBackgrounds: GeneratedBackgroundOption[];
   
   calculatedAttributes: AttributeCalculationResult;
+  attributesCalculated: boolean;
   generatedAppearance: string;
   generatedImagePrompt: string;
   generatedBackstory: string;
@@ -80,6 +81,7 @@ const initialState: CharacterCreationState = {
   aiGeneratedBackgrounds: [],
   
   calculatedAttributes: {},
+  attributesCalculated: false,
   generatedAppearance: '',
   generatedImagePrompt: '',
   generatedBackstory: '',
@@ -109,6 +111,7 @@ export const useCharacterCreationStore = create<CharacterCreationState & Charact
       selectedClass: null,
       selectedBackground: null,
       calculatedAttributes: {},
+      attributesCalculated: false,
       generatedAppearance: '',
       generatedImagePrompt: '',
       generatedBackstory: '',
@@ -215,10 +218,10 @@ export const useCharacterCreationStore = create<CharacterCreationState & Charact
   },
 
   calculateAttributes: async () => {
-    const { template, selectedRace, selectedClass, selectedBackground, isLoading, calculatedAttributes } = get();
+    const { template, selectedRace, selectedClass, selectedBackground, isLoading, calculatedAttributes, attributesCalculated } = get();
     if (!template || !selectedRace || !selectedClass || !selectedBackground) return;
     if (isLoading) return;
-    if (Object.keys(calculatedAttributes).length > 0) return;
+    if (attributesCalculated && Object.keys(calculatedAttributes).length > 0) return;
 
     set({ isLoading: true, loadingMessage: '正在计算属性...', error: null });
 
@@ -235,10 +238,10 @@ export const useCharacterCreationStore = create<CharacterCreationState & Charact
       });
 
       const data = await response.json();
-      if (data.success) {
-        set({ calculatedAttributes: data.data });
+      if (data.success && data.data && Object.keys(data.data).length > 0) {
+        set({ calculatedAttributes: data.data, attributesCalculated: true });
       } else {
-        set({ error: data.error || '计算属性失败' });
+        set({ error: data.error || '计算属性失败，请重试' });
       }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '网络错误' });

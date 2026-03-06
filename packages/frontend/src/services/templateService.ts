@@ -41,8 +41,9 @@ class TemplateService {
       throw new Error(error.error || `HTTP error ${response.status}`);
     }
 
-    const result = await response.json() as { success: boolean; data: T };
-    return result.data;
+    const json = await response.json();
+    // 后端返回 { success, data, meta } 格式，需要提取 data
+    return json.data !== undefined ? json.data : json;
   }
 
   async getTemplates(options: TemplateQueryOptions = {}): Promise<TemplateListResponse> {

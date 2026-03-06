@@ -6,8 +6,13 @@ import type {
   ItemEffect,
   ItemRequirements,
   UIInstruction,
+  AgentBinding,
+  ToolType,
+  GameTemplate,
+  AgentInitializationResult,
+  Character,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== 类型定义 ====================
@@ -142,22 +147,20 @@ const RARITY_CONFIG: Record<ItemRarity, { color: string; multiplier: number; dro
 export class InventoryAgent extends AgentBase {
   readonly type: AgentType = AT.INVENTORY;
 
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.NUMERICAL,
-    AT.QUEST,
-    AT.NPC_PARTY,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.INVENTORY_DATA,
+    ToolTypeEnum.NUMERICAL,
+    ToolTypeEnum.NPC_DATA,
+    ToolTypeEnum.QUEST_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'player_inventory',
-    'player_equipment',
-    'player_stats',
-    'player_currency',
-    'item_templates',
-    'merchant_inventories',
-    'quest_items',
-    'trade_history',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.NUMERICAL, enabled: true },
+    { agentType: AT.QUEST, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
   ];
 
   readonly systemPrompt = `你是背包系统智能体，负责管理玩家的物品、装备和交易系统。
@@ -245,6 +248,81 @@ export class InventoryAgent extends AgentBase {
       'stack_management',
       'capacity_management',
     ];
+  }
+
+  /**
+   * 初始化角色背包
+   * 优先使用 startingScene.items，其次使用 initialData.items[backgroundId]
+   */
+  async initialize(params: {
+    character: Character;
+    template: GameTemplate;
+  }): Promise<AgentInitializationResult> {
+    const { character, template } = params;
+    
+    try {
+      const backgroundId = character.backstory || 'commoner';
+      
+      const initialItems = template.startingScene?.items?.map(item => ({
+        itemId: item.id,
+        quantity: item.quantity || 1,
+      })) || template.initialData?.items?.[backgroundId] || [];
+      
+      const addedItems: Array<{ itemId: string; quantity: number }> = [];
+      const failedItems: string[] = [];
+      
+      for (const itemConfig of initialItems) {
+        const item = this.handleCreateItem({
+          name: itemConfig.itemId,
+          type: 'material',
+          rarity: 'common',
+          description: `初始物品: ${itemConfig.itemId}`,
+          stackable: true,
+          maxStack: 99,
+        });
+        
+        if (item.success && item.data) {
+          const itemData = item.data as { item: Item };
+          const addResult = this.handleAddItem({
+            item: itemData.item,
+            quantity: itemConfig.quantity,
+          });
+          
+          if (addResult.success) {
+            addedItems.push({ itemId: itemConfig.itemId, quantity: itemConfig.quantity });
+          } else {
+            failedItems.push(itemConfig.itemId);
+          }
+        } else {
+          failedItems.push(itemConfig.itemId);
+        }
+      }
+      
+      const initialGold = template.initialData?.gold?.[backgroundId] || 100;
+      this.inventoryState.currency.gold = initialGold;
+      
+      this.addMemory(
+        `初始化角色背包: ${character.name}, 背景: ${backgroundId}, 物品: ${addedItems.length}/${initialItems.length}, 金币: ${initialGold}`,
+        'assistant',
+        7,
+        { characterId: character.id, addedItems, failedItems, initialGold }
+      );
+      
+      return {
+        success: true,
+        data: {
+          addedItems,
+          failedItems,
+          initialGold,
+          backgroundId,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '背包初始化失败',
+      };
+    }
   }
 
   /**

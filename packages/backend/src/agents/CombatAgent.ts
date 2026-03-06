@@ -5,8 +5,10 @@ import type {
   Message,
   UIInstruction,
   StatusEffect,
+  AgentBinding,
+  ToolType,
 } from '@ai-rpg/shared';
-import { AgentType as AT } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 
 // ==================== 战斗类型定义 ====================
@@ -218,22 +220,21 @@ export interface CombatInitParams {
 export class CombatAgent extends AgentBase {
   readonly type: AgentType = AT.COMBAT;
 
-  readonly canCallAgents: AgentType[] = [
-    AT.COORDINATOR,
-    AT.NUMERICAL,
-    AT.SKILL,
-    AT.NPC_PARTY,
-    AT.UI,
+  // 依赖的 Tool 类型
+  readonly tools: ToolType[] = [
+    ToolTypeEnum.COMBAT_DATA,
+    ToolTypeEnum.NUMERICAL,
+    ToolTypeEnum.SKILL_DATA,
+    ToolTypeEnum.INVENTORY_DATA,
   ];
 
-  readonly dataAccess: string[] = [
-    'combat_instances',
-    'combat_history',
-    'character_stats',
-    'character_skills',
-    'enemy_templates',
-    'item_effects',
-    'status_effects',
+  // 可调用的 Agent 绑定配置
+  readonly bindings: AgentBinding[] = [
+    { agentType: AT.COORDINATOR, enabled: true },
+    { agentType: AT.NUMERICAL, enabled: true },
+    { agentType: AT.SKILL, enabled: true },
+    { agentType: AT.NPC_PARTY, enabled: true },
+    { agentType: AT.UI, enabled: true },
   ];
 
   readonly systemPrompt = `你是战斗管理智能体，负责管理游戏中的所有战斗系统。

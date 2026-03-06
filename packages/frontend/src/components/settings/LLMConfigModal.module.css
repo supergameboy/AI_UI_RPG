@@ -236,3 +236,160 @@
   padding: var(--spacing-lg);
   border-top: 1px solid var(--color-border);
 }
+
+/* Tab Bar */
+.tabBar {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.tab.activeTab {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Agent List */
+.agentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 180px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.agentCard {
+  position: relative;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  background: var(--color-surface);
+}
+
+.agentCard:hover {
+  border-color: var(--color-text-tertiary);
+  background: var(--color-surface-hover);
+}
+
+.agentCard.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.agentCard.configured {
+  border-color: var(--color-warning);
+}
+
+.agentName {
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+/* Agent Header */
+.agentHeader {
+  margin-bottom: var(--spacing-md);
+}
+
+.agentHeader h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.agentHeader p {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Params Grid */
+.paramsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+}
+
+/* Fallback Section */
+.fallbackSection {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.fallbackConfig {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .body {
+    flex-direction: column;
+  }
+
+  .providerList,
+  .agentList {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: none;
+  }
+
+  .providerCard,
+  .agentCard {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .paramsGrid {
+    grid-template-columns: 1fr;
+  }
+}

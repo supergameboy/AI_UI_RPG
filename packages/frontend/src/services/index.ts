@@ -20,3 +20,39 @@ export type {
 } from './agentService';
 
 export { tokenService } from './tokenService';
+
+export { toolService } from './toolService';
+export type {
+  ToolStatusResponse,
+  ToolConfigResponse,
+  ToolCallRequest,
+  ToolCallResponse,
+} from './toolService';
+
+export { bindingService } from './bindingService';
+export type {
+  BindingListResponse,
+  BindingCreateRequest,
+  BindingUpdateRequest,
+} from './bindingService';
+
+export { decisionLogService } from './decisionLogService';
+export type {
+  DecisionLogListResponse,
+  DecisionLogSummaryResponse,
+  QueryOptions,
+} from './decisionLogService';
+
+export { contextService } from './contextService';
+export type {
+  GlobalContextResponse,
+  AgentContextResponse,
+  ContextSnapshotResponse,
+  ContextUpdateRequest,
+  ContextBatchUpdateRequest,
+  ContextMergeRequest,
+  ContextMergeResponse,
+} from './contextService';
+
+export { initializationService } from './initializationService';
+export type { GetStatusResponse } from './initializationService';

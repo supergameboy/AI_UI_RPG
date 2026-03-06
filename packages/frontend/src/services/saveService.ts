@@ -95,7 +95,9 @@ class SaveService {
       throw new Error(error.error || `HTTP error ${response.status}`);
     }
 
-    return response.json();
+    const json = await response.json();
+    // 后端返回 { success, data, meta } 格式，需要提取 data
+    return json.data !== undefined ? json.data : json;
   }
 
   async getSaves(options: SaveQueryOptions = {}): Promise<SaveListResponse> {
