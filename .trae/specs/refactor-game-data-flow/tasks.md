@@ -41,62 +41,62 @@
 
 ## 任务 3: 扩展 gameStore 统一更新方法（合并 Task 3 + Task 14）
 
-- [ ] Task 3.1: 在 gameStore 中添加新的状态字段
-  - [ ] 添加 `skills: Skill[]` 状态
-  - [ ] 添加 `inventory: InventoryItem[]` 状态
-  - [ ] 添加 `equipment: EquipmentState` 状态
-  - [ ] 添加 `mapData: MapData | null` 状态
-  - [ ] 添加 `journalEntries: JournalEntry[]` 状态
-  - [ ] 添加 `dynamicUI: DynamicUIData | null` 状态
+- [x] Task 3.1: 在 gameStore 中添加新的状态字段
+  - [x] 添加 `skills: Skill[]` 状态
+  - [x] 添加 `inventory: InventoryItem[]` 状态
+  - [x] 添加 `equipment: EquipmentState` 状态
+  - [x] 添加 `mapData: MapData | null` 状态
+  - [x] 添加 `journalEntries: JournalEntry[]` 状态
+  - [x] 添加 `dynamicUI: DynamicUIData | null` 状态
 
-- [ ] Task 3.2: 实现统一的 `updateGameState` 方法
-  - [ ] 接收 `Partial<GameState>` 参数
-  - [ ] 支持部分更新（只更新传入的字段）
-  - [ ] 触发 React 重新渲染
-  - [ ] 移除所有独立的 setter 方法
+- [x] Task 3.2: 实现统一的 `updateGameState` 方法
+  - [x] 接收 `Partial<GameState>` 参数
+  - [x] 支持部分更新（只更新传入的字段）
+  - [x] 触发 React 重新渲染
+  - [x] 移除所有独立的 setter 方法
 
-- [ ] Task 3.3: 添加 `sendDynamicUIAction` 方法
-  - [ ] 构造 `DynamicUIActionMessage` 消息
-  - [ ] 通过 WebSocket 发送消息
-  - [ ] 处理关闭操作时清空 dynamicUI 状态
+- [x] Task 3.3: 添加 `sendDynamicUIAction` 方法
+  - [x] 构造 `DynamicUIActionMessage` 消息
+  - [x] 通过 WebSocket 发送消息
+  - [x] 处理关闭操作时清空 dynamicUI 状态
 
-- [ ] Task 3.4: 添加 `initWebSocket` 方法
-  - [ ] 监听 `game_state_update` 事件
-  - [ ] 调用 `updateGameState` 更新状态
+- [x] Task 3.4: 添加 `initWebSocket` 方法
+  - [x] 监听 `game_state_update` 事件
+  - [x] 调用 `updateGameState` 更新状态
 
-- [ ] Task 3.5: 在应用启动时初始化 WebSocket
-  - [ ] 在 App.tsx 或入口文件中调用 `initWebSocket`
+- [x] Task 3.5: 在应用启动时初始化 WebSocket
+  - [x] 在 App.tsx 或入口文件中调用 `initWebSocket`
 
 ## 任务 4: 实现 UIDataTool 统一方法
 
-- [ ] Task 4.1: 检查 UIDataTool 是否存在
-  - [ ] 如果不存在，创建 `packages/backend/src/tools/implementations/UIDataTool.ts`
-  - [ ] 如果存在，重构为统一方法
+- [x] Task 4.1: 检查 UIDataTool 是否存在
+  - [x] 如果不存在，创建 `packages/backend/src/tools/implementations/UIDataTool.ts`
+  - [x] 如果存在，重构为统一方法
 
-- [ ] Task 4.2: 实现 `updateGameState` 方法
-  - [ ] 接收 `Partial<GameState>` 数据
-  - [ ] 通过 WebSocket 推送更新到前端
+- [x] Task 4.2: 实现 `updateGameState` 方法
+  - [x] 接收 `Partial<GameState>` 数据
+  - [x] 通过 WebSocket 推送更新到前端
 
-- [ ] Task 4.3: 注册 UIDataTool 到 ToolRegistry
-  - [ ] 在 ToolRegistry 中注册
-  - [ ] 设置读写权限
+- [x] Task 4.3: 注册 UIDataTool 到 ToolRegistry
+  - [x] 在 ToolRegistry 中注册
+  - [x] 设置读写权限
 
 ## 任务 5: 扩展 UIAgent 动态 UI 生成
 
-- [ ] Task 5.1: 在 UIAgent 中添加 `generateDynamicUI` 方法
-  - [ ] 接收自然语言描述
-  - [ ] 构建动态 UI 生成提示词
-  - [ ] 调用 LLM 生成 Markdown
-  - [ ] 返回 DynamicUIData
+- [x] Task 5.1: 在 UIAgent 中添加 `generateDynamicUI` 方法
+  - [x] 接收自然语言描述
+  - [x] 构建动态 UI 生成提示词
+  - [x] 调用 LLM 生成 Markdown
+  - [x] 返回 DynamicUIData
 
-- [ ] Task 5.2: 定义动态 UI 系统提示词
-  - [ ] 创建 `DYNAMIC_UI_SYSTEM_PROMPT`
-  - [ ] 包含所有 Markdown 扩展组件使用说明
-  - [ ] 包含模板风格适配指南
+- [x] Task 5.2: 定义动态 UI 系统提示词
+  - [x] 创建 `DYNAMIC_UI_SYSTEM_PROMPT`
+  - [x] 包含所有 Markdown 扩展组件使用说明
+  - [x] 包含模板风格适配指南
 
-- [ ] Task 5.3: 添加 `processMessage` 处理动态 UI 请求
-  - [ ] 处理 `generate_dynamic_ui` action
-  - [ ] 调用 UIDataTool.updateGameState 推送结果
+- [x] Task 5.3: 添加 `processMessage` 处理动态 UI 请求
+  - [x] 处理 `generate_dynamic_ui` action
+  - [x] 调用 UIDataTool.updateGameState 推送结果
 
 ## 任务 6: 创建纯前端模拟数据服务
 
@@ -117,68 +117,68 @@
 
 ## 任务 7: 实现模拟游戏界面入口
 
-- [ ] Task 7.1: 修改 `MainMenu.tsx`
-  - [ ] 修改 `handleDevModeGame` 方法
-  - [ ] 调用 `mockGameService.loadMockData()` 获取数据
-  - [ ] 调用 `gameStore.updateGameState()` 更新状态
-  - [ ] 切换到游戏界面
+- [x] Task 7.1: 修改 `MainMenu.tsx`
+  - [x] 修改 `handleDevModeGame` 方法
+  - [x] 调用 `mockGameService.loadMockData()` 获取数据
+  - [x] 调用 `gameStore.updateGameState()` 更新状态
+  - [x] 切换到游戏界面
 
 ## 任务 8: 重构面板组件数据绑定
 
-- [ ] Task 8.1: 重构 `CharacterPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `character` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.1: 重构 `CharacterPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `character` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.2: 重构 `SkillsPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `skills` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.2: 重构 `SkillsPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `skills` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.3: 重构 `EquipmentPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `equipment` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.3: 重构 `EquipmentPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `equipment` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.4: 重构 `InventoryPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `inventory` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.4: 重构 `InventoryPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `inventory` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.5: 重构 `QuestPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `quests` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.5: 重构 `QuestPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `quests` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.6: 重构 `NPCPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `npcs` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.6: 重构 `NPCPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `npcs` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.7: 重构 `JournalPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `journalEntries` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.7: 重构 `JournalPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `journalEntries` 状态
+  - [x] 处理空数据状态
 
-- [ ] Task 8.8: 重构 `MapPanel.tsx`
-  - [ ] 移除硬编码数据
-  - [ ] 从 `useGameStore` 获取 `mapData` 状态
-  - [ ] 处理空数据状态
+- [x] Task 8.8: 重构 `MapPanel.tsx`
+  - [x] 移除硬编码数据
+  - [x] 从 `useGameStore` 获取 `mapData` 状态
+  - [x] 处理空数据状态
 
 ## 任务 9: 实现 CoordinatorAgent 预制初始化方法
 
-- [ ] Task 9.1: 在 CoordinatorAgent 中添加 `initializeNewGame` 方法
-  - [ ] 定义固定的初始化流程
-  - [ ] 并行调用各专业 Agent
-  - [ ] 整合结果
-  - [ ] 调用 UIDataTool.updateGameState 更新前端
-  - [ ] 调用 UIAgent 生成欢迎界面动态 UI
-  - [ ] 再次调用 UIDataTool.updateGameState 显示动态 UI
+- [x] Task 9.1: 在 CoordinatorAgent 中添加 `initializeNewGame` 方法
+  - [x] 定义固定的初始化流程
+  - [x] 并行调用各专业 Agent
+  - [x] 整合结果
+  - [x] 调用 UIDataTool.updateGameState 更新前端
+  - [x] 调用 UIAgent 生成欢迎界面动态 UI
+  - [x] 再次调用 UIDataTool.updateGameState 显示动态 UI
 
-- [ ] Task 9.2: 修改初始化路由
-  - [ ] 修改 `/api/initialization/start` 路由
-  - [ ] 调用 CoordinatorAgent.initializeNewGame
-  - [ ] 返回初始化结果
+- [x] Task 9.2: 修改初始化路由
+  - [x] 修改 `/api/initialization/start` 路由
+  - [x] 调用 CoordinatorAgent.initializeNewGame
+  - [x] 返回初始化结果
 
 ## 任务 10: 确保各 Agent 正确使用模板数据
 
@@ -193,140 +193,139 @@
 
 ## 任务 11: 更新 Agent 提示词
 
-- [ ] Task 11.1: 更新 CoordinatorAgent 提示词 (`packages/backend/src/prompts/coordinator.md`)
-  - [ ] 添加 UIDataTool.updateGameState 工具使用说明
-  - [ ] 添加预制初始化方法说明
-  - [ ] 更新工具调用示例
+- [x] Task 11.1: 更新 CoordinatorAgent 提示词 (`packages/backend/src/prompts/coordinator.md`)
+  - [x] 添加 UIDataTool.updateGameState 工具使用说明
+  - [x] 添加预制初始化方法说明
+  - [x] 更新工具调用示例
 
-- [ ] Task 11.2: 更新 UIAgent 提示词 (`packages/backend/src/prompts/ui.md`)
-  - [ ] 添加 generateDynamicUI 方法说明
-  - [ ] 添加 Markdown 动态 UI 组件语法说明
-  - [ ] 添加 UIDataTool.updateGameState 工具使用说明
+- [x] Task 11.2: 更新 UIAgent 提示词 (`packages/backend/src/prompts/ui.md`)
+  - [x] 添加 generateDynamicUI 方法说明
+  - [x] 添加 Markdown 动态 UI 组件语法说明
+  - [x] 添加 UIDataTool.updateGameState 工具使用说明
 
-- [ ] Task 11.3: 更新各专业 Agent 提示词
-  - [ ] NumericalAgent (`numerical.md`) - 添加初始化方法说明
+- [x] Task 11.3: 更新各专业 Agent 提示词
+  - [x] NumericalAgent (`numerical.md`) - 添加初始化方法说明
   - [ ] SkillAgent (`skill.md`) - 添加从模板获取初始技能的说明
   - [ ] InventoryAgent (`inventory.md`) - 添加从模板获取初始物品的说明
   - [ ] QuestAgent (`quest.md`) - 添加从模板获取初始任务的说明
   - [ ] MapAgent (`map.md`) - 添加从模板获取地图配置的说明
   - [ ] NPCAgent (`npc_party.md`) - 添加从模板获取初始NPC的说明
 
-- [ ] Task 11.4: 创建动态 UI 提示词模块
-  - [ ] 创建 `packages/backend/src/prompts/modules/dynamic-ui.md`
-  - [ ] 包含所有 Markdown 扩展组件语法
-  - [ ] 包含组件使用示例
-  - [ ] 可被 UIAgent 和其他 Agent 引用
+- [x] Task 11.4: 创建动态 UI 提示词模块
+  - [x] 创建 `packages/backend/src/prompts/modules/dynamic-ui.md`
+  - [x] 包含所有 Markdown 扩展组件语法
+  - [x] 包含组件使用示例
+  - [x] 可被 UIAgent 和其他 Agent 引用
 
 ## 任务 12: 前端 DynamicUIPanel 窗口化实现
 
-- [ ] Task 12.1: 创建 `DynamicUIPanel.tsx` 通用动态 UI 面板
-  - [ ] 使用 MarkdownRenderer 渲染内容
-  - [ ] 处理用户操作（调用 updateGameState 或 onAction）
-  - [ ] 支持关闭操作
+- [x] Task 12.1: 创建 `DynamicUIPanel.tsx` 通用动态 UI 面板
+  - [x] 使用 MarkdownRenderer 渲染内容
+  - [x] 处理用户操作（调用 updateGameState 或 onAction）
+  - [x] 支持关闭操作
 
-- [ ] Task 12.2: 实现窗口状态管理
-  - [ ] position 状态（位置）
-  - [ ] size 状态（大小）
-  - [ ] isDragging/isResizing 状态
+- [x] Task 12.2: 实现窗口状态管理
+  - [x] position 状态（位置）
+  - [x] size 状态（大小）
+  - [x] isDragging/isResizing 状态
 
-- [ ] Task 12.3: 实现拖拽移动功能
-  - [ ] handleMouseDown 设置拖拽状态
-  - [ ] handleMouseMove 更新位置
-  - [ ] handleMouseUp 结束拖拽
+- [x] Task 12.3: 实现拖拽移动功能
+  - [x] handleMouseDown 设置拖拽状态
+  - [x] handleMouseMove 更新位置
+  - [x] handleMouseUp 结束拖拽
 
-- [ ] Task 12.4: 实现缩放大小功能
-  - [ ] resize handle 元素
-  - [ ] handleMouseMove 更新大小
+- [x] Task 12.4: 实现缩放大小功能
+  - [x] resize handle 元素
+  - [x] handleMouseMove 更新大小
 
-- [ ] Task 12.5: 实现关闭功能
-  - [ ] 关闭按钮
-  - [ ] 调用 `sendDynamicUIAction('close')`
+- [x] Task 12.5: 实现关闭功能
+  - [x] 关闭按钮
+  - [x] 调用 `sendDynamicUIAction('close')`
 
-- [ ] Task 12.6: 创建样式文件
-  - [ ] `DynamicUIPanel.module.css`
-  - [ ] 窗口样式（标题栏、内容区、resize handle）
+- [x] Task 12.6: 创建样式文件
+  - [x] `DynamicUIPanel.module.css`
+  - [x] 窗口样式（标题栏、内容区、resize handle）
 
 ## 任务 13: 开发者工具 - UIAgent 测试面板
 
-- [ ] Task 13.1: 创建 `UIAgentTestPanel.tsx`
-  - [ ] 自然语言描述输入框
-  - [ ] 测试生成按钮
-  - [ ] 结果显示区域（预览 + Markdown 源码）
+- [x] Task 13.1: 创建 `UIAgentTestPanel.tsx`
+  - [x] 自然语言描述输入框
+  - [x] 测试生成按钮
+  - [x] 结果显示区域（预览 + Markdown 源码）
 
-- [ ] Task 13.2: 创建后端 API
-  - [ ] `POST /api/developer/test-ui-agent`
-  - [ ] 接收自然语言描述
-  - [ ] 调用 UIAgent.generateDynamicUI
-  - [ ] 返回 DynamicUIData
+- [x] Task 13.2: 创建后端 API
+  - [x] `POST /api/developer/test-ui-agent`
+  - [x] 接收自然语言描述
+  - [x] 调用 UIAgent.generateDynamicUI
+  - [x] 返回 DynamicUIData
 
-- [ ] Task 13.3: 更新 DeveloperPanel.tsx
-  - [ ] 添加 'ui-agent-test' 标签页
-  - [ ] 渲染 UIAgentTestPanel
+- [x] Task 13.3: 更新 DeveloperPanel.tsx
+  - [x] 添加 'ui-agent-test' 标签页
+  - [x] 渲染 UIAgentTestPanel
 
 ## 任务 14: 开发者工具 - 模拟动态 UI 数据生成器
 
-- [ ] Task 14.1: 创建 `MockDynamicUIPanel.tsx`
-  - [ ] 模板选择器（预设模板名称）
-  - [ ] Markdown 编辑器
-  - [ ] 预设模板加载按钮
-  - [ ] 生成动态 UI 按钮
+- [x] Task 14.1: 创建 `MockDynamicUIPanel.tsx`
+  - [x] 模板选择器（预设模板名称）
+  - [x] Markdown 编辑器
+  - [x] 预设模板加载按钮
+  - [x] 生成动态 UI 按钮
 
-- [ ] Task 14.2: 定义预设模板
-  - [ ] welcome 模板
-  - [ ] notification 模板
-  - [ ] dialog 模板
-  - [ ] enhancement 模板
-  - [ ] warehouse 模板
-  - [ ] shop 模板
+- [x] Task 14.2: 定义预设模板
+  - [x] welcome 模板
+  - [x] notification 模板
+  - [x] dialog 模板
+  - [x] enhancement 模板
+  - [x] warehouse 模板
+  - [x] shop 模板
 
-- [ ] Task 14.3: 更新 DeveloperPanel.tsx
-  - [ ] 添加 'mock-dynamic-ui' 标签页
-  - [ ] 渲染 MockDynamicUIPanel
+- [x] Task 14.3: 更新 DeveloperPanel.tsx
+  - [x] 添加 'mock-dynamic-ui' 标签页
+  - [x] 渲染 MockDynamicUIPanel
 
 ## 任务 15: 开发者工具 - 动态 UI 状态查看器
 
-- [ ] Task 15.1: 创建 `DynamicUIStatePanel.tsx`
-  - [ ] 显示当前 dynamicUI 状态
-  - [ ] 显示 ID、上下文
-  - [ ] 显示 Markdown 预览
-  - [ ] 显示 Markdown 源码
+- [x] Task 15.1: 创建 `DynamicUIStatePanel.tsx`
+  - [x] 显示当前 dynamicUI 状态
+  - [x] 显示 ID、上下文
+  - [x] 显示 Markdown 预览
+  - [x] 显示 Markdown 源码
 
-- [ ] Task 15.2: 更新 DeveloperPanel.tsx
-  - [ ] 添加 'dynamic-ui-state' 标签页
-  - [ ] 渲染 DynamicUIStatePanel
+- [x] Task 15.2: 更新 DeveloperPanel.tsx
+  - [x] 添加 'dynamic-ui-state' 标签页
+  - [x] 渲染 DynamicUIStatePanel
 
 ## 任务 16: 开发者工具 - 数据模拟面板
 
-- [ ] Task 16.1: 创建 `packages/frontend/src/data/mockDataTemplates.ts`
-  - [ ] 定义 10 种面板数据模板（角色、技能、背包、装备、任务、NPC、日志、地图、动态UI、综合）
-  - [ ] 每种面板 3 种类型（正常数据、残缺数据、错误数据）
-  - [ ] 每种类型 3 个示例
+- [x] Task 16.1: 创建 `packages/frontend/src/data/mockDataTemplates.ts`
+  - [x] 定义 10 种面板数据模板
+  - [x] 每种面板 3 种类型（正常数据、残缺数据、错误数据）
+  - [x] 每种类型 3 个示例
 
-- [ ] Task 16.2: 创建 `DataSimulatorPanel.tsx`
-  - [ ] 单面板模式（选择面板、类型、模板）
-  - [ ] 自由组合模式（勾选多个模板组合）
-  - [ ] 数据编辑器（JSON 格式，支持临时编辑）
-  - [ ] 发送按钮（模拟 WebSocket 推送）
-  - [ ] 发送历史（最近 10 条，可重新发送）
-  - [ ] console.log 输出
+- [x] Task 16.2: 创建 `DataSimulatorPanel.tsx`
+  - [x] 单面板模式（选择面板、类型、模板）
+  - [x] 自由组合模式（勾选多个模板组合）
+  - [x] 数据编辑器（JSON 格式，支持临时编辑）
+  - [x] 发送按钮（模拟 WebSocket 推送）
+  - [x] 发送历史（最近 10 条，可重新发送）
 
-- [ ] Task 16.3: 更新 DeveloperPanel.tsx
-  - [ ] 添加 'data-simulator' 标签页
-  - [ ] 渲染 DataSimulatorPanel
+- [x] Task 16.3: 更新 DeveloperPanel.tsx
+  - [x] 添加 'data-simulator' 标签页
+  - [x] 渲染 DataSimulatorPanel
 
 ## 任务 17: 后端动态 UI 操作消息处理
 
-- [ ] Task 17.1: 添加消息类型处理
-  - [ ] 在 CoordinatorAgent 中处理 `dynamic_ui_action` 消息
-  - [ ] 根据 action 和 context 决定响应
+- [x] Task 17.1: 添加消息类型处理
+  - [x] 在 CoordinatorAgent 中处理 `dynamic_ui_action` 消息
+  - [x] 根据 action 和 context 决定响应
 
-- [ ] Task 17.2: 实现关闭响应逻辑
-  - [ ] 处理 `action: 'close'`
-  - [ ] 根据 context 执行后续流程（如结束交易）
+- [x] Task 17.2: 实现关闭响应逻辑
+  - [x] 处理 `action: 'close'`
+  - [x] 根据 context 执行后续流程（如结束交易）
 
-- [ ] Task 17.3: 实现其他 action 响应逻辑
-  - [ ] 处理各种 action（start_game, confirm_enhance 等）
-  - [ ] 可能调用 UIAgent 生成新的动态 UI
+- [x] Task 17.3: 实现其他 action 响应逻辑
+  - [x] 处理各种 action（start_game, open_shop, buy_item, confirm_enhance 等）
+  - [x] 可能调用 UIAgent 生成新的动态 UI
 
 ## 任务 18: 类型检查与测试
 

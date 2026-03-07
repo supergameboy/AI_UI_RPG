@@ -1,69 +1,45 @@
 import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
+import type { JournalEntry as SharedJournalEntry, JournalEntryType } from '@ai-rpg/shared';
 import styles from './JournalPanel.module.css';
 
-/**
- * 日志条目类型
- */
-export type JournalEntryType = 'dialogue' | 'event' | 'system';
-
-/**
- * 日志条目接口
- */
-export interface JournalEntry {
-  id: string;
-  type: JournalEntryType;
-  title: string;
-  content: string;
-  timestamp: number;
-  metadata?: {
-    location?: string;
-    npcName?: string;
-    questId?: string;
-    itemId?: string;
-  };
-}
-
-/**
- * 筛选选项
- */
 const FILTER_OPTIONS: { value: JournalEntryType | 'all'; label: string; icon: string }[] = [
   { value: 'all', label: '全部', icon: '📖' },
-  { value: 'dialogue', label: '对话', icon: '💬' },
-  { value: 'event', label: '事件', icon: '⚡' },
+  { value: 'quest', label: '任务', icon: '📜' },
+  { value: 'combat', label: '战斗', icon: '⚔️' },
+  { value: 'discovery', label: '发现', icon: '🔍' },
+  { value: 'dialog', label: '对话', icon: '💬' },
+  { value: 'trade', label: '交易', icon: '💰' },
   { value: 'system', label: '系统', icon: '⚙️' },
 ];
 
-/**
- * 类型图标映射
- */
 const TYPE_ICONS: Record<JournalEntryType, string> = {
-  dialogue: '💬',
-  event: '⚡',
+  quest: '📜',
+  combat: '⚔️',
+  discovery: '🔍',
+  dialog: '💬',
+  trade: '💰',
   system: '⚙️',
 };
 
-/**
- * 类型名称映射
- */
 const TYPE_NAMES: Record<JournalEntryType, string> = {
-  dialogue: '对话',
-  event: '事件',
+  quest: '任务',
+  combat: '战斗',
+  discovery: '发现',
+  dialog: '对话',
+  trade: '交易',
   system: '系统',
 };
 
-/**
- * 类型颜色映射
- */
 const TYPE_COLORS: Record<JournalEntryType, string> = {
-  dialogue: '#2196F3',
-  event: '#FF9800',
+  quest: '#FF9800',
+  combat: '#F44336',
+  discovery: '#4CAF50',
+  dialog: '#2196F3',
+  trade: '#9C27B0',
   system: '#9E9E9E',
 };
 
-/**
- * 格式化时间戳
- */
 const formatTimestamp = (timestamp: number): string => {
   const date = new Date(timestamp);
   const now = new Date();
@@ -85,9 +61,6 @@ const formatTimestamp = (timestamp: number): string => {
   });
 };
 
-/**
- * 格式化完整时间
- */
 const formatFullTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleString('zh-CN', {
     year: 'numeric',
@@ -99,96 +72,44 @@ const formatFullTime = (timestamp: number): string => {
   });
 };
 
-/**
- * 模拟事件数据（用于演示）
- */
-const MOCK_JOURNAL_ENTRIES: JournalEntry[] = [
-  {
-    id: 'journal_001',
-    type: 'event',
-    title: '任务完成：村庄的危机',
-    content: '你成功帮助村长清除了村庄附近的野狼威胁，获得了村民的感激。',
-    timestamp: Date.now() - 3600000,
-    metadata: { questId: 'quest_001', location: '新手村' },
-  },
-  {
-    id: 'journal_002',
-    type: 'event',
-    title: 'NPC相遇：神秘商人',
-    content: '在古老遗迹中，你遇到了一位神秘的商人，他似乎知道一些关于宝藏的秘密。',
-    timestamp: Date.now() - 7200000,
-    metadata: { npcName: '神秘商人', location: '古老遗迹' },
-  },
-  {
-    id: 'journal_003',
-    type: 'system',
-    title: '等级提升',
-    content: '恭喜！你的角色等级提升到了 5 级，获得了新的技能点。',
-    timestamp: Date.now() - 10800000,
-  },
-  {
-    id: 'journal_004',
-    type: 'event',
-    title: '获得物品：神秘钥匙',
-    content: '你在宝箱中发现了一把神秘的钥匙，似乎可以打开某扇隐藏的门。',
-    timestamp: Date.now() - 14400000,
-    metadata: { itemId: 'mysterious_key', location: '古老遗迹' },
-  },
-  {
-    id: 'journal_005',
-    type: 'system',
-    title: '成就解锁：初次探索',
-    content: '你完成了第一次探索，解锁了"初次探索"成就。',
-    timestamp: Date.now() - 18000000,
-  },
-];
-
-/**
- * 记录面板组件
- * 显示对话历史和重要事件记录
- */
 export const JournalPanel: React.FC = () => {
+  const journalEntries = useGameStore((state) => state.journalEntries);
   const messages = useGameStore((state) => state.messages);
   const character = useGameStore((state) => state.character);
   const [typeFilter, setTypeFilter] = useState<JournalEntryType | 'all'>('all');
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [sortByNewest, setSortByNewest] = useState(true);
 
-  // 将消息转换为日志条目格式
-  const dialogueEntries: JournalEntry[] = useMemo(() => {
+  const dialogueEntries: SharedJournalEntry[] = useMemo(() => {
     return messages.map((msg, index) => ({
       id: `msg_${index}_${msg.timestamp}`,
-      type: 'dialogue' as JournalEntryType,
-      title: msg.role === 'user' ? '你的行动' : 
-             msg.role === 'narrator' ? '旁白' : 
-             msg.role === 'assistant' ? '游戏回应' : msg.role,
+      type: 'dialog' as JournalEntryType,
       content: msg.content,
       timestamp: msg.timestamp,
     }));
   }, [messages]);
 
-  // 合并所有日志条目（对话 + 事件）
   const allEntries = useMemo(() => {
-    const combined = [...MOCK_JOURNAL_ENTRIES, ...dialogueEntries];
+    const combined = [...journalEntries, ...dialogueEntries];
     return combined.sort((a, b) => 
       sortByNewest ? b.timestamp - a.timestamp : a.timestamp - b.timestamp
     );
-  }, [dialogueEntries, sortByNewest]);
+  }, [journalEntries, dialogueEntries, sortByNewest]);
 
-  // 过滤日志条目
   const filteredEntries = useMemo(() => {
     if (typeFilter === 'all') return allEntries;
     return allEntries.filter((entry) => entry.type === typeFilter);
   }, [allEntries, typeFilter]);
 
-  // 选中的条目
   const selectedEntry = allEntries.find((entry) => entry.id === selectedEntryId);
 
-  // 统计信息
   const stats = useMemo(() => ({
     total: allEntries.length,
-    dialogue: allEntries.filter((e) => e.type === 'dialogue').length,
-    event: allEntries.filter((e) => e.type === 'event').length,
+    dialog: allEntries.filter((e) => e.type === 'dialog').length,
+    quest: allEntries.filter((e) => e.type === 'quest').length,
+    combat: allEntries.filter((e) => e.type === 'combat').length,
+    discovery: allEntries.filter((e) => e.type === 'discovery').length,
+    trade: allEntries.filter((e) => e.type === 'trade').length,
     system: allEntries.filter((e) => e.type === 'system').length,
   }), [allEntries]);
 
@@ -204,32 +125,34 @@ export const JournalPanel: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      {/* 统计栏 */}
       <div className={styles.statsBar}>
         <div className={styles.statItem}>
           <span className={styles.statIcon}>💬</span>
           <span className={styles.statLabel}>对话</span>
-          <span className={styles.statValue}>{stats.dialogue}</span>
+          <span className={styles.statValue}>{stats.dialog}</span>
         </div>
         <div className={styles.statItem}>
-          <span className={styles.statIcon}>⚡</span>
-          <span className={styles.statLabel}>事件</span>
-          <span className={styles.statValue}>{stats.event}</span>
+          <span className={styles.statIcon}>📜</span>
+          <span className={styles.statLabel}>任务</span>
+          <span className={styles.statValue}>{stats.quest}</span>
         </div>
         <div className={styles.statItem}>
-          <span className={styles.statIcon}>⚙️</span>
-          <span className={styles.statLabel}>系统</span>
-          <span className={styles.statValue}>{stats.system}</span>
+          <span className={styles.statIcon}>⚔️</span>
+          <span className={styles.statLabel}>战斗</span>
+          <span className={styles.statValue}>{stats.combat}</span>
+        </div>
+        <div className={styles.statItem}>
+          <span className={styles.statIcon}>🔍</span>
+          <span className={styles.statLabel}>发现</span>
+          <span className={styles.statValue}>{stats.discovery}</span>
         </div>
       </div>
 
-      {/* 筛选和排序 */}
       <div className={styles.filterBar}>
-        {/* 类型筛选 */}
         <div className={styles.filterSection}>
           <span className={styles.filterLabel}>类型筛选</span>
           <div className={styles.filterTabs}>
-            {FILTER_OPTIONS.map((option) => (
+            {FILTER_OPTIONS.slice(0, 4).map((option) => (
               <button
                 key={option.value}
                 className={[
@@ -245,7 +168,6 @@ export const JournalPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* 排序切换 */}
         <div className={styles.sortSection}>
           <button
             className={[styles.sortButton, sortByNewest && styles.sortButtonActive].filter(Boolean).join(' ')}
@@ -262,7 +184,6 @@ export const JournalPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* 日志列表 */}
       <div className={styles.entriesContainer}>
         {filteredEntries.length === 0 ? (
           <div className={styles.noEntries}>
@@ -288,7 +209,6 @@ export const JournalPanel: React.FC = () => {
                     {TYPE_ICONS[entry.type]}
                   </div>
                   <div className={styles.entryInfo}>
-                    <h4 className={styles.entryTitle}>{entry.title}</h4>
                     <div className={styles.entryMeta}>
                       <span
                         className={styles.entryType}
@@ -313,7 +233,6 @@ export const JournalPanel: React.FC = () => {
         )}
       </div>
 
-      {/* 日志详情 */}
       {selectedEntry && (
         <div className={styles.entryDetail}>
           <div className={styles.detailHeader}>
@@ -324,7 +243,6 @@ export const JournalPanel: React.FC = () => {
               {TYPE_ICONS[selectedEntry.type]}
             </div>
             <div className={styles.detailTitle}>
-              <h4 className={styles.detailName}>{selectedEntry.title}</h4>
               <div className={styles.detailMeta}>
                 <span
                   className={styles.detailType}
@@ -341,54 +259,13 @@ export const JournalPanel: React.FC = () => {
               className={styles.closeDetail}
               onClick={() => setSelectedEntryId(null)}
             >
-              ✕
+              ×
             </button>
           </div>
 
           <div className={styles.detailContent}>
             {selectedEntry.content}
           </div>
-
-          {/* 元数据 */}
-          {selectedEntry.metadata && (
-            <div className={styles.metadataSection}>
-              <h5 className={styles.sectionTitle}>相关信息</h5>
-              <div className={styles.metadataList}>
-                {selectedEntry.metadata.location && (
-                  <div className={styles.metadataItem}>
-                    <span className={styles.metadataLabel}>地点</span>
-                    <span className={styles.metadataValue}>
-                      {selectedEntry.metadata.location}
-                    </span>
-                  </div>
-                )}
-                {selectedEntry.metadata.npcName && (
-                  <div className={styles.metadataItem}>
-                    <span className={styles.metadataLabel}>NPC</span>
-                    <span className={styles.metadataValue}>
-                      {selectedEntry.metadata.npcName}
-                    </span>
-                  </div>
-                )}
-                {selectedEntry.metadata.questId && (
-                  <div className={styles.metadataItem}>
-                    <span className={styles.metadataLabel}>任务</span>
-                    <span className={styles.metadataValue}>
-                      {selectedEntry.metadata.questId}
-                    </span>
-                  </div>
-                )}
-                {selectedEntry.metadata.itemId && (
-                  <div className={styles.metadataItem}>
-                    <span className={styles.metadataLabel}>物品</span>
-                    <span className={styles.metadataValue}>
-                      {selectedEntry.metadata.itemId}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

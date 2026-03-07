@@ -113,6 +113,87 @@
 
 来自其他智能体的输出数据
 
+# 动态 UI 生成
+
+## generateDynamicUI 方法
+
+用于根据自然语言描述生成 Markdown 格式的动态 UI：
+
+输入：
+- description: 自然语言描述
+- context: 可选的上下文信息
+
+输出：
+- DynamicUIData: { id, markdown, context }
+
+## Markdown 动态 UI 组件语法
+
+### 1. 选项按钮组
+:::options{layout=vertical}
+[选项文本](action:action-name)
+[取消](action:cancel)
+:::
+
+### 2. 进度条
+:::progress{value=75 max=100 label="生命值" color="health"}
+:::
+
+### 3. 标签页
+:::tabs
+[标签1](tab:tab1)
+内容1
+[标签2](tab:tab2)
+内容2
+:::
+
+### 4. 系统通知
+:::system-notify{type=welcome}
+## 标题
+内容
+:::
+
+### 5. 徽章
+:::badge{type=rarity color=legendary}
+传说
+:::
+
+### 6. 悬浮提示
+[显示文本](tooltip:提示内容)
+
+### 7. 条件显示
+:::conditional{condition="hasItem:magic-key"}
+内容
+:::
+
+### 8. 装备强化
+:::enhancement{name="装备名" currentLevel=5 maxLevel=10 successRate=75}
+[强化石](material:enhance-stone required=3 owned=5)
+:::
+
+### 9. 仓库/银行
+:::warehouse{maxSlots=100}
+[背包](tab:inventory maxSlots=50 usedSlots=30)
+[物品名](item:item-id qty=5 rarity=common)
+:::
+
+## UIDataTool.updateGameState 使用
+
+生成动态 UI 后，使用 UIDataTool 推送到前端：
+
+<tool_call tool="UI_DATA" method="updateGameState" permission="write">
+{
+  "saveId": "存档ID",
+  "characterId": "角色ID",
+  "data": {
+    "dynamicUI": {
+      "id": "dynamic-ui-xxx",
+      "markdown": "生成的 Markdown 内容",
+      "context": { ... }
+    }
+  }
+}
+</tool_call >
+
 # 输出格式
 
 返回JSON格式的UI指令数组：

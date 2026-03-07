@@ -1,9 +1,10 @@
 import type { AgentType } from './agent';
 import type { ToolCallPayload, ToolResponsePayload } from './agent';
+import type { GameState, DynamicUIData } from './gameState';
 
 export type { ToolCallPayload, ToolResponsePayload };
 
-export type WSMessageType = 'llm_request' | 'llm_update' | 'agent_message' | 'log';
+export type WSMessageType = 'llm_request' | 'llm_update' | 'agent_message' | 'log' | 'game_state_update' | 'dynamic_ui_update';
 
 export type LLMRequestStatus = 'pending' | 'success' | 'error';
 
@@ -79,8 +80,13 @@ export interface AgentMessageLog {
 
 export interface WSMessage {
   type: WSMessageType;
-  payload: LLMRequestLog | Partial<LLMRequestLog> | AgentMessageLog | unknown;
+  payload?: LLMRequestLog | Partial<LLMRequestLog> | AgentMessageLog | unknown;
   timestamp: number;
+  // 游戏状态更新消息字段
+  saveId?: string;
+  characterId?: string;
+  data?: Partial<GameState>;
+  dynamicUI?: DynamicUIData;
 }
 
 export interface WSConnectionState {

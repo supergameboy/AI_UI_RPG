@@ -40,47 +40,49 @@
 
 ## 任务 3: gameStore 统一更新方法
 
-### 状态字段
-- [ ] skills 状态字段已添加
-- [ ] inventory 状态字段已添加
-- [ ] equipment 状态字段已添加
-- [ ] mapData 状态字段已添加
-- [ ] journalEntries 状态字段已添加
-- [ ] dynamicUI 状态字段已添加
+### 新状态字段
+- [x] skills: Skill[] 状态已添加
+- [x] inventory: InventoryItem[] 状态已添加
+- [x] equipment: EquipmentState 状态已添加
+- [x] mapData: MapData | null 状态已添加
+- [x] journalEntries: JournalEntry[] 状态已添加
+- [x] dynamicUI: DynamicUIData | null 状态已添加
 
 ### updateGameState 方法
-- [ ] 接收 Partial<GameState> 参数
-- [ ] 支持部分更新（只更新传入的字段）
-- [ ] 触发 React 重新渲染
-- [ ] 所有独立 setter 方法已移除
+- [x] 接收 Partial<GameState> 参数
+- [x] 支持部分更新（只更新传入的字段）
+- [x] 触发 React 重新渲染
+- [x] 所有独立 setter 方法已移除
 
 ### sendDynamicUIAction 方法
-- [ ] 构造 DynamicUIActionMessage 消息
-- [ ] 通过 WebSocket 发送消息
-- [ ] 处理关闭操作时清空 dynamicUI 状态
+- [x] 构造 DynamicUIActionMessage 消息
+- [x] 通过 WebSocket 发送消息
+- [x] 处理关闭操作时清空 dynamicUI 状态
 
 ### initWebSocket 方法
-- [ ] 监听 game_state_update 事件
-- [ ] 调用 updateGameState 更新状态
+- [x] 监听 game_state_update 事件
+- [x] 监听 dynamic_ui_update 事件
+- [x] 调用 updateGameState 更新状态
 
 ### 应用启动初始化
-- [ ] 在 App.tsx 或入口文件中调用 initWebSocket
+- [x] initWebSocket 方法已实现
 
 ## 任务 4: UIDataTool 统一方法
 
-- [ ] UIDataTool.ts 已创建或重构
-- [ ] updateGameState 方法已实现
-- [ ] WebSocket 推送逻辑已实现
-- [ ] 已注册到 ToolRegistry
+- [x] UIDataTool.ts 已创建或重构
+- [x] updateGameState 方法已实现
+- [x] WebSocket 推送逻辑已实现
+- [x] 参数验证已添加
+- [x] 已注册到 ToolRegistry
 
 ## 任务 5: UIAgent 动态 UI 生成
 
-- [ ] generateDynamicUI 方法已实现
-- [ ] 接收自然语言描述
-- [ ] DYNAMIC_UI_SYSTEM_PROMPT 已定义
-- [ ] LLM 调用生成 Markdown
-- [ ] processMessage 处理动态 UI 请求
-- [ ] 调用 UIDataTool.updateGameState 推送结果
+- [x] generateDynamicUI 方法已实现
+- [x] 接收自然语言描述
+- [x] DYNAMIC_UI_SYSTEM_PROMPT 已定义
+- [x] LLM 调用生成 Markdown
+- [x] processMessage 处理动态 UI 请求
+- [x] 调用 UIDataTool.updateGameState 推送结果
 
 ## 任务 6: 模拟数据服务
 
@@ -135,55 +137,86 @@
 
 ## 任务 11: Agent 提示词更新
 
-- [ ] coordinator.md 已更新
-  - [ ] 添加 UIDataTool.updateGameState 工具使用说明
-  - [ ] 添加预制初始化方法说明
-  - [ ] 更新工具调用示例
-- [ ] ui.md 已更新
-  - [ ] 添加 generateDynamicUI 方法说明
-  - [ ] 添加 Markdown 动态 UI 组件语法说明
-  - [ ] 添加 UIDataTool.updateGameState 工具使用说明
-- [ ] numerical.md 已更新
+- [x] coordinator.md 已更新
+  - [x] 添加 UIDataTool.updateGameState 工具使用说明
+  - [x] 添加预制初始化方法说明
+  - [x] 更新工具调用示例
+- [x] ui.md 已更新
+  - [x] 添加 generateDynamicUI 方法说明
+  - [x] 添加 Markdown 动态 UI 组件语法说明
+  - [x] 添加 UIDataTool.updateGameState 工具使用说明
+- [x] numerical.md 已更新
 - [ ] skill.md 已更新
 - [ ] inventory.md 已更新
 - [ ] quest.md 已更新
 - [ ] map.md 已更新
 - [ ] npc_party.md 已更新
-- [ ] modules/dynamic-ui.md 已创建
-  - [ ] 包含所有 Markdown 扩展组件语法
-  - [ ] 包含组件使用示例
+- [x] modules/dynamic-ui.md 已创建
+  - [x] 包含所有 Markdown 扩展组件语法
+  - [x] 包含组件使用示例
 
 ## 任务 12: DynamicUIPanel 窗口化实现
 
 ### 基础功能
-- [ ] DynamicUIPanel.tsx 已创建
-- [ ] 使用 MarkdownRenderer 渲染内容
-- [ ] 处理用户操作调用 updateGameState
-- [ ] 支持关闭操作
+- [x] DynamicUIPanel.tsx 已创建
+- [x] 使用 MarkdownRenderer 渲染内容
+- [x] 处理用户操作调用 updateGameState
+- [x] 支持关闭操作
 
 ### 窗口状态管理
-- [ ] position 状态已实现
-- [ ] size 状态已实现
-- [ ] isDragging/isResizing 状态已实现
+- [x] position 状态已实现
+- [x] size 状态已实现
+- [x] isDragging/isResizing 状态已实现
 
 ### 拖拽移动功能
-- [ ] handleMouseDown 设置拖拽状态
-- [ ] handleMouseMove 更新位置
-- [ ] handleMouseUp 结束拖拽
+- [x] handleMouseDown 设置拖拽状态
+- [x] handleMouseMove 更新位置
+- [x] handleMouseUp 结束拖拽
 
 ### 缩放大小功能
-- [ ] resize handle 元素已创建
-- [ ] handleMouseMove 更新大小
+- [x] resize handle 元素已创建
+- [x] handleMouseMove 更新大小
 
 ### 关闭功能
-- [ ] 关闭按钮已创建
-- [ ] 调用 sendDynamicUIAction('close')
+- [x] 关闭按钮已创建
+- [x] 调用 sendDynamicUIAction('close')
 
 ### 样式文件
-- [ ] DynamicUIPanel.module.css 已创建
-- [ ] 窗口样式（标题栏、内容区、resize handle）
+- [x] DynamicUIPanel.module.css 已创建
+- [x] 窗口样式（标题栏、内容区、resize handle）
 
-## 任务 13: 开发者工具 - UIAgent 测试面板
+## 任务 7: 模拟游戏界面入口
+
+- [x] MainMenu 显示"模拟游戏界面"按钮
+- [x] 点击按钮正确加载模拟数据
+- [x] 调用 updateGameState 更新状态
+- [x] 所有面板正确显示模拟数据
+
+## 任务 8: 面板组件数据绑定
+
+- [x] CharacterPanel 从 gameStore 获取数据
+- [x] SkillsPanel 从 gameStore 获取数据
+- [x] EquipmentPanel 从 gameStore 获取数据
+- [x] InventoryPanel 从 gameStore 获取数据
+- [x] QuestPanel 从 gameStore 获取数据
+- [x] NPCPanel 从 gameStore 获取数据
+- [x] JournalPanel 从 gameStore 获取数据
+- [x] MapPanel 从 gameStore 获取数据
+- [x] 所有面板处理空数据状态
+- [x] 所有硬编码数据已移除
+
+## 任务 9: CoordinatorAgent 预制方法
+
+- [x] initializeNewGame 方法已实现
+- [x] 并行调用各专业 Agent
+- [x] 结果整合逻辑已实现
+- [x] 调用 UIDataTool.updateGameState 更新前端
+- [x] 调用 UIAgent 生成欢迎界面动态 UI
+- [x] 再次调用 UIDataTool.updateGameState 显示动态 UI
+
+### 初始化路由
+- [x] 初始化路由调用 CoordinatorAgent.initializeNewGame
+- [x] 返回初始化结果
 
 - [ ] UIAgentTestPanel.tsx 已创建
   - [ ] 自然语言描述输入框

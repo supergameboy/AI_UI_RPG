@@ -39,169 +39,34 @@ const CONNECTION_TYPE_NAMES: Record<string, string> = {
 };
 
 /**
- * 模拟地图数据（用于演示）
- */
-const MOCK_LOCATIONS: MapLocation[] = [
-  {
-    id: 'loc_start',
-    name: '新手村',
-    type: 'village',
-    position: { x: 50, y: 50 },
-    description: '一个宁静的小村庄，是许多冒险者的起点。',
-    discovered: true,
-  },
-  {
-    id: 'loc_forest',
-    name: '迷雾森林',
-    type: 'wilderness',
-    position: { x: 30, y: 35 },
-    description: '一片神秘的森林，据说隐藏着古老的秘密。',
-    discovered: true,
-  },
-  {
-    id: 'loc_dungeon',
-    name: '废弃矿坑',
-    type: 'dungeon',
-    position: { x: 70, y: 25 },
-    description: '曾经繁荣的矿坑，现在充满了危险。',
-    discovered: true,
-  },
-  {
-    id: 'loc_city',
-    name: '王都艾尔文',
-    type: 'city',
-    position: { x: 75, y: 60 },
-    description: '繁华的王都，贸易和冒险的中心。',
-    discovered: true,
-  },
-  {
-    id: 'loc_lake',
-    name: '月光湖',
-    type: 'wilderness',
-    position: { x: 25, y: 70 },
-    description: '美丽的湖泊，夜晚月光倒映格外迷人。',
-    discovered: false,
-  },
-  {
-    id: 'loc_mountain',
-    name: '龙脊山脉',
-    type: 'wilderness',
-    position: { x: 85, y: 15 },
-    description: '险峻的山脉，传说有巨龙栖息。',
-    discovered: false,
-  },
-  {
-    id: 'loc_ruins',
-    name: '古代遗迹',
-    type: 'dungeon',
-    position: { x: 45, y: 80 },
-    description: '神秘的古代遗迹，等待探索。',
-    discovered: false,
-  },
-  {
-    id: 'loc_tower',
-    name: '法师塔',
-    type: 'building',
-    position: { x: 60, y: 40 },
-    description: '高耸的法师塔，魔法能量充沛。',
-    discovered: true,
-  },
-];
-
-/**
- * 模拟连接数据
- */
-const MOCK_CONNECTIONS: LocationConnection[] = [
-  {
-    id: 'conn_1',
-    fromLocationId: 'loc_start',
-    toLocationId: 'loc_forest',
-    type: 'road',
-    travelTime: 30,
-    bidirectional: true,
-    discovered: true,
-  },
-  {
-    id: 'conn_2',
-    fromLocationId: 'loc_start',
-    toLocationId: 'loc_city',
-    type: 'road',
-    travelTime: 60,
-    bidirectional: true,
-    discovered: true,
-  },
-  {
-    id: 'conn_3',
-    fromLocationId: 'loc_forest',
-    toLocationId: 'loc_dungeon',
-    type: 'road',
-    travelTime: 45,
-    bidirectional: true,
-    discovered: true,
-  },
-  {
-    id: 'conn_4',
-    fromLocationId: 'loc_city',
-    toLocationId: 'loc_tower',
-    type: 'road',
-    travelTime: 20,
-    bidirectional: true,
-    discovered: true,
-  },
-  {
-    id: 'conn_5',
-    fromLocationId: 'loc_tower',
-    toLocationId: 'loc_dungeon',
-    type: 'portal',
-    travelTime: 5,
-    bidirectional: true,
-    discovered: true,
-  },
-  {
-    id: 'conn_6',
-    fromLocationId: 'loc_start',
-    toLocationId: 'loc_lake',
-    type: 'road',
-    travelTime: 40,
-    bidirectional: true,
-    discovered: false,
-  },
-  {
-    id: 'conn_7',
-    fromLocationId: 'loc_city',
-    toLocationId: 'loc_mountain',
-    type: 'road',
-    travelTime: 90,
-    bidirectional: true,
-    discovered: false,
-  },
-  {
-    id: 'conn_8',
-    fromLocationId: 'loc_lake',
-    toLocationId: 'loc_ruins',
-    type: 'hidden',
-    travelTime: 60,
-    bidirectional: true,
-    discovered: false,
-  },
-];
-
-/**
  * 地图面板组件
  * 显示世界地图、当前位置和可前往的地点列表
  */
 export const MapPanel: React.FC = () => {
+  // 从 gameStore 获取地图数据
+  const mapData = useGameStore((state) => state.mapData);
   const character = useGameStore((state) => state.character);
   const currentLocation = useGameStore((state) => state.currentLocation);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
-  // 使用模拟数据
-  const locations = MOCK_LOCATIONS;
-  const connections = MOCK_CONNECTIONS;
+  // 从 mapData 获取位置和连接数据
+  const locations: MapLocation[] = mapData?.locations || [];
+  const connections: LocationConnection[] = mapData?.connections || [];
 
-  // 当前位置ID（模拟）
-  const currentLocationId = currentLocation ? 'loc_start' : 'loc_start';
+  // 当前位置ID
+  const currentLocationId = useMemo(() => {
+    // 尝试匹配 currentLocation 名称
+    if (currentLocation) {
+      const matchedLocation = locations.find(loc => loc.name === currentLocation);
+      if (matchedLocation) {
+        return matchedLocation.id;
+      }
+    }
+    // 默认返回第一个已发现的地点
+    const firstDiscovered = locations.find(loc => loc.discovered);
+    return firstDiscovered?.id || null;
+  }, [currentLocation, locations]);
 
   // 已探索的地点
   const discoveredLocations = useMemo(() => {
@@ -255,6 +120,7 @@ export const MapPanel: React.FC = () => {
 
   // 前往地点
   const handleTravel = (locationId: string) => {
+    if (!currentLocationId) return;
     const connection = getConnection(currentLocationId, locationId);
     if (connection) {
       console.log('前往地点:', locationId, '预计时间:', connection.travelTime, '分钟');
@@ -271,6 +137,17 @@ export const MapPanel: React.FC = () => {
     const mins = minutes % 60;
     return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`;
   };
+
+  // 空数据状态处理
+  if (!mapData || locations.length === 0) {
+    return (
+      <div className={styles.emptyState}>
+        <div className={styles.emptyIcon}>🗺️</div>
+        <p>暂无地图数据</p>
+        <p className={styles.emptyHint}>开始冒险后查看地图</p>
+      </div>
+    );
+  }
 
   if (!character.id) {
     return (
@@ -422,7 +299,7 @@ export const MapPanel: React.FC = () => {
                 </div>
               ) : (
                 availableDestinations.map((location) => {
-                  const connection = getConnection(currentLocationId, location.id);
+                  const connection = currentLocationId ? getConnection(currentLocationId, location.id) : undefined;
                   return (
                     <div
                       key={location.id}

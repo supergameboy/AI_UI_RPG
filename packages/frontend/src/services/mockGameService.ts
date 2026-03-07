@@ -344,6 +344,7 @@ export const mockDataGenerator = {
       class: 'warrior',
       level: 1,
       experience: 0,
+      experienceToLevel: 100,
       baseAttributes: baseAttrs,
       derivedAttributes: {
         maxHp: 80 + constitution * 5,

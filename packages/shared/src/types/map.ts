@@ -1,3 +1,5 @@
+import type { LocationConnection } from './world';
+
 export interface GameMap {
   id: string;
   name: string;
@@ -13,7 +15,7 @@ export interface GameMap {
 
   locations: MapLocation[];
 
-  connections: MapConnection[];
+  connections: LocationConnection[];
 
   encounters: MapEncounter[];
 

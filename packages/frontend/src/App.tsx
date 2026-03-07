@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useGameStore } from './stores';
 import { MainMenu, Settings } from './components/menu';
 import { GameLayout } from './components/layout';
@@ -10,6 +11,18 @@ import './styles/global.css';
 
 function App() {
   const { screen, showSettings, showSaveManager, notification, selectedTemplate, setSelectedTemplate, onCharacterCreated } = useGameStore();
+  
+  // 初始化 WebSocket 连接
+  useEffect(() => {
+    const unsubscribe = useGameStore.getState().initWebSocket();
+    
+    // 组件卸载时取消订阅
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   return (
     <>

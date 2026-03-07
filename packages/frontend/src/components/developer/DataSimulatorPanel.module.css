@@ -1,0 +1,455 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: var(--spacing-md);
+  gap: var(--spacing-md);
+}
+
+/* 模式切换 */
+.modeSection {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modeButton {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modeButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.modeButtonActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+/* 标签 */
+.label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+  text-transform: uppercase;
+}
+
+/* 单面板模式 */
+.singleModeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* 分类选择 */
+.categorySection {
+  flex-shrink: 0;
+}
+
+.categoryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.categoryButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.categoryButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.categoryButtonActive {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 类型筛选 */
+.typeSection {
+  flex-shrink: 0;
+}
+
+.typeList {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.typeButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.typeButton:hover {
+  background: var(--color-surface-hover);
+}
+
+.typeButtonActive {
+  background: color-mix(in srgb, var(--type-color) 15%, transparent);
+  border-color: var(--type-color);
+  color: var(--type-color);
+}
+
+/* 模板列表 */
+.templateSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+}
+
+.templateList {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background-secondary);
+}
+
+.emptyMessage {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.templateItem {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.templateItem:last-child {
+  border-bottom: none;
+}
+
+.templateItem:hover {
+  background: var(--color-surface-hover);
+}
+
+.templateItemSelected {
+  background: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary);
+}
+
+.templateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.templateName {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.templateType {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.templateDescription {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* 组合模式 */
+.combinedModeSection {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* 快速加载 */
+.quickLoadSection {
+  flex-shrink: 0;
+}
+
+.quickLoadList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.quickLoadButton {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quickLoadButton:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* 多选组合器 */
+.multiSelectSection {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+}
+
+.categoryGroup {
+  margin-bottom: var(--spacing-sm);
+}
+
+.categoryGroupHeader {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-background-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.categoryTemplateList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  padding-left: var(--spacing-xs);
+}
+
+.multiSelectButton {
+  padding: 2px var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.multiSelectButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.multiSelectButtonActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+/* JSON 编辑器 */
+.editorSection {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-md);
+}
+
+.editorHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.clearButton {
+  padding: 2px var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.clearButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.editor {
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text);
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.editor:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.editor::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* 操作按钮 */
+.actionSection {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.sendButton {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sendButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clearAllButton {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clearAllButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* 发送历史 */
+.historySection {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-md);
+}
+
+.historyList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.historyItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-width: 120px;
+}
+
+.historyItem:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.historyIndex {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.historyTime {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.historyKeys {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 滚动条样式 */
+.templateList::-webkit-scrollbar,
+.multiSelectSection::-webkit-scrollbar,
+.singleModeSection::-webkit-scrollbar,
+.combinedModeSection::-webkit-scrollbar {
+  width: 6px;
+}
+
+.templateList::-webkit-scrollbar-track,
+.multiSelectSection::-webkit-scrollbar-track,
+.singleModeSection::-webkit-scrollbar-track,
+.combinedModeSection::-webkit-scrollbar-track {
+  background: var(--color-background-tertiary);
+}
+
+.templateList::-webkit-scrollbar-thumb,
+.multiSelectSection::-webkit-scrollbar-thumb,
+.singleModeSection::-webkit-scrollbar-thumb,
+.combinedModeSection::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.templateList::-webkit-scrollbar-thumb:hover,
+.multiSelectSection::-webkit-scrollbar-thumb:hover,
+.singleModeSection::-webkit-scrollbar-thumb:hover,
+.combinedModeSection::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}

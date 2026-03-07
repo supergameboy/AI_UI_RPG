@@ -18,11 +18,42 @@ import type {
   DecisionLog,
   DecisionLogTraceback,
   NPC,
+  Quest,
   NPCRelationship,
+  Skill,
+  InventoryItem,
+  EquipmentState,
+  GameMap,
+  JournalEntry,
+  DynamicUIData,
+  DynamicUIActionMessage,
 } from '@ai-rpg/shared';
 import { InitializationStatus, GameTemplate, InitializationData } from '@ai-rpg/shared';
+import { websocketService } from '../services/websocketService';
 
 export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
+
+/**
+ * 游戏动作接口
+ * 用于统一处理所有游戏操作
+ */
+export interface GameAction {
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * 简单的日志工具
+ * 用于记录游戏操作日志
+ */
+const gameLog = {
+  info: (category: string, message: string, data?: unknown) => {
+    console.log(`[${category}] ${message}`, data);
+  },
+  error: (category: string, message: string, data?: unknown) => {
+    console.error(`[${category}] ${message}`, data);
+  },
+};
 
 export interface SaveInfo {
   id: string;
@@ -45,14 +76,13 @@ export interface CharacterState {
   mana: number;
   maxMana: number;
   attributes: Record<string, number>;
+  /** 当前经验值 */
+  experience?: number;
+  /** 升级所需经验值 */
+  experienceToLevel?: number;
 }
 
-export interface QuestState {
-  id: string;
-  name: string;
-  status: 'locked' | 'available' | 'in_progress' | 'completed' | 'failed';
-  description: string;
-}
+export interface QuestState extends Quest {}
 
 export interface GameState {
   screen: GameScreen;
@@ -105,6 +135,14 @@ export interface GameState {
   npcs: NPC[];
   npcRelationships: Record<string, NPCRelationship>;
   selectedNpcId: string | null;
+  
+  // 新增游戏状态字段
+  skills: Skill[];
+  inventory: InventoryItem[];
+  equipment: EquipmentState;
+  mapData: GameMap | null;
+  journalEntries: JournalEntry[];
+  dynamicUI: DynamicUIData | null;
   
   setScreen: (screen: GameScreen) => void;
   startNewGame: () => void;
@@ -174,6 +212,30 @@ export interface GameState {
   addNpc: (npc: NPC) => void;
   updateNpcRelationship: (npcId: string, relationship: Partial<NPCRelationship>) => void;
   setSelectedNpc: (npcId: string | null) => void;
+  
+  // 统一游戏状态更新方法
+  /**
+   * 统一的游戏状态更新方法
+   * 接收 Partial<GameState> 参数，只更新传入的字段
+   */
+  updateGameState: (data: Partial<GameState>) => void;
+  
+  /**
+   * 发送动态 UI 操作消息
+   */
+  sendDynamicUIAction: (action: string, context?: Record<string, unknown>, data?: unknown) => void;
+  
+  /**
+   * 初始化 WebSocket 连接
+   * @returns 取消订阅函数，用于组件卸载时清理资源
+   */
+  initWebSocket: () => () => void;
+
+  /**
+   * 统一的游戏动作发送方法
+   * 通过 WebSocket 发送游戏动作到后端
+   */
+  sendGameAction: (action: GameAction) => Promise<void>;
 }
 
 const defaultCharacter: CharacterState = {
@@ -187,6 +249,8 @@ const defaultCharacter: CharacterState = {
   mana: 50,
   maxMana: 50,
   attributes: {},
+  experience: 0,
+  experienceToLevel: 100,
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -239,6 +303,20 @@ export const useGameStore = create<GameState>((set, get) => ({
   npcs: [],
   npcRelationships: {},
   selectedNpcId: null,
+  
+  // 新增游戏状态初始值
+  skills: [],
+  inventory: [],
+  equipment: {
+    weapon: undefined,
+    head: undefined,
+    body: undefined,
+    feet: undefined,
+    accessories: [],
+  },
+  mapData: null,
+  journalEntries: [],
+  dynamicUI: null,
   
   setScreen: (screen: GameScreen) => {
     set({ screen });
@@ -499,6 +577,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         mana: character.derivedAttributes.maxMp,
         maxMana: character.derivedAttributes.maxMp,
         attributes,
+        experience: character.experience,
+        experienceToLevel: character.experienceToLevel ?? character.level * 100,
       },
       sessionStartTime: Date.now(),
     });
@@ -1181,5 +1261,167 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   setSelectedNpc: (npcId: string | null) => {
     set({ selectedNpcId: npcId });
+  },
+  
+  // ==================== 统一游戏状态更新方法 ====================
+  
+  /**
+   * 统一的游戏状态更新方法
+   * 接收 Partial<GameState> 参数，只更新传入的字段
+   */
+  updateGameState: (data: Partial<GameState>) => {
+    if (!data || Object.keys(data).length === 0) {
+      console.warn('[GameStore] updateGameState: 空数据，跳过更新');
+      return;
+    }
+    
+    console.log('[GameStore] 更新游戏状态:', Object.keys(data));
+    
+    set((state) => {
+      const newState: Partial<GameState> = { hasUnsavedChanges: true };
+      
+      // 遍历传入的数据，只更新存在的字段
+      for (const key of Object.keys(data) as (keyof typeof data)[]) {
+        if (data[key] !== undefined) {
+          // 特殊处理：对于数组类型，直接替换
+          // 对于对象类型，合并更新
+          const currentValue = state[key];
+          const newValue = data[key];
+          
+          if (Array.isArray(newValue)) {
+            // 数组直接替换
+            (newState as Record<string, unknown>)[key] = newValue;
+          } else if (
+            typeof newValue === 'object' && 
+            newValue !== null && 
+            !Array.isArray(newValue) &&
+            typeof currentValue === 'object' &&
+            currentValue !== null &&
+            !Array.isArray(currentValue)
+          ) {
+            // 对象合并更新
+            (newState as Record<string, unknown>)[key] = {
+              ...currentValue,
+              ...newValue,
+            };
+          } else {
+            // 其他类型直接替换
+            (newState as Record<string, unknown>)[key] = newValue;
+          }
+        }
+      }
+      
+      return newState;
+    });
+  },
+  
+  /**
+   * 发送动态 UI 操作消息
+   */
+  sendDynamicUIAction: (action: string, context?: Record<string, unknown>, data?: unknown) => {
+    const state = get();
+    
+    // 处理关闭操作时清空 dynamicUI 状态
+    if (action === 'close') {
+      set({ dynamicUI: null });
+      console.log('[GameStore] 动态 UI 已关闭');
+    }
+    
+    // 检查是否有动态 UI ID
+    const dynamicUIId = state.dynamicUI?.id;
+    if (!dynamicUIId) {
+      console.warn('[GameStore] sendDynamicUIAction: 没有活动的动态 UI');
+      return;
+    }
+    
+    // 构造消息
+    const message: DynamicUIActionMessage = {
+      type: 'dynamic_ui_action',
+      action,
+      dynamicUIId,
+      context,
+      data,
+    };
+    
+    // 通过 WebSocket 发送消息
+    try {
+      websocketService.send(message);
+      console.log('[GameStore] 发送动态 UI 操作:', action);
+    } catch (error) {
+      console.error('[GameStore] 发送动态 UI 操作失败:', error);
+    }
+  },
+  
+  /**
+   * 初始化 WebSocket 连接
+   */
+  initWebSocket: () => {
+    console.log('[GameStore] 初始化 WebSocket 监听');
+    
+    // 监听游戏状态更新事件
+    const unsubscribeGameState = websocketService.subscribe((message) => {
+      // 直接处理 game_state_update 类型消息
+      if (message.type === 'game_state_update' && message.data) {
+        console.log('[GameStore] 收到游戏状态更新', {
+          keys: Object.keys(message.data),
+          saveId: message.saveId,
+        });
+        get().updateGameState(message.data as Partial<GameState>);
+      }
+      
+      // 直接处理 dynamic_ui_update 类型消息
+      if (message.type === 'dynamic_ui_update' && message.dynamicUI) {
+        console.log('[GameStore] 收到动态 UI 更新', {
+          id: message.dynamicUI.id,
+        });
+        set({ dynamicUI: message.dynamicUI });
+      }
+    });
+    
+    // 连接 WebSocket
+    websocketService.connect();
+    
+    // 返回取消订阅函数
+    return () => {
+      unsubscribeGameState();
+    };
+  },
+
+  /**
+   * 统一的游戏动作发送方法
+   * 通过 WebSocket 发送游戏动作到后端
+   */
+  sendGameAction: async (action: GameAction) => {
+    const state = get();
+
+    try {
+      // 通过 WebSocket 发送动作
+      websocketService.send({
+        type: 'game_action',
+        action: action.type,
+        payload: action.payload,
+        saveId: state.currentSaveId,
+        characterId: state.character.id,
+        timestamp: Date.now(),
+      });
+
+      gameLog.info('frontend', `Game action sent: ${action.type}`, action.payload);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      gameLog.error('frontend', `Failed to send game action: ${action.type}`, {
+        error: errorMessage,
+        action,
+      });
+
+      // 显示错误通知
+      set({
+        notification: {
+          type: 'error',
+          message: `操作失败: ${errorMessage}`,
+        },
+      });
+
+      throw error;
+    }
   },
 }));

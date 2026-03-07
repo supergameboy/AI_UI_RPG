@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { Button } from '../common';
-import type { SkillCategory, SkillType, CostType } from '@ai-rpg/shared';
+import type { SkillCategory, SkillType } from '@ai-rpg/shared';
 import styles from './SkillsPanel.module.css';
 
 /**
@@ -19,7 +19,7 @@ const CATEGORY_OPTIONS: { value: SkillCategory | 'all'; label: string; icon: str
 /**
  * 技能类型名称映射
  */
-const SKILL_TYPE_NAMES: Record<SkillType, string> = {
+const SKILL_TYPE_NAMES: Record<SkillType | 'active' | 'passive', string> = {
   active: '主动',
   passive: '被动',
   toggle: '切换',
@@ -28,168 +28,58 @@ const SKILL_TYPE_NAMES: Record<SkillType, string> = {
 /**
  * 消耗类型名称映射
  */
-const COST_TYPE_NAMES: Record<CostType, string> = {
+const COST_TYPE_NAMES: Record<string, string> = {
+  mp: 'MP',
+  hp: 'HP',
   mana: 'MP',
   health: 'HP',
   stamina: '体力',
+  item: '物品',
   custom: '特殊',
 };
-
-/**
- * 模拟技能数据（用于演示）
- */
-const MOCK_SKILLS: Array<{
-  id: string;
-  name: string;
-  description: string;
-  type: SkillType;
-  category: SkillCategory;
-  level: number;
-  maxLevel: number;
-  cost: { type: CostType; value: number };
-  cooldown: number;
-  effects: Array<{ type: string; value: number }>;
-}> = [
-  {
-    id: 'skill_001',
-    name: '猛击',
-    description: '用武器猛烈攻击敌人，造成150%攻击力伤害。',
-    type: 'active',
-    category: 'combat',
-    level: 3,
-    maxLevel: 10,
-    cost: { type: 'stamina', value: 15 },
-    cooldown: 2,
-    effects: [{ type: 'damage', value: 150 }],
-  },
-  {
-    id: 'skill_002',
-    name: '火球术',
-    description: '发射一颗火球，对目标造成魔法伤害并有几率点燃。',
-    type: 'active',
-    category: 'magic',
-    level: 5,
-    maxLevel: 10,
-    cost: { type: 'mana', value: 30 },
-    cooldown: 3,
-    effects: [{ type: 'magic_damage', value: 80 }, { type: 'burn_chance', value: 20 }],
-  },
-  {
-    id: 'skill_003',
-    name: '铁壁',
-    description: '提升自身防御力20%，持续3回合。',
-    type: 'active',
-    category: 'combat',
-    level: 2,
-    maxLevel: 5,
-    cost: { type: 'stamina', value: 10 },
-    cooldown: 4,
-    effects: [{ type: 'defense_boost', value: 20 }],
-  },
-  {
-    id: 'skill_004',
-    name: '武器精通',
-    description: '被动提升武器攻击力10%。',
-    type: 'passive',
-    category: 'combat',
-    level: 4,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'attack_boost', value: 10 }],
-  },
-  {
-    id: 'skill_005',
-    name: '治疗术',
-    description: '恢复目标30%最大生命值。',
-    type: 'active',
-    category: 'magic',
-    level: 3,
-    maxLevel: 10,
-    cost: { type: 'mana', value: 40 },
-    cooldown: 5,
-    effects: [{ type: 'heal', value: 30 }],
-  },
-  {
-    id: 'skill_006',
-    name: '锻造',
-    description: '可以锻造和修理金属装备。',
-    type: 'passive',
-    category: 'craft',
-    level: 2,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'craft_ability', value: 1 }],
-  },
-  {
-    id: 'skill_007',
-    name: '说服',
-    description: '在对话中更容易说服NPC。',
-    type: 'passive',
-    category: 'social',
-    level: 1,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'persuasion', value: 15 }],
-  },
-  {
-    id: 'skill_008',
-    name: '追踪',
-    description: '可以追踪野兽和敌人的踪迹。',
-    type: 'passive',
-    category: 'exploration',
-    level: 2,
-    maxLevel: 5,
-    cost: { type: 'mana', value: 0 },
-    cooldown: 0,
-    effects: [{ type: 'tracking', value: 1 }],
-  },
-];
 
 /**
  * 技能面板组件
  * 显示已学技能列表、分类筛选、技能详情
  */
 export const SkillsPanel: React.FC = () => {
-  const character = useGameStore((state) => state.character);
+  const skills = useGameStore((state) => state.skills);
+  const sendGameAction = useGameStore((state) => state.sendGameAction);
   const [category, setCategory] = useState<SkillCategory | 'all'>('all');
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
 
-  // 使用模拟数据
-  const skills = MOCK_SKILLS;
-
-  // 过滤技能
+  // 过滤技能 - 需要处理 Skill 类型可能没有 category 字段的情况
   const filteredSkills = useMemo(() => {
     if (category === 'all') return skills;
-    return skills.filter((skill) => skill.category === category);
+    // 由于 Skill 类型可能没有 category，暂时返回全部
+    return skills;
   }, [skills, category]);
 
   // 选中的技能
   const selectedSkill = skills.find((skill) => skill.id === selectedSkillId);
 
   // 使用技能
-  const handleUseSkill = (skillId: string) => {
-    console.log('使用技能:', skillId);
-    // TODO: 实现使用技能逻辑
+  const handleUseSkill = async (skillId: string) => {
+    await sendGameAction({
+      type: 'use_skill',
+      payload: { skillId },
+    });
   };
 
   // 按分类统计技能数量
   const skillCounts = useMemo(() => {
     const counts: Record<string, number> = { all: skills.length };
-    skills.forEach((skill) => {
-      counts[skill.category] = (counts[skill.category] || 0) + 1;
-    });
+    // 由于 Skill 类型可能没有 category，暂时只统计总数
     return counts;
   }, [skills]);
 
-  if (!character.id) {
+  // 处理空数据状态
+  if (!skills || skills.length === 0) {
     return (
       <div className={styles.emptyState}>
-        <div className={styles.emptyIcon}>⚡</div>
+        <div className={styles.emptyIcon}>⚔️</div>
         <p>暂无技能数据</p>
-        <p className={styles.emptyHint}>创建角色后查看技能</p>
+        <p className={styles.emptyHint}>获取技能后查看详细信息</p>
       </div>
     );
   }
@@ -252,13 +142,13 @@ export const SkillsPanel: React.FC = () => {
               >
                 <div className={styles.skillHeader}>
                   <div className={styles.skillIcon}>
-                    {CATEGORY_OPTIONS.find((c) => c.value === skill.category)?.icon || '⚡'}
+                    ⚡
                   </div>
                   <div className={styles.skillInfo}>
                     <h4 className={styles.skillName}>{skill.name}</h4>
                     <div className={styles.skillMeta}>
                       <span className={styles.skillType}>
-                        {SKILL_TYPE_NAMES[skill.type]}
+                        {SKILL_TYPE_NAMES[skill.type] || skill.type}
                       </span>
                       <span className={styles.skillLevel}>
                         Lv.{skill.level}/{skill.maxLevel}
@@ -283,13 +173,12 @@ export const SkillsPanel: React.FC = () => {
         <div className={styles.skillDetail}>
           <div className={styles.detailHeader}>
             <div className={styles.detailIcon}>
-              {CATEGORY_OPTIONS.find((c) => c.value === selectedSkill.category)?.icon || '⚡'}
+              ⚡
             </div>
             <div className={styles.detailTitle}>
               <h4 className={styles.detailName}>{selectedSkill.name}</h4>
               <span className={styles.detailCategory}>
-                {CATEGORY_OPTIONS.find((c) => c.value === selectedSkill.category)?.label} · 
-                {SKILL_TYPE_NAMES[selectedSkill.type]}
+                {SKILL_TYPE_NAMES[selectedSkill.type] || selectedSkill.type}
               </span>
             </div>
             <button
@@ -304,11 +193,11 @@ export const SkillsPanel: React.FC = () => {
 
           <div className={styles.detailStats}>
             {/* 消耗 */}
-            {selectedSkill.cost.value > 0 && (
+            {selectedSkill.cost && selectedSkill.cost.value > 0 && (
               <div className={styles.detailStat}>
                 <span className={styles.detailStatLabel}>消耗</span>
                 <span className={styles.detailStatValue}>
-                  {selectedSkill.cost.value} {COST_TYPE_NAMES[selectedSkill.cost.type]}
+                  {selectedSkill.cost.value} {COST_TYPE_NAMES[selectedSkill.cost.type] || selectedSkill.cost.type}
                 </span>
               </div>
             )}
@@ -331,7 +220,7 @@ export const SkillsPanel: React.FC = () => {
           </div>
 
           {/* 效果 */}
-          {selectedSkill.effects.length > 0 && (
+          {selectedSkill.effects && selectedSkill.effects.length > 0 && (
             <div className={styles.detailEffects}>
               <h5 className={styles.effectsTitle}>效果</h5>
               {selectedSkill.effects.map((effect, index) => (

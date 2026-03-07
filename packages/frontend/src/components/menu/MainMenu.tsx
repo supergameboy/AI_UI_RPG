@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
 import { SaveManager } from '../save';
 import { useGameStore, useThemeStore, useSettingsStore } from '../../stores';
+import { mockGameService } from '../../services/mockGameService';
+import type { QuestState } from '../../stores/gameStore';
 import styles from './MainMenu.module.css';
 
 export const MainMenu: React.FC = () => {
-  const { startNewGame, openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen } = useGameStore();
+  const { openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen, updateGameState, setNotification, clearNotification } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
   const { settings } = useSettingsStore();
   const [showSaveManager, setShowSaveManager] = useState(false);
@@ -31,8 +33,77 @@ export const MainMenu: React.FC = () => {
   };
 
   const handleDevModeGame = () => {
-    startNewGame();
-    setScreen('game');
+    try {
+      // 1. 加载模拟数据
+      const mockData = mockGameService.loadMockData();
+      
+      // 2. 转换数据格式以匹配 GameState
+      // 转换角色数据
+      const characterState = {
+        id: mockData.character.id,
+        name: mockData.character.name,
+        race: mockData.character.race,
+        class: mockData.character.class,
+        level: mockData.character.level,
+        health: mockData.character.derivedAttributes.currentHp,
+        maxHealth: mockData.character.derivedAttributes.maxHp,
+        mana: mockData.character.derivedAttributes.currentMp,
+        maxMana: mockData.character.derivedAttributes.maxMp,
+        attributes: {
+          strength: mockData.character.baseAttributes.strength,
+          dexterity: mockData.character.baseAttributes.dexterity,
+          constitution: mockData.character.baseAttributes.constitution,
+          intelligence: mockData.character.baseAttributes.intelligence,
+          wisdom: mockData.character.baseAttributes.wisdom,
+          charisma: mockData.character.baseAttributes.charisma,
+        },
+      };
+      
+      // 3. 更新游戏状态
+      updateGameState({
+        character: characterState,
+        skills: mockData.skills,
+        inventory: mockData.inventory,
+        equipment: mockData.equipment,
+        mapData: mockData.map,
+        journalEntries: mockData.journalEntries,
+        dynamicUI: mockData.dynamicUI,
+        quests: mockData.quests as QuestState[],
+        npcs: mockData.npcs,
+        npcRelationships: mockData.npcRelationships,
+        combat: mockData.combat,
+        globalContext: mockData.globalContext,
+        dialogueOptions: mockData.dialogueOptions,
+        currentLocation: mockData.globalContext?.player?.location || '未知地点',
+        currentScene: '模拟场景',
+        templateId: 'mock-template',
+        gameMode: 'text_adventure',
+      });
+      
+      // 4. 切换到游戏界面
+      setScreen('game');
+      
+      // 5. 显示通知
+      setNotification({
+        type: 'success',
+        message: '已加载模拟数据',
+      });
+      
+      // 3秒后自动关闭通知
+      setTimeout(() => {
+        clearNotification();
+      }, 3000);
+      
+    } catch (error) {
+      console.error('[MainMenu] 加载模拟数据失败:', error);
+      setNotification({
+        type: 'error',
+        message: '加载模拟数据失败',
+      });
+      setTimeout(() => {
+        clearNotification();
+      }, 3000);
+    }
   };
 
   const handleSaveManagerClose = () => {

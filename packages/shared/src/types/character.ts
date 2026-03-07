@@ -7,6 +7,8 @@ export interface Character {
   class: string;
   level: number;
   experience: number;
+  /** 升级所需经验值 */
+  experienceToLevel?: number;
 
   baseAttributes: {
     strength: number;
@@ -70,6 +72,8 @@ export interface Skill {
   level: number;
   maxLevel: number;
   type: 'active' | 'passive';
+  /** 技能分类 */
+  category?: import('./skill').SkillCategory;
   cost: {
     type: 'mp' | 'hp' | 'item' | 'custom';
     value: number;
@@ -103,4 +107,8 @@ export interface InventoryItem {
   equipmentSlot?: string;
   obtainedAt: number;
   customData?: Record<string, unknown>;
+  /** 物品类型（从 item.type 复制，便于快速筛选） */
+  type?: import('./item').ItemType;
+  /** 物品详情（可选） */
+  item?: import('./item').Item;
 }

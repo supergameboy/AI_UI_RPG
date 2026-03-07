@@ -10,9 +10,13 @@ import { TokenUsagePanel } from './TokenUsagePanel';
 import { ToolStatusPanel } from '../ToolStatusPanel';
 import { BindingConfigPanel } from '../BindingConfigPanel';
 import { DecisionLogViewer } from '../decision-log';
+import { DataSimulatorPanel } from './DataSimulatorPanel';
+import { MockDynamicUIPanel } from './MockDynamicUIPanel';
+import { DynamicUIStatePanel } from './DynamicUIStatePanel';
+import { UIAgentTestPanel } from './UIAgentTestPanel';
 import styles from './DeveloperPanel.module.css';
 
-const TABS: { id: 'requests' | 'agents' | 'tools' | 'bindings' | 'decisions' | 'logs' | 'state' | 'prompts' | 'tokens'; label: string; icon: IconName }[] = [
+const TABS: { id: 'requests' | 'agents' | 'tools' | 'bindings' | 'decisions' | 'logs' | 'state' | 'prompts' | 'tokens' | 'data-simulator' | 'mock-dynamic-ui' | 'dynamic-ui-state' | 'ui-agent-test'; label: string; icon: IconName }[] = [
   { id: 'requests', label: '请求', icon: 'send' },
   { id: 'agents', label: '智能体', icon: 'developer' },
   { id: 'tools', label: '工具', icon: 'inventory' },
@@ -22,6 +26,10 @@ const TABS: { id: 'requests' | 'agents' | 'tools' | 'bindings' | 'decisions' | '
   { id: 'state', label: '状态', icon: 'character' },
   { id: 'prompts', label: '提示词', icon: 'edit' },
   { id: 'tokens', label: 'Token', icon: 'token' },
+  { id: 'data-simulator', label: '数据模拟', icon: 'settings' },
+  { id: 'mock-dynamic-ui', label: '模拟UI', icon: 'edit' },
+  { id: 'dynamic-ui-state', label: 'UI状态', icon: 'character' },
+  { id: 'ui-agent-test', label: 'UI测试', icon: 'settings' },
 ];
 
 export const DeveloperPanel: React.FC = () => {
@@ -117,6 +125,14 @@ export const DeveloperPanel: React.FC = () => {
         return <PromptEditor />;
       case 'tokens':
         return <TokenUsagePanel />;
+      case 'data-simulator':
+        return <DataSimulatorPanel />;
+      case 'mock-dynamic-ui':
+        return <MockDynamicUIPanel />;
+      case 'dynamic-ui-state':
+        return <DynamicUIStatePanel />;
+      case 'ui-agent-test':
+        return <UIAgentTestPanel />;
       default:
         return null;
     }

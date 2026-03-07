@@ -23,7 +23,7 @@ import type {
   GameMap,
   MapTile,
   MapLocation,
-  MapConnection,
+  LocationConnection,
   MapEncounter,
   MapItem,
   CombatUnit,
@@ -46,6 +46,7 @@ export const mockCharacter: Character = {
   class: 'warrior',
   level: 5,
   experience: 1250,
+  experienceToLevel: 1500,
 
   baseAttributes: {
     strength: 16,
@@ -111,6 +112,7 @@ export const mockSkills: Skill[] = [
     level: 3,
     maxLevel: 5,
     type: 'active',
+    category: 'combat',
     cost: {
       type: 'mp',
       value: 10,
@@ -131,6 +133,7 @@ export const mockSkills: Skill[] = [
     level: 2,
     maxLevel: 5,
     type: 'active',
+    category: 'combat',
     cost: {
       type: 'mp',
       value: 8,
@@ -151,6 +154,7 @@ export const mockSkills: Skill[] = [
     level: 1,
     maxLevel: 5,
     type: 'active',
+    category: 'combat',
     cost: {
       type: 'mp',
       value: 15,
@@ -170,6 +174,7 @@ export const mockSkills: Skill[] = [
     level: 2,
     maxLevel: 3,
     type: 'passive',
+    category: 'combat',
     cost: {
       type: 'mp',
       value: 0,
@@ -189,6 +194,7 @@ export const mockSkills: Skill[] = [
     level: 1,
     maxLevel: 5,
     type: 'active',
+    category: 'combat',
     cost: {
       type: 'mp',
       value: 12,
@@ -417,6 +423,8 @@ export const mockInventoryItems: InventoryItem[] = [
     quantity: 5,
     equipped: false,
     obtainedAt: Date.now() - 3600000,
+    type: 'consumable',
+    item: mockItems[4], // item-potion-001
   },
   {
     id: 'inv-002',
@@ -424,6 +432,8 @@ export const mockInventoryItems: InventoryItem[] = [
     quantity: 3,
     equipped: false,
     obtainedAt: Date.now() - 3600000,
+    type: 'consumable',
+    item: mockItems[5], // item-potion-002
   },
   {
     id: 'inv-003',
@@ -431,6 +441,8 @@ export const mockInventoryItems: InventoryItem[] = [
     quantity: 15,
     equipped: false,
     obtainedAt: Date.now() - 7200000,
+    type: 'material',
+    item: mockItems[6], // item-material-001
   },
   {
     id: 'inv-004',
@@ -438,6 +450,8 @@ export const mockInventoryItems: InventoryItem[] = [
     quantity: 1,
     equipped: false,
     obtainedAt: Date.now() - 1800000,
+    type: 'quest',
+    item: mockItems[7], // item-quest-001
   },
 ];
 
@@ -1040,13 +1054,13 @@ export const mockMapLocations: MapLocation[] = [
   },
 ];
 
-export const mockMapConnections: MapConnection[] = [
-  { from: 'loc-001', to: 'loc-002', type: 'bidirectional' },
-  { from: 'loc-001', to: 'loc-003', type: 'bidirectional' },
-  { from: 'loc-001', to: 'loc-004', type: 'bidirectional' },
-  { from: 'loc-001', to: 'loc-005', type: 'bidirectional' },
-  { from: 'loc-001', to: 'loc-006', type: 'bidirectional' },
-  { from: 'loc-005', to: 'loc-007', type: 'oneway', requirements: ['quest-001'] },
+export const mockMapConnections: LocationConnection[] = [
+  { id: 'conn-001', fromLocationId: 'loc-001', toLocationId: 'loc-002', type: 'road', travelTime: 5, bidirectional: true, discovered: true },
+  { id: 'conn-002', fromLocationId: 'loc-001', toLocationId: 'loc-003', type: 'road', travelTime: 5, bidirectional: true, discovered: true },
+  { id: 'conn-003', fromLocationId: 'loc-001', toLocationId: 'loc-004', type: 'road', travelTime: 5, bidirectional: true, discovered: true },
+  { id: 'conn-004', fromLocationId: 'loc-001', toLocationId: 'loc-005', type: 'road', travelTime: 30, bidirectional: true, discovered: true },
+  { id: 'conn-005', fromLocationId: 'loc-001', toLocationId: 'loc-006', type: 'road', travelTime: 20, bidirectional: true, discovered: true },
+  { id: 'conn-006', fromLocationId: 'loc-005', toLocationId: 'loc-007', type: 'hidden', travelTime: 60, bidirectional: false, discovered: false, requirements: { quests: ['quest-001'] } },
 ];
 
 export const mockMapEncounters: MapEncounter[] = [

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   AgentType,
   type AgentMessage,
@@ -6,9 +7,92 @@ import {
   type Message,
   type AgentBinding,
   type ToolType,
+  type DynamicUIData,
 } from '@ai-rpg/shared';
 import { ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { gameLog } from '../services/GameLogService';
+
+/**
+ * 动态 UI 系统提示词
+ */
+const DYNAMIC_UI_SYSTEM_PROMPT = `你是动态 UI 生成专家，负责将自然语言描述转换为 Markdown 格式的动态 UI。
+
+## 支持的 Markdown 扩展组件
+
+### 1. 选项按钮组 (:::options)
+\`\`\`markdown
+:::options{layout=vertical}
+[选项文本](action:action-name)
+[取消](action:cancel)
+:::
+\`\`\`
+
+### 2. 进度条 (:::progress)
+\`\`\`markdown
+:::progress{value=75 max=100 label="生命值" color="health"}
+:::
+\`\`\`
+
+### 3. 标签页 (:::tabs)
+\`\`\`markdown
+:::tabs
+[标签1](tab:tab1)
+内容1
+[标签2](tab:tab2)
+内容2
+:::
+\`\`\`
+
+### 4. 系统通知 (:::system-notify)
+\`\`\`markdown
+:::system-notify{type=welcome}
+## 标题
+内容
+:::
+\`\`\`
+type 可选值: welcome, achievement, warning, error, info
+
+### 5. 徽章 (:::badge)
+\`\`\`markdown
+:::badge{type=rarity color=legendary}
+传说
+:::
+\`\`\`
+
+### 6. 悬浮提示
+\`\`\`markdown
+[显示文本](tooltip:提示内容)
+\`\`\`
+
+### 7. 条件显示 (:::conditional)
+\`\`\`markdown
+:::conditional{condition="hasItem:magic-key"}
+内容
+:::
+\`\`\`
+
+### 8. 装备强化 (:::enhancement)
+\`\`\`markdown
+:::enhancement{name="装备名" currentLevel=5 maxLevel=10 successRate=75}
+[强化石](material:enhance-stone required=3 owned=5)
+:::
+\`\`\`
+
+### 9. 仓库/银行 (:::warehouse)
+\`\`\`markdown
+:::warehouse{maxSlots=100}
+[背包](tab:inventory maxSlots=50 usedSlots=30)
+[物品名](item:item-id qty=5 rarity=common)
+:::
+\`\`\`
+
+## 输出要求
+
+1. 只输出 Markdown 内容，不要添加额外的解释
+2. 使用适当的组件类型
+3. 确保语法正确
+4. 根据描述选择最合适的组件组合`;
 
 /**
  * UI指令类型
@@ -67,6 +151,15 @@ interface DialogConfig {
 }
 
 /**
+ * 动态 UI 缓存条目
+ */
+interface DynamicUICacheEntry {
+  markdown: string;
+  timestamp: number;
+  context?: Record<string, unknown>;
+}
+
+/**
  * UI智能体
  * 负责解析其他智能体输出、生成UI指令、管理动态组件
  */
@@ -118,6 +211,11 @@ export class UIAgent extends AgentBase {
   private notificationQueue: NotificationConfig[] = [];
   private activeDialogs: Map<string, DialogConfig> = new Map();
 
+  // 动态 UI 缓存
+  private dynamicUICache: Map<string, DynamicUICacheEntry> = new Map();
+  private readonly MAX_CACHE_SIZE = 50;
+  private readonly CACHE_TTL = 30 * 60 * 1000; // 30 分钟
+
   protected getAgentName(): string {
     return 'UI Agent';
   }
@@ -156,6 +254,8 @@ export class UIAgent extends AgentBase {
         return this.handleGetUIState();
       case 'clear_notifications':
         return this.handleClearNotifications();
+      case 'generate_dynamic_ui':
+        return this.handleGenerateDynamicUI(typedData);
       default:
         return this.handleUnknownAction(action, typedData);
     }
@@ -1066,5 +1166,226 @@ export class UIAgent extends AgentBase {
    */
   unregisterComponent(componentId: string): void {
     this.activeComponents.delete(componentId);
+  }
+
+  // ==================== 动态 UI 生成方法 ====================
+
+  /**
+   * 生成缓存键
+   */
+  private generateCacheKey(description: string, context?: Record<string, unknown>): string {
+    const contextStr = context ? JSON.stringify(context) : '';
+    // 使用简单的哈希函数
+    let hash = 0;
+    const str = description + contextStr;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return `cache-${hash}`;
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  private cleanExpiredCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.dynamicUICache.entries()) {
+      if (now - entry.timestamp > this.CACHE_TTL) {
+        this.dynamicUICache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * 从缓存获取
+   */
+  private getFromCache(key: string): DynamicUICacheEntry | undefined {
+    const entry = this.dynamicUICache.get(key);
+    if (entry && Date.now() - entry.timestamp <= this.CACHE_TTL) {
+      return entry;
+    }
+    this.dynamicUICache.delete(key);
+    return undefined;
+  }
+
+  /**
+   * 存入缓存
+   */
+  private setToCache(key: string, markdown: string, context?: Record<string, unknown>): void {
+    // 清理过期缓存
+    if (this.dynamicUICache.size >= this.MAX_CACHE_SIZE) {
+      this.cleanExpiredCache();
+    }
+
+    // 如果还是满了，删除最旧的
+    if (this.dynamicUICache.size >= this.MAX_CACHE_SIZE) {
+      const oldestKey = this.dynamicUICache.keys().next().value;
+      if (oldestKey) {
+        this.dynamicUICache.delete(oldestKey);
+      }
+    }
+
+    this.dynamicUICache.set(key, {
+      markdown,
+      timestamp: Date.now(),
+      context,
+    });
+  }
+
+  /**
+   * 生成动态 UI
+   * 接收自然语言描述，生成 Markdown 格式的动态 UI
+   */
+  async generateDynamicUI(description: string, context?: Record<string, unknown>): Promise<DynamicUIData> {
+    gameLog.debug('agent', 'Generating dynamic UI', {
+      agentType: this.type,
+      description: description.substring(0, 100),
+      hasContext: !!context,
+    });
+
+    // 1. 检查缓存
+    const cacheKey = this.generateCacheKey(description, context);
+    const cached = this.getFromCache(cacheKey);
+
+    if (cached) {
+      gameLog.info('agent', 'UIAgent.generateDynamicUI: cache hit', {
+        cacheKey,
+        descriptionLength: description.length,
+      });
+
+      return {
+        id: `dynamic-ui-${randomUUID()}`,
+        markdown: cached.markdown,
+        context,
+      };
+    }
+
+    // 2. 构建动态 UI 生成提示词
+    const messages: Message[] = [
+      { role: 'system', content: DYNAMIC_UI_SYSTEM_PROMPT },
+      { role: 'user', content: this.buildDynamicUIPrompt(description, context) },
+    ];
+
+    // 3. 调用 LLM 生成 Markdown
+    const response = await this.callLLM(messages, { temperature: 0.7 });
+
+    // 4. 解析返回的 Markdown
+    const markdown = this.extractMarkdown(response.content);
+
+    // 5. 存入缓存
+    this.setToCache(cacheKey, markdown, context);
+
+    gameLog.info('agent', 'Dynamic UI generated successfully', {
+      agentType: this.type,
+      markdownLength: markdown.length,
+      cacheKey,
+    });
+
+    // 6. 返回 DynamicUIData
+    return {
+      id: `dynamic-ui-${randomUUID()}`,
+      markdown,
+      context,
+    };
+  }
+
+  /**
+   * 构建动态 UI 生成提示词
+   */
+  private buildDynamicUIPrompt(description: string, context?: Record<string, unknown>): string {
+    let prompt = `请根据以下描述生成动态 UI：\n\n${description}`;
+
+    if (context && Object.keys(context).length > 0) {
+      prompt += '\n\n上下文信息：';
+      for (const [key, value] of Object.entries(context)) {
+        prompt += `\n- ${key}: ${JSON.stringify(value)}`;
+      }
+    }
+
+    return prompt;
+  }
+
+  /**
+   * 从 LLM 响应中提取 Markdown 内容
+   */
+  private extractMarkdown(content: string): string {
+    // 如果内容被代码块包裹，提取内容
+    const codeBlockMatch = content.match(/```(?:markdown)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      return codeBlockMatch[1].trim();
+    }
+
+    // 否则返回原始内容
+    return content.trim();
+  }
+
+  /**
+   * 处理生成动态 UI 请求
+   */
+  private async handleGenerateDynamicUI(data: Record<string, unknown>): Promise<AgentResponse> {
+    try {
+      const description = data.description as string;
+
+      if (!description) {
+        return {
+          success: false,
+          error: 'Description is required for dynamic UI generation',
+        };
+      }
+
+      const context = data.context as Record<string, unknown> | undefined;
+
+      gameLog.info('agent', 'Handling generate dynamic UI request', {
+        agentType: this.type,
+        description: description.substring(0, 100),
+      });
+
+      const dynamicUI = await this.generateDynamicUI(description, context);
+
+      // 如果提供了 saveId 和 characterId，通过 UIDataTool 推送
+      if (data.saveId && data.characterId) {
+        gameLog.debug('agent', 'Pushing dynamic UI to game state', {
+          agentType: this.type,
+          saveId: data.saveId,
+          characterId: data.characterId,
+        });
+
+        await this.callTool(
+          ToolTypeEnum.UI_DATA,
+          'updateGameState',
+          {
+            saveId: data.saveId,
+            characterId: data.characterId,
+            data: { dynamicUI },
+          },
+          'write'
+        );
+      }
+
+      // 添加到记忆
+      this.addMemory(
+        `Generated dynamic UI: ${description.substring(0, 50)}...`,
+        'assistant',
+        5,
+        { dynamicUIId: dynamicUI.id }
+      );
+
+      return {
+        success: true,
+        data: { dynamicUI },
+      };
+    } catch (error) {
+      gameLog.error('agent', 'Failed to generate dynamic UI', {
+        agentType: this.type,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate dynamic UI',
+      };
+    }
   }
 }

@@ -35,8 +35,8 @@ export const CharacterPanel: React.FC = () => {
   const character = useGameStore((state) => state.character);
 
   // 计算经验值进度（假设每级需要 level * 100 经验）
-  const expForNextLevel = character.level * 100;
-  const currentExp = 0; // 暂时没有经验值数据
+  const expForNextLevel = character.experienceToLevel ?? character.level * 100;
+  const currentExp = character.experience ?? 0;
   const expProgress = (currentExp / expForNextLevel) * 100;
 
   // 获取基础属性列表

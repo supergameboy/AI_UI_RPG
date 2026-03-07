@@ -6,9 +6,11 @@ import type {
   UIInstruction,
   AgentBinding,
   ToolType,
+  InitializationContext,
 } from '@ai-rpg/shared';
-import { AgentType as AgentTypeEnum } from '@ai-rpg/shared';
+import { AgentType as AgentTypeEnum, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { gameLog } from '../services/GameLogService';
 
 /**
  * 意图分析结果
@@ -125,6 +127,16 @@ export class CoordinatorAgent extends AgentBase {
     console.log(`[CoordinatorAgent] Processing message: ${message.payload.action}`);
 
     try {
+      // 特殊 action 处理
+      switch (message.payload.action) {
+        case 'initialize_new_game':
+          return this.initializeNewGame(message.payload.data as unknown as InitializationContext);
+        case 'dynamic_ui_action':
+          return this.handleDynamicUIAction(message.payload.data as Record<string, unknown>);
+        default:
+          break;
+      }
+
       // 1. 分析玩家意图
       const intentAnalysis = await this.analyzeIntent(message);
       this.addMemory(
@@ -169,6 +181,195 @@ export class CoordinatorAgent extends AgentBase {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error in CoordinatorAgent',
+      };
+    }
+  }
+
+  /**
+   * 预制初始化方法
+   * 用于新游戏开始时，并行调用各专业 Agent 初始化
+   */
+  async initializeNewGame(context: InitializationContext): Promise<AgentResponse> {
+    const startTime = Date.now();
+    gameLog.info('agent', 'CoordinatorAgent.initializeNewGame: Starting', {
+      saveId: context.saveId,
+      characterId: context.characterId,
+    });
+
+    try {
+      // 1. 并行调用各专业 Agent 的 initialize 方法
+      const agentInitializations = await Promise.allSettled([
+        this.callAgent(AgentTypeEnum.NUMERICAL, {
+          id: this.generateMessageId(),
+          timestamp: Date.now(),
+          from: this.type,
+          to: AgentTypeEnum.NUMERICAL,
+          type: 'request',
+          payload: {
+            action: 'initialize',
+            data: { character: context.character, saveId: context.saveId },
+          },
+          metadata: { priority: 'high', requiresResponse: true },
+        }),
+        this.callAgent(AgentTypeEnum.SKILL, {
+          id: this.generateMessageId(),
+          timestamp: Date.now(),
+          from: this.type,
+          to: AgentTypeEnum.SKILL,
+          type: 'request',
+          payload: {
+            action: 'initialize',
+            data: { character: context.character, saveId: context.saveId },
+          },
+          metadata: { priority: 'high', requiresResponse: true },
+        }),
+        this.callAgent(AgentTypeEnum.INVENTORY, {
+          id: this.generateMessageId(),
+          timestamp: Date.now(),
+          from: this.type,
+          to: AgentTypeEnum.INVENTORY,
+          type: 'request',
+          payload: {
+            action: 'initialize',
+            data: { character: context.character, saveId: context.saveId },
+          },
+          metadata: { priority: 'high', requiresResponse: true },
+        }),
+        this.callAgent(AgentTypeEnum.QUEST, {
+          id: this.generateMessageId(),
+          timestamp: Date.now(),
+          from: this.type,
+          to: AgentTypeEnum.QUEST,
+          type: 'request',
+          payload: {
+            action: 'initialize',
+            data: { character: context.character, saveId: context.saveId },
+          },
+          metadata: { priority: 'high', requiresResponse: true },
+        }),
+        this.callAgent(AgentTypeEnum.MAP, {
+          id: this.generateMessageId(),
+          timestamp: Date.now(),
+          from: this.type,
+          to: AgentTypeEnum.MAP,
+          type: 'request',
+          payload: {
+            action: 'initialize',
+            data: { character: context.character, saveId: context.saveId },
+          },
+          metadata: { priority: 'high', requiresResponse: true },
+        }),
+        this.callAgent(AgentTypeEnum.NPC_PARTY, {
+          id: this.generateMessageId(),
+          timestamp: Date.now(),
+          from: this.type,
+          to: AgentTypeEnum.NPC_PARTY,
+          type: 'request',
+          payload: {
+            action: 'initialize',
+            data: { character: context.character, saveId: context.saveId },
+          },
+          metadata: { priority: 'high', requiresResponse: true },
+        }),
+      ]);
+
+      // 2. 收集成功的结果
+      const successfulResults: Record<string, unknown> = {};
+      const errors: string[] = [];
+
+      const agentTypes = ['numerical', 'skills', 'inventory', 'quests', 'map', 'npcs'];
+      agentInitializations.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successfulResults[agentTypes[index]] = result.value.data;
+        } else if (result.status === 'rejected') {
+          errors.push(`${agentTypes[index]}: ${result.reason}`);
+        } else if (result.status === 'fulfilled' && !result.value.success) {
+          errors.push(`${agentTypes[index]}: ${result.value.error}`);
+        }
+      });
+
+      if (errors.length > 0) {
+        gameLog.warn('agent', 'CoordinatorAgent.initializeNewGame: Some agents failed', {
+          errors,
+        });
+      }
+
+      // 3. 调用 UIDataTool.updateGameState 更新前端
+      await this.callTool(
+        ToolTypeEnum.UI_DATA,
+        'updateState',
+        {
+          saveId: context.saveId,
+          characterId: context.characterId,
+          data: successfulResults,
+        },
+        'write'
+      );
+
+      // 4. 调用 UIAgent 生成欢迎界面动态 UI
+      const welcomeUI = await this.callAgent(AgentTypeEnum.UI, {
+        id: this.generateMessageId(),
+        timestamp: Date.now(),
+        from: this.type,
+        to: AgentTypeEnum.UI,
+        type: 'request',
+        payload: {
+          action: 'generate_dynamic_ui',
+          data: {
+            description: `生成新游戏欢迎界面，角色名称：${context.character.name}，种族：${context.character.race}，职业：${context.character.class}`,
+            context: {
+              character: context.character,
+              saveId: context.saveId,
+              characterId: context.characterId,
+            },
+            saveId: context.saveId,
+            characterId: context.characterId,
+          },
+        },
+        metadata: { priority: 'high', requiresResponse: true },
+      });
+
+      // 5. 如果欢迎 UI 生成成功，推送到前端
+      const welcomeUIData = welcomeUI.data as { dynamicUI?: unknown } | undefined;
+      if (welcomeUI.success && welcomeUIData?.dynamicUI) {
+        await this.callTool(
+          ToolTypeEnum.UI_DATA,
+          'updateState',
+          {
+            saveId: context.saveId,
+            characterId: context.characterId,
+            data: { dynamicUI: welcomeUIData.dynamicUI },
+          },
+          'write'
+        );
+      }
+
+      const processingTime = Date.now() - startTime;
+      gameLog.info('agent', 'CoordinatorAgent.initializeNewGame: Completed', {
+        processingTime,
+        successfulAgents: Object.keys(successfulResults).length,
+        hasErrors: errors.length > 0,
+      });
+
+      return {
+        success: true,
+        data: {
+          initialized: true,
+          results: successfulResults,
+          errors: errors.length > 0 ? errors : undefined,
+          processingTime,
+        },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during initialization';
+      gameLog.error('agent', 'CoordinatorAgent.initializeNewGame: Failed', {
+        error: errorMessage,
+        saveId: context.saveId,
+      });
+
+      return {
+        success: false,
+        error: errorMessage,
       };
     }
   }
@@ -771,6 +972,227 @@ ${failedResults.length > 0 ?
 
   protected getAgentCapabilities(): string[] {
     return ['intent_analysis', 'task_allocation', 'conflict_resolution', 'result_integration'];
+  }
+
+  /**
+   * 处理动态 UI 操作消息
+   */
+  private async handleDynamicUIAction(data: Record<string, unknown>): Promise<AgentResponse> {
+    const action = data.action as string;
+    const dynamicUIId = data.dynamicUIId as string;
+    const context = data.context as Record<string, unknown> | undefined;
+    const payload = data.data as Record<string, unknown> | undefined;
+
+    gameLog.info('agent', 'CoordinatorAgent.handleDynamicUIAction', {
+      action,
+      dynamicUIId,
+      context,
+    });
+
+    switch (action) {
+      case 'close':
+        return this.handleCloseAction(dynamicUIId, context);
+      
+      case 'start_game':
+        return this.handleStartGameAction(context);
+      
+      case 'open_shop':
+        return this.handleOpenShopAction(context, payload);
+      
+      case 'buy_item':
+        return this.handleBuyItemAction(context, payload);
+      
+      case 'confirm_enhance':
+        return this.handleConfirmEnhanceAction(context, payload);
+      
+      default:
+        gameLog.warn('agent', 'CoordinatorAgent.handleDynamicUIAction: Unknown action', {
+          action,
+        });
+        return {
+          success: false,
+          error: `Unknown action: ${action}`,
+        };
+    }
+  }
+
+  /**
+   * 处理关闭操作
+   */
+  private async handleCloseAction(
+    dynamicUIId: string,
+    context?: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    gameLog.info('agent', 'CoordinatorAgent.handleCloseAction', {
+      dynamicUIId,
+      saveId: context?.saveId,
+    });
+
+    // 清空动态 UI 状态
+    await this.callTool(
+      ToolTypeEnum.UI_DATA,
+      'updateState',
+      {
+        saveId: context?.saveId as string,
+        characterId: context?.characterId as string,
+        data: { dynamicUI: null },
+      },
+      'write'
+    );
+
+    return { success: true, data: { closed: true } };
+  }
+
+  /**
+   * 处理开始游戏操作
+   */
+  private async handleStartGameAction(
+    context?: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    gameLog.info('agent', 'CoordinatorAgent.handleStartGameAction', {
+      saveId: context?.saveId,
+      characterId: context?.characterId,
+    });
+
+    // 调用初始化流程
+    if (context?.saveId && context?.characterId && context?.character && context?.template) {
+      return this.initializeNewGame({
+        saveId: context.saveId as string,
+        characterId: context.characterId as string,
+        character: context.character as InitializationContext['character'],
+        template: context.template as InitializationContext['template'],
+      });
+    }
+
+    return { success: false, error: 'Missing required context fields (saveId, characterId, character, or template)' };
+  }
+
+  /**
+   * 处理打开商店操作
+   */
+  private async handleOpenShopAction(
+    context?: Record<string, unknown>,
+    payload?: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    const shopId = payload?.shopId as string;
+    
+    gameLog.info('agent', 'CoordinatorAgent.handleOpenShopAction', {
+      shopId,
+      saveId: context?.saveId,
+    });
+
+    // 调用 UIAgent 生成商店界面
+    const shopUI = await this.callAgent(AgentTypeEnum.UI, {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from: this.type,
+      to: AgentTypeEnum.UI,
+      type: 'request',
+      payload: {
+        action: 'generate_dynamic_ui',
+        data: {
+          description: `生成商店界面，商店ID: ${shopId}`,
+          context,
+          saveId: context?.saveId,
+          characterId: context?.characterId,
+        },
+      },
+      metadata: { priority: 'high', requiresResponse: true },
+    });
+
+    if (shopUI.success && shopUI.data) {
+      const shopUIData = shopUI.data as { dynamicUI?: unknown };
+      if (shopUIData.dynamicUI) {
+        await this.callTool(
+          ToolTypeEnum.UI_DATA,
+          'updateState',
+          {
+            saveId: context?.saveId as string,
+            characterId: context?.characterId as string,
+            data: { dynamicUI: shopUIData.dynamicUI },
+          },
+          'write'
+        );
+      }
+    }
+
+    return shopUI;
+  }
+
+  /**
+   * 处理购买物品操作
+   */
+  private async handleBuyItemAction(
+    context?: Record<string, unknown>,
+    payload?: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    const itemId = payload?.itemId as string;
+    const quantity = (payload?.quantity as number) || 1;
+    
+    gameLog.info('agent', 'CoordinatorAgent.handleBuyItemAction', {
+      itemId,
+      quantity,
+      saveId: context?.saveId,
+    });
+
+    // 调用 InventoryAgent 处理购买
+    const buyResult = await this.callAgent(AgentTypeEnum.INVENTORY, {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from: this.type,
+      to: AgentTypeEnum.INVENTORY,
+      type: 'request',
+      payload: {
+        action: 'buy_item',
+        data: {
+          itemId,
+          quantity,
+          saveId: context?.saveId,
+          characterId: context?.characterId,
+        },
+      },
+      metadata: { priority: 'high', requiresResponse: true },
+    });
+
+    return buyResult;
+  }
+
+  /**
+   * 处理确认强化操作
+   */
+  private async handleConfirmEnhanceAction(
+    context?: Record<string, unknown>,
+    payload?: Record<string, unknown>
+  ): Promise<AgentResponse> {
+    const itemId = payload?.itemId as string;
+    const enhanceType = payload?.enhanceType as string;
+    
+    gameLog.info('agent', 'CoordinatorAgent.handleConfirmEnhanceAction', {
+      itemId,
+      enhanceType,
+      saveId: context?.saveId,
+    });
+
+    // 调用 InventoryAgent 处理强化
+    const enhanceResult = await this.callAgent(AgentTypeEnum.INVENTORY, {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from: this.type,
+      to: AgentTypeEnum.INVENTORY,
+      type: 'request',
+      payload: {
+        action: 'enhance_item',
+        data: {
+          itemId,
+          enhanceType,
+          saveId: context?.saveId,
+          characterId: context?.characterId,
+        },
+      },
+      metadata: { priority: 'high', requiresResponse: true },
+    });
+
+    return enhanceResult;
   }
 }
 

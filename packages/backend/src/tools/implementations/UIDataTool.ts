@@ -1,10 +1,12 @@
 import type {
   ToolResponse,
   ToolCallContext,
+  GameState,
 } from '@ai-rpg/shared';
 import { ToolType } from '@ai-rpg/shared';
 import { ToolBase } from '../ToolBase';
 import { getUIService, UIState, UIInstruction, NotificationItem } from '../../services/UIService';
+import { getWebSocketService } from '../../services/WebSocketService';
 import { gameLog } from '../../services/GameLogService';
 
 /**
@@ -34,6 +36,11 @@ export class UIDataTool extends ToolBase {
     this.registerMethod('dismissNotification', '关闭通知', false, { saveId: 'string', characterId: 'string', notificationId: 'string' }, 'boolean');
     this.registerMethod('cacheComponent', '缓存组件', false, { componentId: 'string', type: 'string', props: 'Record<string, unknown>' }, 'UIComponent');
     this.registerMethod('invalidateComponent', '使缓存失效', false, { componentId: 'string' }, 'boolean');
+
+    // 游戏状态更新方法
+    this.registerMethod('updateGameState', '更新游戏状态并推送到前端', false,
+      { saveId: 'string', characterId: 'string', data: 'Partial<GameState>' },
+      'void');
   }
 
   protected async executeMethod<T>(
@@ -160,6 +167,17 @@ export class UIDataTool extends ToolBase {
           this.logWriteOperation(method, params, context);
           break;
 
+        case 'updateGameState':
+          await this.handleUpdateGameState(
+            params.saveId as string,
+            params.characterId as string,
+            params.data as Partial<GameState>,
+            context
+          );
+          result = undefined;
+          this.logWriteOperation(method, params, context);
+          break;
+
         default:
           return this.createError<T>('METHOD_NOT_FOUND', `Method '${method}' not found in UIDataTool`);
       }
@@ -183,5 +201,74 @@ export class UIDataTool extends ToolBase {
       permission: context.permission,
       paramsKeys: Object.keys(params),
     });
+  }
+
+  /**
+   * 处理游戏状态更新
+   * 通过 WebSocket 推送更新到前端
+   */
+  private async handleUpdateGameState(
+    saveId: string,
+    characterId: string,
+    data: Partial<GameState>,
+    context: ToolCallContext
+  ): Promise<void> {
+    // 参数验证
+    if (!saveId || !characterId) {
+      gameLog.warn('backend', 'UIDataTool.updateGameState: missing saveId or characterId', {
+        saveId,
+        characterId,
+        agentId: context.agentId,
+      });
+      return;
+    }
+
+    // 数据验证
+    if (!data || Object.keys(data).length === 0) {
+      gameLog.warn('backend', 'UIDataTool.updateGameState: empty data', {
+        saveId,
+        characterId,
+        agentId: context.agentId,
+      });
+      return;
+    }
+
+    // 1. 记录日志
+    gameLog.info('backend', 'UIDataTool.updateGameState', {
+      saveId,
+      characterId,
+      dataKeys: Object.keys(data),
+      agentId: context.agentId,
+    });
+
+    // 2. 通过 WebSocket 推送更新
+    try {
+      const webSocketService = getWebSocketService();
+      webSocketService.broadcast({
+        type: 'game_state_update',
+        saveId,
+        characterId,
+        data,
+        timestamp: Date.now(),
+      });
+
+      // 3. 如果有 dynamicUI，单独推送
+      if (data.dynamicUI) {
+        webSocketService.broadcast({
+          type: 'dynamic_ui_update',
+          saveId,
+          characterId,
+          dynamicUI: data.dynamicUI,
+          timestamp: Date.now(),
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      gameLog.error('backend', 'UIDataTool.updateGameState WebSocket error', {
+        error: errorMessage,
+        saveId,
+        characterId,
+      });
+    }
   }
 }

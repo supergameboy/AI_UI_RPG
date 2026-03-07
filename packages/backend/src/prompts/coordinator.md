@@ -76,6 +76,63 @@
 
 {{recent_history}}
 
+# 新游戏初始化
+
+## 预制初始化方法
+
+当玩家开始新游戏时，系统会自动调用 `initializeNewGame` 方法，该方法会：
+
+1. 并行调用各专业 Agent 的 initialize 方法：
+   - NUMERICAL: 计算初始属性
+   - SKILL: 获取初始技能
+   - INVENTORY: 获取初始物品
+   - QUEST: 创建初始任务
+   - MAP: 创建起始地点
+   - NPC_PARTY: 创建初始 NPC
+
+2. 整合结果并推送到前端：
+<tool_call tool="UI_DATA" method="updateGameState" permission="write">
+{
+  "saveId": "存档ID",
+  "characterId": "角色ID",
+  "data": {
+    "numerical": { ... },
+    "skills": [ ... ],
+    "inventory": [ ... ],
+    "quests": [ ... ],
+    "map": { ... },
+    "npcs": [ ... ]
+  }
+}
+</tool_call >
+
+3. 生成欢迎界面动态 UI：
+<tool_call tool="UI" method="generate_dynamic_ui" permission="write">
+{
+  "description": "生成新游戏欢迎界面",
+  "context": { "character": { ... } },
+  "saveId": "存档ID",
+  "characterId": "角色ID"
+}
+</tool_call >
+
+## UIDataTool.updateGameState 使用说明
+
+用于将游戏状态更新推送到前端：
+
+<tool_call tool="UI_DATA" method="updateGameState" permission="write">
+{
+  "saveId": "存档ID",
+  "characterId": "角色ID",
+  "data": {
+    // Partial<GameState> - 只包含需要更新的字段
+    "health": 80,
+    "mana": 50,
+    "dynamicUI": { "id": "...", "markdown": "..." }
+  }
+}
+</tool_call >
+
 # 输出格式
 
 在响应前，先使用思考标记分析情况：

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { Button } from '../common';
-import type { Quest, QuestType, QuestStatus, QuestObjective } from '@ai-rpg/shared';
+import type { Quest, QuestType, QuestStatus, QuestObjective, ObjectiveType } from '@ai-rpg/shared';
 import styles from './QuestPanel.module.css';
 
 /**
@@ -62,7 +62,7 @@ const QUEST_STATUS_COLORS: Record<QuestStatus, string> = {
 /**
  * 目标类型名称映射
  */
-const OBJECTIVE_TYPE_NAMES: Record<string, string> = {
+const OBJECTIVE_TYPE_NAMES: Record<ObjectiveType, string> = {
   kill: '击杀',
   collect: '收集',
   talk: '对话',
@@ -71,101 +71,15 @@ const OBJECTIVE_TYPE_NAMES: Record<string, string> = {
 };
 
 /**
- * 模拟任务数据（用于演示）
- */
-const MOCK_QUESTS: Quest[] = [
-  {
-    id: 'quest_001',
-    name: '村庄的危机',
-    description: '村庄附近出现了大量怪物，村长请求你帮助清除威胁。',
-    type: 'main',
-    status: 'in_progress',
-    objectives: [
-      { id: 'obj_001', description: '击杀村外的野狼', type: 'kill', target: '野狼', current: 3, required: 5, isCompleted: false },
-      { id: 'obj_002', description: '向村长报告', type: 'talk', target: '村长', current: 0, required: 1, isCompleted: false },
-    ],
-    prerequisites: [],
-    rewards: { experience: 100, currency: { gold: 50 } },
-    log: [],
-    createdAt: Date.now() - 86400000,
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'quest_002',
-    name: '失落的宝藏',
-    description: '据说在古老遗迹中藏有宝藏，有人愿意付高价购买。',
-    type: 'side',
-    status: 'in_progress',
-    objectives: [
-      { id: 'obj_003', description: '探索古老遗迹', type: 'explore', target: '古老遗迹', current: 1, required: 1, isCompleted: true },
-      { id: 'obj_004', description: '找到宝藏箱', type: 'collect', target: '宝藏箱', current: 0, required: 1, isCompleted: false },
-    ],
-    prerequisites: [],
-    rewards: { experience: 200, currency: { gold: 150 }, items: [{ itemId: 'rare_gem', quantity: 1 }] },
-    log: [],
-    createdAt: Date.now() - 172800000,
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'quest_003',
-    name: '每日狩猎',
-    description: '完成每日狩猎任务，获得丰厚奖励。',
-    type: 'daily',
-    status: 'available',
-    objectives: [
-      { id: 'obj_005', description: '击杀任意怪物', type: 'kill', target: '怪物', current: 0, required: 10, isCompleted: false },
-    ],
-    prerequisites: [],
-    rewards: { experience: 50, currency: { gold: 20 } },
-    log: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'quest_004',
-    name: '神秘的信件',
-    description: '一封神秘信件指引你前往未知之地...',
-    type: 'hidden',
-    status: 'in_progress',
-    objectives: [
-      { id: 'obj_006', description: '解读信件内容', type: 'custom', target: '信件', current: 1, required: 1, isCompleted: true },
-      { id: 'obj_007', description: '前往信中提到的地点', type: 'explore', target: '未知地点', current: 0, required: 1, isCompleted: false },
-    ],
-    prerequisites: [],
-    rewards: { experience: 500, items: [{ itemId: 'mysterious_artifact', quantity: 1 }] },
-    log: [],
-    createdAt: Date.now() - 259200000,
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'quest_005',
-    name: '商人的请求',
-    description: '商人需要一些材料来制作装备。',
-    type: 'side',
-    status: 'completed',
-    objectives: [
-      { id: 'obj_008', description: '收集铁矿石', type: 'collect', target: '铁矿石', current: 5, required: 5, isCompleted: true },
-    ],
-    prerequisites: [],
-    rewards: { experience: 80, currency: { gold: 30 } },
-    log: [],
-    createdAt: Date.now() - 345600000,
-    updatedAt: Date.now() - 86400000,
-  },
-];
-
-/**
  * 任务面板组件
  * 显示任务列表、分类筛选、任务详情
  */
 export const QuestPanel: React.FC = () => {
-  const character = useGameStore((state) => state.character);
+  const quests = useGameStore((state) => state.quests);
+  const sendGameAction = useGameStore((state) => state.sendGameAction);
   const [typeFilter, setTypeFilter] = useState<QuestType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<QuestStatus | 'all'>('all');
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
-
-  // 使用模拟数据
-  const quests = MOCK_QUESTS;
 
   // 过滤任务
   const filteredQuests = useMemo(() => {
@@ -196,22 +110,28 @@ export const QuestPanel: React.FC = () => {
   };
 
   // 接受任务
-  const handleAcceptQuest = (questId: string) => {
-    console.log('接受任务:', questId);
-    // TODO: 实现接受任务逻辑
+  const handleAcceptQuest = async (questId: string) => {
+    await sendGameAction({
+      type: 'accept_quest',
+      payload: { questId },
+    });
   };
 
   // 放弃任务
-  const handleAbandonQuest = (questId: string) => {
-    console.log('放弃任务:', questId);
-    // TODO: 实现放弃任务逻辑
+  const handleAbandonQuest = async (questId: string) => {
+    await sendGameAction({
+      type: 'abandon_quest',
+      payload: { questId },
+    });
     setSelectedQuestId(null);
   };
 
   // 完成任务
-  const handleCompleteQuest = (questId: string) => {
-    console.log('完成任务:', questId);
-    // TODO: 实现完成任务逻辑
+  const handleCompleteQuest = async (questId: string) => {
+    await sendGameAction({
+      type: 'complete_quest',
+      payload: { questId },
+    });
   };
 
   // 格式化奖励
@@ -233,12 +153,12 @@ export const QuestPanel: React.FC = () => {
     return rewards;
   };
 
-  if (!character.id) {
+  // 处理空数据状态
+  if (!quests || quests.length === 0) {
     return (
       <div className={styles.emptyState}>
         <div className={styles.emptyIcon}>📜</div>
-        <p>暂无任务数据</p>
-        <p className={styles.emptyHint}>创建角色后查看任务</p>
+        <p>暂无任务</p>
       </div>
     );
   }

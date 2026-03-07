@@ -1,0 +1,115 @@
+.panel {
+  position: fixed;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+  user-select: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-elevated);
+  border-bottom: 1px solid var(--color-border);
+  cursor: move;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  line-height: 1;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.closeButton:hover {
+  background: var(--color-error);
+  color: white;
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-md);
+  user-select: text;
+}
+
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: se-resize;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    var(--color-border) 50%
+  );
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.resizeHandle:hover {
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    var(--color-primary) 50%
+  );
+}
+
+/* 拖拽和缩放时的视觉反馈 */
+.panel:has(.header:active) {
+  opacity: 0.95;
+}
+
+/* 确保内容区域的滚动条样式 */
+.content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}

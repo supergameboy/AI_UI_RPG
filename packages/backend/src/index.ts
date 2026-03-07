@@ -5,7 +5,7 @@ import { initDatabaseService, DatabaseService } from './services/DatabaseService
 import { databaseInitializer } from './database/initializer';
 import { saveRepository } from './models/SaveRepository';
 import { initializeLLMService, getLLMService } from './services/llm';
-import { initializeAgentService } from './services/AgentService';
+import { initializeAgentService, getAgentService } from './services/AgentService';
 import { initializePromptService } from './services/PromptService';
 import { getWebSocketService } from './services/WebSocketService';
 import { getDeveloperLogService } from './services/DeveloperLogService';
@@ -541,6 +541,47 @@ app.delete('/api/logs/game', (_req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Developer test routes
+app.post('/api/developer/test-ui-agent', async (req, res) => {
+  try {
+    const { description } = req.body as { description: string };
+    
+    if (!description) {
+      res.status(400).json({
+        success: false,
+        error: 'Description is required',
+      });
+      return;
+    }
+
+    const agentService = getAgentService();
+    const { AgentType } = await import('@ai-rpg/shared');
+    const uiAgent = agentService.getAgent(AgentType.UI);
+    
+    if (!uiAgent) {
+      res.status(500).json({
+        success: false,
+        error: 'UIAgent not initialized',
+      });
+      return;
+    }
+
+    // 使用 UIAgent 的 generateDynamicUI 方法
+    const { UIAgent } = await import('./agents/UIAgent') as { UIAgent: typeof import('./agents/UIAgent').UIAgent };
+    const dynamicUI = await (uiAgent as InstanceType<typeof UIAgent>).generateDynamicUI(description);
+    
+    res.json({
+      success: true,
+      dynamicUI,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

@@ -5,3 +5,7 @@ export { AgentCommunication } from './AgentCommunication';
 export { LogViewer } from './LogViewer';
 export { StateInspector } from './StateInspector';
 export { PromptEditor } from './PromptEditor';
+export { UIAgentTestPanel } from './UIAgentTestPanel';
+export { MockDynamicUIPanel } from './MockDynamicUIPanel';
+export { DynamicUIStatePanel } from './DynamicUIStatePanel';
+export { DataSimulatorPanel } from './DataSimulatorPanel';
