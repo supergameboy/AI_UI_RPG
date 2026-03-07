@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
-import type { MapLocation, GameMap } from '@ai-rpg/shared';
+import type { MapLocation, LocationConnection } from '@ai-rpg/shared';
 import styles from './MapPanel.module.css';
 
 /**
@@ -13,12 +13,6 @@ const LOCATION_TYPE_NAMES: Record<string, string> = {
   wilderness: '荒野',
   building: '建筑',
   custom: '特殊地点',
-  town: '城镇',
-  landmark: '地标',
-  shop: '商店',
-  inn: '旅店',
-  quest: '任务地点',
-  other: '其他',
 };
 
 /**
@@ -31,25 +25,183 @@ const LOCATION_TYPE_ICONS: Record<string, string> = {
   wilderness: '🌲',
   building: '🏠',
   custom: '✨',
-  town: '🏘️',
-  landmark: '🏔️',
-  shop: '🏪',
-  inn: '🏨',
-  quest: '❗',
-  other: '📍',
 };
 
+/**
+ * 连接类型名称映射
+ */
+const CONNECTION_TYPE_NAMES: Record<string, string> = {
+  road: '道路',
+  portal: '传送门',
+  hidden: '隐藏路径',
+  bidirectional: '双向通道',
+  oneway: '单向通道',
+};
+
+/**
+ * 模拟地图数据（用于演示）
+ */
+const MOCK_LOCATIONS: MapLocation[] = [
+  {
+    id: 'loc_start',
+    name: '新手村',
+    type: 'village',
+    position: { x: 50, y: 50 },
+    description: '一个宁静的小村庄，是许多冒险者的起点。',
+    discovered: true,
+  },
+  {
+    id: 'loc_forest',
+    name: '迷雾森林',
+    type: 'wilderness',
+    position: { x: 30, y: 35 },
+    description: '一片神秘的森林，据说隐藏着古老的秘密。',
+    discovered: true,
+  },
+  {
+    id: 'loc_dungeon',
+    name: '废弃矿坑',
+    type: 'dungeon',
+    position: { x: 70, y: 25 },
+    description: '曾经繁荣的矿坑，现在充满了危险。',
+    discovered: true,
+  },
+  {
+    id: 'loc_city',
+    name: '王都艾尔文',
+    type: 'city',
+    position: { x: 75, y: 60 },
+    description: '繁华的王都，贸易和冒险的中心。',
+    discovered: true,
+  },
+  {
+    id: 'loc_lake',
+    name: '月光湖',
+    type: 'wilderness',
+    position: { x: 25, y: 70 },
+    description: '美丽的湖泊，夜晚月光倒映格外迷人。',
+    discovered: false,
+  },
+  {
+    id: 'loc_mountain',
+    name: '龙脊山脉',
+    type: 'wilderness',
+    position: { x: 85, y: 15 },
+    description: '险峻的山脉，传说有巨龙栖息。',
+    discovered: false,
+  },
+  {
+    id: 'loc_ruins',
+    name: '古代遗迹',
+    type: 'dungeon',
+    position: { x: 45, y: 80 },
+    description: '神秘的古代遗迹，等待探索。',
+    discovered: false,
+  },
+  {
+    id: 'loc_tower',
+    name: '法师塔',
+    type: 'building',
+    position: { x: 60, y: 40 },
+    description: '高耸的法师塔，魔法能量充沛。',
+    discovered: true,
+  },
+];
+
+/**
+ * 模拟连接数据
+ */
+const MOCK_CONNECTIONS: LocationConnection[] = [
+  {
+    id: 'conn_1',
+    fromLocationId: 'loc_start',
+    toLocationId: 'loc_forest',
+    type: 'road',
+    travelTime: 30,
+    bidirectional: true,
+    discovered: true,
+  },
+  {
+    id: 'conn_2',
+    fromLocationId: 'loc_start',
+    toLocationId: 'loc_city',
+    type: 'road',
+    travelTime: 60,
+    bidirectional: true,
+    discovered: true,
+  },
+  {
+    id: 'conn_3',
+    fromLocationId: 'loc_forest',
+    toLocationId: 'loc_dungeon',
+    type: 'road',
+    travelTime: 45,
+    bidirectional: true,
+    discovered: true,
+  },
+  {
+    id: 'conn_4',
+    fromLocationId: 'loc_city',
+    toLocationId: 'loc_tower',
+    type: 'road',
+    travelTime: 20,
+    bidirectional: true,
+    discovered: true,
+  },
+  {
+    id: 'conn_5',
+    fromLocationId: 'loc_tower',
+    toLocationId: 'loc_dungeon',
+    type: 'portal',
+    travelTime: 5,
+    bidirectional: true,
+    discovered: true,
+  },
+  {
+    id: 'conn_6',
+    fromLocationId: 'loc_start',
+    toLocationId: 'loc_lake',
+    type: 'road',
+    travelTime: 40,
+    bidirectional: true,
+    discovered: false,
+  },
+  {
+    id: 'conn_7',
+    fromLocationId: 'loc_city',
+    toLocationId: 'loc_mountain',
+    type: 'road',
+    travelTime: 90,
+    bidirectional: true,
+    discovered: false,
+  },
+  {
+    id: 'conn_8',
+    fromLocationId: 'loc_lake',
+    toLocationId: 'loc_ruins',
+    type: 'hidden',
+    travelTime: 60,
+    bidirectional: true,
+    discovered: false,
+  },
+];
+
+/**
+ * 地图面板组件
+ * 显示世界地图、当前位置和可前往的地点列表
+ */
 export const MapPanel: React.FC = () => {
   const character = useGameStore((state) => state.character);
-  const mapState = useGameStore((state) => state.map);
+  const currentLocation = useGameStore((state) => state.currentLocation);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
-  const currentMap: GameMap | null = mapState.mapData;
-  const locations: MapLocation[] = currentMap?.locations || [];
-  const connections = currentMap?.connections || [];
+  // 使用模拟数据
+  const locations = MOCK_LOCATIONS;
+  const connections = MOCK_CONNECTIONS;
 
-  const currentLocationId = mapState.currentLocationId;
+  // 当前位置ID（模拟）
+  const currentLocationId = currentLocation ? 'loc_start' : 'loc_start';
 
   // 已探索的地点
   const discoveredLocations = useMemo(() => {
@@ -67,33 +219,57 @@ export const MapPanel: React.FC = () => {
   // 选中的地点详情
   const selectedLocation = locations.find((loc) => loc.id === selectedLocationId);
 
+  // 可前往的地点（从当前位置出发）
   const availableDestinations = useMemo(() => {
-    if (!currentLocationId) return [];
-    
     const availableConnectionIds = connections
-      .filter((conn) => {
-        const isFromCurrent = conn.from === currentLocationId;
-        const isToCurrent = conn.to === currentLocationId;
-        const isBidirectional = conn.type === 'bidirectional';
-        return isFromCurrent || (isToCurrent && isBidirectional);
-      })
-      .map((conn) => conn.from === currentLocationId ? conn.to : conn.from);
+      .filter(
+        (conn) =>
+          conn.discovered &&
+          ((conn.fromLocationId === currentLocationId && conn.bidirectional) ||
+            (conn.toLocationId === currentLocationId && conn.bidirectional) ||
+            conn.fromLocationId === currentLocationId)
+      )
+      .map((conn) => (conn.fromLocationId === currentLocationId ? conn.toLocationId : conn.fromLocationId));
 
     return locations.filter(
       (loc) => availableConnectionIds.includes(loc.id) && loc.discovered
     );
   }, [connections, currentLocationId, locations]);
 
-  const handleTravel = (locationId: string) => {
-    console.log('前往地点:', locationId);
-    setSelectedLocationId(null);
+  // 获取两个地点之间的连接
+  const getConnection = (fromId: string, toId: string): LocationConnection | undefined => {
+    return connections.find(
+      (conn) =>
+        (conn.fromLocationId === fromId && conn.toLocationId === toId) ||
+        (conn.bidirectional && conn.fromLocationId === toId && conn.toLocationId === fromId)
+    );
   };
 
+  // 计算地点在地图上的位置样式
   const getLocationStyle = (location: MapLocation) => {
     return {
       left: `${location.position.x}%`,
       top: `${location.position.y}%`,
     };
+  };
+
+  // 前往地点
+  const handleTravel = (locationId: string) => {
+    const connection = getConnection(currentLocationId, locationId);
+    if (connection) {
+      console.log('前往地点:', locationId, '预计时间:', connection.travelTime, '分钟');
+      // TODO: 实现移动逻辑
+    }
+  };
+
+  // 格式化旅行时间
+  const formatTravelTime = (minutes: number): string => {
+    if (minutes < 60) {
+      return `${minutes}分钟`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`;
   };
 
   if (!character.id) {
@@ -117,7 +293,7 @@ export const MapPanel: React.FC = () => {
           <div className={styles.currentLocationInfo}>
             <span className={styles.currentLocationLabel}>当前位置</span>
             <h3 className={styles.currentLocationName}>
-              {currentLocationData?.name || '未知地点'}
+              {currentLocationData?.name || currentLocation || '未知地点'}
             </h3>
           </div>
         </div>
@@ -153,28 +329,31 @@ export const MapPanel: React.FC = () => {
 
             {/* 连接线 */}
             <svg className={styles.connectionsLayer} viewBox="0 0 100 100" preserveAspectRatio="none">
-              {connections.map((conn, index) => {
-                const fromLoc = locations.find((l) => l.id === conn.from);
-                const toLoc = locations.find((l) => l.id === conn.to);
-                if (!fromLoc || !toLoc) return null;
+              {connections
+                .filter((conn) => conn.discovered)
+                .map((conn) => {
+                  const fromLoc = locations.find((l) => l.id === conn.fromLocationId);
+                  const toLoc = locations.find((l) => l.id === conn.toLocationId);
+                  if (!fromLoc || !toLoc) return null;
 
-                const isHighlighted =
-                  conn.from === currentLocationId || conn.to === currentLocationId;
+                  const isHighlighted =
+                    conn.fromLocationId === currentLocationId || conn.toLocationId === currentLocationId;
 
-                return (
-                  <line
-                    key={`conn_${index}`}
-                    x1={fromLoc.position.x}
-                    y1={fromLoc.position.y}
-                    x2={toLoc.position.x}
-                    y2={toLoc.position.y}
-                    className={[
-                      styles.connectionLine,
-                      isHighlighted && styles.connectionHighlighted,
-                    ].filter(Boolean).join(' ')}
-                  />
-                );
-              })}
+                  return (
+                    <line
+                      key={conn.id}
+                      x1={fromLoc.position.x}
+                      y1={fromLoc.position.y}
+                      x2={toLoc.position.x}
+                      y2={toLoc.position.y}
+                      className={[
+                        styles.connectionLine,
+                        conn.type === 'portal' && styles.connectionPortal,
+                        isHighlighted && styles.connectionHighlighted,
+                      ].filter(Boolean).join(' ')}
+                    />
+                  );
+                })}
             </svg>
 
             {/* 地点标记 */}
@@ -242,25 +421,36 @@ export const MapPanel: React.FC = () => {
                   <span>暂无可前往的地点</span>
                 </div>
               ) : (
-                availableDestinations.map((location) => (
-                  <div
-                    key={location.id}
-                    className={[styles.locationCard, styles.locationCardAvailable].join(' ')}
-                    onClick={() => setSelectedLocationId(location.id)}
-                  >
-                    <div className={styles.cardHeader}>
-                      <span className={styles.cardIcon}>
-                        {LOCATION_TYPE_ICONS[location.type]}
-                      </span>
-                      <div className={styles.cardInfo}>
-                        <span className={styles.cardName}>{location.name}</span>
-                        <span className={styles.cardType}>
-                          {LOCATION_TYPE_NAMES[location.type] || location.type}
+                availableDestinations.map((location) => {
+                  const connection = getConnection(currentLocationId, location.id);
+                  return (
+                    <div
+                      key={location.id}
+                      className={[styles.locationCard, styles.locationCardAvailable].join(' ')}
+                      onClick={() => setSelectedLocationId(location.id)}
+                    >
+                      <div className={styles.cardHeader}>
+                        <span className={styles.cardIcon}>
+                          {LOCATION_TYPE_ICONS[location.type]}
                         </span>
+                        <div className={styles.cardInfo}>
+                          <span className={styles.cardName}>{location.name}</span>
+                          <span className={styles.cardType}>
+                            {LOCATION_TYPE_NAMES[location.type] || location.type}
+                          </span>
+                        </div>
+                        <div className={styles.travelInfo}>
+                          <span className={styles.travelTime}>
+                            {connection && formatTravelTime(connection.travelTime)}
+                          </span>
+                          <span className={styles.travelType}>
+                            {connection && CONNECTION_TYPE_NAMES[connection.type]}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

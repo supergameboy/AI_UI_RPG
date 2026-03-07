@@ -4,8 +4,8 @@ import { getTemplateService } from '../services/TemplateService';
 import { sendSuccess, sendError } from '../utils/response';
 import { asyncHandler } from '../middleware/errorHandler';
 import { gameLog } from '../services/GameLogService';
-import { getCoordinatorAgent } from '../agents/CoordinatorAgent';
 import type {
+  InitializationRequest,
   Character,
   GameTemplate,
 } from '@ai-rpg/shared';
@@ -24,6 +24,7 @@ router.post(
       templateId?: string;
     };
 
+    // 验证必需参数
     if (!saveId) {
       return sendError(res, 'VALIDATION_ERROR', 'saveId 是必需的', 400);
     }
@@ -34,6 +35,7 @@ router.post(
 
     gameLog.info('backend', '收到初始化请求', { saveId, characterName: character.name, templateId });
 
+    // 获取模板
     let template: GameTemplate;
     
     if (templateId) {
@@ -46,25 +48,23 @@ router.post(
       
       template = foundTemplate;
     } else {
+      // 使用默认模板
       template = createDefaultTemplate();
     }
 
-    const coordinatorAgent = getCoordinatorAgent();
+    const initializationService = getInitializationService();
     
-    const result = await coordinatorAgent.initializeNewGame({
+    const request: InitializationRequest = {
       saveId,
       character,
       template,
-    });
+    };
+
+    const result = await initializationService.runFullInitialization(request);
 
     if (result.success) {
       gameLog.info('backend', '初始化成功', { saveId });
-      sendSuccess(res, {
-        success: true,
-        gameState: result.gameState,
-        dynamicUI: result.dynamicUI,
-        data: result.data,
-      });
+      sendSuccess(res, result);
     } else {
       gameLog.error('backend', '初始化失败', { saveId, error: result.error });
       sendError(res, 'GAME_ERROR', result.error || '初始化失败', 500);
@@ -120,6 +120,7 @@ router.post(
 
     gameLog.info('backend', '收到重试初始化请求', { saveId, characterName: character.name });
 
+    // 获取模板
     let template: GameTemplate;
     
     if (templateId) {
@@ -135,21 +136,12 @@ router.post(
       template = createDefaultTemplate();
     }
 
-    const coordinatorAgent = getCoordinatorAgent();
-    const result = await coordinatorAgent.initializeNewGame({
-      saveId,
-      character,
-      template,
-    });
+    const initializationService = getInitializationService();
+    const result = await initializationService.retryInitialization(saveId, character, template);
 
     if (result.success) {
       gameLog.info('backend', '重试初始化成功', { saveId });
-      sendSuccess(res, {
-        success: true,
-        gameState: result.gameState,
-        dynamicUI: result.dynamicUI,
-        data: result.data,
-      });
+      sendSuccess(res, result);
     } else {
       gameLog.error('backend', '重试初始化失败', { saveId, error: result.error });
       sendError(res, 'GAME_ERROR', result.error || '重试初始化失败', 500);

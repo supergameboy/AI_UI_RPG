@@ -30,11 +30,6 @@ import {
   getOutputModule,
   getAllOutputModules,
 } from './output';
-import {
-  dynamicUIModules,
-  getDynamicUIModule,
-  getAllDynamicUIModules,
-} from './dynamic-ui';
 
 /**
  * 变量模式匹配正则
@@ -69,10 +64,6 @@ class ModuleRegistryImpl implements ModuleRegistry {
     }
     // 注册输出格式模块
     for (const module of outputModules) {
-      this.modules.set(module.name, module);
-    }
-    // 注册动态 UI 模块
-    for (const module of dynamicUIModules) {
       this.modules.set(module.name, module);
     }
   }
@@ -438,8 +429,4 @@ export {
   outputModules,
   getOutputModule,
   getAllOutputModules,
-  // 动态 UI 模块
-  dynamicUIModules,
-  getDynamicUIModule,
-  getAllDynamicUIModules,
 };

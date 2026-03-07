@@ -1,0 +1,104 @@
+.container {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-md) 0;
+  border-radius: var(--radius-md);
+  border-left: 4px solid;
+  background: var(--color-surface);
+}
+
+.iconWrapper {
+  flex-shrink: 0;
+}
+
+.icon {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-xs);
+}
+
+.message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.dismiss:hover {
+  background: var(--color-background-tertiary);
+  color: var(--color-text);
+}
+
+/* 类型样式 */
+.welcome {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.welcome .title {
+  color: var(--color-primary);
+}
+
+.achievement {
+  border-color: var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+.achievement .title {
+  color: var(--color-warning);
+}
+
+.warning {
+  border-color: var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+.warning .title {
+  color: var(--color-warning);
+}
+
+.error {
+  border-color: var(--color-error);
+  background: var(--color-error-light);
+}
+
+.error .title {
+  color: var(--color-error);
+}
+
+.info {
+  border-color: var(--color-info);
+  background: var(--color-info-light);
+}
+
+.info .title {
+  color: var(--color-info);
+}

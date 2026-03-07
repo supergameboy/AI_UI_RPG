@@ -3,7 +3,7 @@ import type { ToolCallPayload, ToolResponsePayload } from './agent';
 
 export type { ToolCallPayload, ToolResponsePayload };
 
-export type WSMessageType = 'llm_request' | 'llm_update' | 'agent_message' | 'log' | 'game_state_update';
+export type WSMessageType = 'llm_request' | 'llm_update' | 'agent_message' | 'log';
 
 export type LLMRequestStatus = 'pending' | 'success' | 'error';
 

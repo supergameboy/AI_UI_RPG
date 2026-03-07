@@ -8,12 +8,12 @@ import type {
   UIInstruction,
   AgentBinding,
   ToolType,
-  GameTemplate,
-  AgentInitializationResult,
-  Character,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { getInitialSkills } from '../data/initialData';
 
 // ==================== 扩展类型定义 ====================
 
@@ -319,41 +319,40 @@ export class SkillAgent extends AgentBase {
   }
 
   /**
-   * 初始化角色技能
-   * 从模板的 initialData.skills[classId] 获取初始技能列表
+   * 初始化方法
+   * 用于游戏开始时为角色添加初始技能
    */
-  async initialize(params: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<AgentInitializationResult> {
-    const { character, template } = params;
-    
+  async initialize(context: InitializationContext): Promise<InitializationResult> {
     try {
-      const classId = character.class || 'warrior';
-      const initialSkillIds = template.initialData?.skills?.[classId] || [];
+      const { character } = context;
       
+      // 获取职业初始技能ID列表
+      const initialSkillIds = getInitialSkills(character.class);
+      
+      // 为角色学习初始技能
       const learnedSkills: string[] = [];
       const failedSkills: string[] = [];
       
       for (const skillId of initialSkillIds) {
-        const learnResult = this.handleLearnSkill({
-          skillId,
-          characterId: character.id,
-          source: 'level_up',
-        });
-        
-        if (learnResult.success) {
-          learnedSkills.push(skillId);
+        // 创建基础技能实例
+        const skill = this.createSkillFromId(skillId);
+        if (skill) {
+          // 存储技能
+          this.skills.set(skill.id, skill);
+          
+          // 为角色学习技能
+          this.learnSkillForCharacter(character.id, skill.id);
+          learnedSkills.push(skill.id);
         } else {
           failedSkills.push(skillId);
         }
       }
       
       this.addMemory(
-        `初始化角色技能: ${character.name}, 职业: ${classId}, 学习技能: ${learnedSkills.length}/${initialSkillIds.length}`,
+        `Initialized skills for character: ${character.name}. Learned: ${learnedSkills.length} skills`,
         'assistant',
         7,
-        { characterId: character.id, learnedSkills, failedSkills }
+        { characterId: character.id, learnedSkills }
       );
       
       return {
@@ -361,15 +360,376 @@ export class SkillAgent extends AgentBase {
         data: {
           learnedSkills,
           failedSkills,
-          classId,
+          totalSkills: learnedSkills.length,
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '技能初始化失败',
+        error: error instanceof Error ? error.message : 'Unknown error during skill initialization',
       };
     }
+  }
+
+  /**
+   * 根据技能ID创建技能实例
+   */
+  private createSkillFromId(skillId: string): ExtendedSkill | null {
+    const skillData = this.getSkillData(skillId);
+    if (!skillData) return null;
+    
+    return {
+      id: skillId,
+      name: skillData.name,
+      description: skillData.description,
+      type: skillData.type,
+      category: skillData.category,
+      costs: skillData.costs,
+      cooldown: skillData.cooldown,
+      effects: skillData.effects,
+      requirements: [],
+      level: 1,
+      maxLevel: 10,
+      targetType: skillData.targetType,
+    };
+  }
+
+  /**
+   * 获取技能数据
+   */
+  private getSkillData(skillId: string): {
+    name: string;
+    description: string;
+    type: SkillType;
+    category: SkillCategory;
+    costs: SkillCost[];
+    cooldown: number;
+    effects: SkillEffect[];
+    targetType: TargetType;
+  } | null {
+    const skillConfigs: Record<string, {
+      name: string;
+      description: string;
+      type: SkillType;
+      category: SkillCategory;
+      costs: SkillCost[];
+      cooldown: number;
+      effects: SkillEffect[];
+      targetType: TargetType;
+    }> = {
+      // 战士技能
+      'slash': {
+        name: '斩击',
+        description: '基础剑术攻击',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 5 }],
+        cooldown: 0,
+        effects: [{ type: 'damage', value: 15 }],
+        targetType: 'single_enemy',
+      },
+      'defensive_stance': {
+        name: '防御姿态',
+        description: '提高防御力',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 10 }],
+        cooldown: 3,
+        effects: [{ type: 'defense_boost', value: 20, duration: 3 }],
+        targetType: 'self',
+      },
+      'power_strike': {
+        name: '强力打击',
+        description: '强力一击',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 15 }],
+        cooldown: 2,
+        effects: [{ type: 'damage', value: 25 }],
+        targetType: 'single_enemy',
+      },
+      // 法师技能
+      'fireball': {
+        name: '火球术',
+        description: '发射火球',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 15 }],
+        cooldown: 2,
+        effects: [{ type: 'damage', value: 30 }],
+        targetType: 'single_enemy',
+      },
+      'ice_shield': {
+        name: '冰盾',
+        description: '召唤冰盾保护自己',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 12 }],
+        cooldown: 4,
+        effects: [{ type: 'defense_boost', value: 15, duration: 3 }],
+        targetType: 'self',
+      },
+      'mana_regen': {
+        name: '魔力回复',
+        description: '回复魔力',
+        type: 'active',
+        category: 'magic',
+        costs: [],
+        cooldown: 5,
+        effects: [{ type: 'mp_regen', value: 5 }],
+        targetType: 'self',
+      },
+      // 盗贼技能
+      'backstab': {
+        name: '背刺',
+        description: '从背后偷袭',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 10 }],
+        cooldown: 2,
+        effects: [{ type: 'damage', value: 35 }],
+        targetType: 'single_enemy',
+      },
+      'stealth': {
+        name: '潜行',
+        description: '进入隐身状态',
+        type: 'active',
+        category: 'exploration',
+        costs: [{ type: 'stamina', value: 15 }],
+        cooldown: 5,
+        effects: [{ type: 'stealth', value: 1, duration: 3 }],
+        targetType: 'self',
+      },
+      'poison_blade': {
+        name: '毒刃',
+        description: '涂毒攻击',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 8 }],
+        cooldown: 3,
+        effects: [{ type: 'damage', value: 10 }, { type: 'poison', value: 5, duration: 3 }],
+        targetType: 'single_enemy',
+      },
+      // 牧师技能
+      'heal': {
+        name: '治疗',
+        description: '恢复生命值',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 10 }],
+        cooldown: 2,
+        effects: [{ type: 'healing', value: 20 }],
+        targetType: 'single_ally',
+      },
+      'bless': {
+        name: '祝福',
+        description: '祝福目标',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 15 }],
+        cooldown: 5,
+        effects: [{ type: 'stat_boost', value: 10, duration: 3 }],
+        targetType: 'single_ally',
+      },
+      'holy_light': {
+        name: '圣光',
+        description: '神圣之光',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 20 }],
+        cooldown: 3,
+        effects: [{ type: 'damage', value: 25 }],
+        targetType: 'single_enemy',
+      },
+      // 游侠技能
+      'aimed_shot': {
+        name: '瞄准射击',
+        description: '精准射击',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 8 }],
+        cooldown: 1,
+        effects: [{ type: 'damage', value: 20 }],
+        targetType: 'single_enemy',
+      },
+      'trap': {
+        name: '陷阱',
+        description: '设置陷阱',
+        type: 'active',
+        category: 'exploration',
+        costs: [{ type: 'stamina', value: 10 }],
+        cooldown: 3,
+        effects: [{ type: 'trap', value: 15 }],
+        targetType: 'area',
+      },
+      'nature_bond': {
+        name: '自然契约',
+        description: '与自然连接',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 10 }],
+        cooldown: 4,
+        effects: [{ type: 'healing', value: 10 }],
+        targetType: 'self',
+      },
+      // 圣骑士技能
+      'holy_strike': {
+        name: '神圣打击',
+        description: '神圣一击',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'mana', value: 12 }],
+        cooldown: 2,
+        effects: [{ type: 'damage', value: 28 }],
+        targetType: 'single_enemy',
+      },
+      'divine_shield': {
+        name: '神圣护盾',
+        description: '神圣保护',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 15 }],
+        cooldown: 5,
+        effects: [{ type: 'shield', value: 30, duration: 2 }],
+        targetType: 'self',
+      },
+      'lay_on_hands': {
+        name: '圣疗',
+        description: '圣手治疗',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 20 }],
+        cooldown: 4,
+        effects: [{ type: 'healing', value: 40 }],
+        targetType: 'single_ally',
+      },
+      // 死灵法师技能
+      'summon_undead': {
+        name: '召唤亡灵',
+        description: '召唤亡灵仆从',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 25 }],
+        cooldown: 6,
+        effects: [{ type: 'summon', value: 1 }],
+        targetType: 'self',
+      },
+      'drain_life': {
+        name: '吸取生命',
+        description: '吸取敌人生命',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 15 }],
+        cooldown: 2,
+        effects: [{ type: 'damage', value: 15 }, { type: 'healing', value: 10 }],
+        targetType: 'single_enemy',
+      },
+      'bone_armor': {
+        name: '骨甲',
+        description: '召唤骨甲',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 12 }],
+        cooldown: 4,
+        effects: [{ type: 'defense_boost', value: 20, duration: 3 }],
+        targetType: 'self',
+      },
+      // 吟游诗人技能
+      'inspiring_song': {
+        name: '激励之歌',
+        description: '激励队友',
+        type: 'active',
+        category: 'social',
+        costs: [{ type: 'mana', value: 10 }],
+        cooldown: 3,
+        effects: [{ type: 'stat_boost', value: 15, duration: 3 }],
+        targetType: 'all_allies',
+      },
+      'dissonant_whisper': {
+        name: '不谐低语',
+        description: '干扰敌人',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 8 }],
+        cooldown: 2,
+        effects: [{ type: 'damage', value: 18 }],
+        targetType: 'single_enemy',
+      },
+      'healing_melody': {
+        name: '治愈旋律',
+        description: '治愈之歌',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 12 }],
+        cooldown: 3,
+        effects: [{ type: 'healing', value: 15 }],
+        targetType: 'all_allies',
+      },
+      // 武僧技能
+      'flurry_of_blows': {
+        name: '连击',
+        description: '快速连击',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 8 }],
+        cooldown: 1,
+        effects: [{ type: 'damage', value: 12 }],
+        targetType: 'single_enemy',
+      },
+      'patient_defense': {
+        name: '耐心防御',
+        description: '防御姿态',
+        type: 'active',
+        category: 'combat',
+        costs: [{ type: 'stamina', value: 10 }],
+        cooldown: 3,
+        effects: [{ type: 'defense_boost', value: 15, duration: 2 }],
+        targetType: 'self',
+      },
+      'step_of_the_wind': {
+        name: '风行步',
+        description: '快速移动',
+        type: 'active',
+        category: 'exploration',
+        costs: [{ type: 'stamina', value: 10 }],
+        cooldown: 2,
+        effects: [{ type: 'speed_boost', value: 20, duration: 2 }],
+        targetType: 'self',
+      },
+      // 德鲁伊技能
+      'wild_shape': {
+        name: '野性形态',
+        description: '变身野兽',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 15 }],
+        cooldown: 5,
+        effects: [{ type: 'transform', value: 1, duration: 5 }],
+        targetType: 'self',
+      },
+      'entangle': {
+        name: '纠缠',
+        description: '束缚敌人',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 10 }],
+        cooldown: 3,
+        effects: [{ type: 'root', value: 2, duration: 2 }],
+        targetType: 'all_enemies',
+      },
+      'healing_spirit': {
+        name: '治愈之灵',
+        description: '召唤治愈之灵',
+        type: 'active',
+        category: 'magic',
+        costs: [{ type: 'mana', value: 12 }],
+        cooldown: 4,
+        effects: [{ type: 'healing', value: 12 }],
+        targetType: 'single_ally',
+      },
+    };
+    
+    return skillConfigs[skillId] || null;
   }
 
   /**

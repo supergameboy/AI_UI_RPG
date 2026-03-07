@@ -5,7 +5,6 @@ import { combatService } from '../services/combatService';
 import { decisionLogService, QueryOptions } from '../services/decisionLogService';
 import { contextService } from '../services/contextService';
 import { initializationService } from '../services/initializationService';
-import { websocketService } from '../services/websocketService';
 import type { 
   Character, 
   DialogueOption,
@@ -20,24 +19,8 @@ import type {
   DecisionLogTraceback,
   NPC,
   NPCRelationship,
-  SkillState,
-  InventoryGameState,
-  EquipmentState,
-  MapGameState,
-  JournalEntry,
-  DynamicUIData,
-  GameStateUpdateLog,
-  GameStateUpdateSource,
 } from '@ai-rpg/shared';
-import { 
-  InitializationStatus, 
-  GameTemplate, 
-  InitializationData,
-  DEFAULT_SKILL_STATE,
-  DEFAULT_INVENTORY_STATE,
-  DEFAULT_EQUIPMENT_STATE,
-  DEFAULT_MAP_STATE,
-} from '@ai-rpg/shared';
+import { InitializationStatus, GameTemplate, InitializationData } from '@ai-rpg/shared';
 
 export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
 
@@ -123,15 +106,6 @@ export interface GameState {
   npcRelationships: Record<string, NPCRelationship>;
   selectedNpcId: string | null;
   
-  // 新增游戏状态字段
-  skills: SkillState;
-  inventory: InventoryGameState;
-  equipment: EquipmentState;
-  map: MapGameState;
-  journal: JournalEntry[];
-  dynamicUI: DynamicUIData | null;
-  updateLogs: GameStateUpdateLog[];
-  
   setScreen: (screen: GameScreen) => void;
   startNewGame: () => void;
   loadGame: (save: Save) => Promise<void>;
@@ -200,21 +174,6 @@ export interface GameState {
   addNpc: (npc: NPC) => void;
   updateNpcRelationship: (npcId: string, relationship: Partial<NPCRelationship>) => void;
   setSelectedNpc: (npcId: string | null) => void;
-  
-  // 统一游戏状态更新方法
-  updateGameState: (data: Partial<{
-    character: Character | null;
-    skills: SkillState;
-    inventory: InventoryGameState;
-    equipment: EquipmentState;
-    map: MapGameState;
-    journal: JournalEntry[];
-    dynamicUI: DynamicUIData | null;
-  }>, source?: GameStateUpdateSource, sourceId?: string) => void;
-  
-  // 数据流转监控方法
-  getUpdateLogs: () => GameStateUpdateLog[];
-  clearUpdateLogs: () => void;
 }
 
 const defaultCharacter: CharacterState = {
@@ -280,15 +239,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   npcs: [],
   npcRelationships: {},
   selectedNpcId: null,
-  
-  // 新增游戏状态字段初始值
-  skills: DEFAULT_SKILL_STATE,
-  inventory: DEFAULT_INVENTORY_STATE,
-  equipment: DEFAULT_EQUIPMENT_STATE,
-  map: DEFAULT_MAP_STATE,
-  journal: [],
-  dynamicUI: null,
-  updateLogs: [],
   
   setScreen: (screen: GameScreen) => {
     set({ screen });
@@ -1232,76 +1182,4 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSelectedNpc: (npcId: string | null) => {
     set({ selectedNpcId: npcId });
   },
-  
-  // ==================== 统一游戏状态更新方法 ====================
-  
-  updateGameState: (data, source = 'system', sourceId) => {
-    const state = get();
-    
-    const logEntry: GameStateUpdateLog = {
-      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-      source,
-      sourceId,
-      updates: data,
-    };
-    
-    const newUpdateLogs = [...state.updateLogs, logEntry].slice(-100);
-    
-    set({
-      ...data,
-      updateLogs: newUpdateLogs,
-      hasUnsavedChanges: true,
-    } as Partial<GameState>);
-    
-    console.log('[GameStore] updateGameState:', {
-      source,
-      sourceId,
-      updatedFields: Object.keys(data),
-    });
-  },
-  
-  // ==================== 数据流转监控方法 ====================
-  
-  getUpdateLogs: () => {
-    return get().updateLogs;
-  },
-  
-  clearUpdateLogs: () => {
-    set({ updateLogs: [] });
-  },
 }));
-
-// ==================== WebSocket 监听器设置 ====================
-
-let websocketUnsubscribe: (() => void) | null = null;
-
-type GameStateUpdateData = Parameters<GameState['updateGameState']>[0];
-
-export const setupGameStateWebSocketListener = (): void => {
-  if (websocketUnsubscribe) {
-    return;
-  }
-  
-  websocketUnsubscribe = websocketService.subscribe((message) => {
-    if (message.type === 'agent_message') {
-      const payload = message.payload as { action?: string; data?: unknown };
-      if (payload?.action === 'game_state_update' && payload?.data) {
-        const gameStateData = payload.data as GameStateUpdateData;
-        if (gameStateData) {
-          useGameStore.getState().updateGameState(gameStateData, 'websocket');
-        }
-      }
-    }
-  });
-  
-  console.log('[GameStore] WebSocket listener for game_state_update registered');
-};
-
-export const cleanupGameStateWebSocketListener = (): void => {
-  if (websocketUnsubscribe) {
-    websocketUnsubscribe();
-    websocketUnsubscribe = null;
-    console.log('[GameStore] WebSocket listener cleaned up');
-  }
-};

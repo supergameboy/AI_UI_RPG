@@ -1,7 +1,10 @@
+/**
+ * UI 组件导出
+ */
+
+// Markdown 渲染器
 export { MarkdownRenderer } from './MarkdownRenderer';
 export type { MarkdownRendererProps } from './MarkdownRenderer';
 
-export { DynamicUIPanel } from './DynamicUIPanel';
-export type { DynamicUIPanelProps } from './DynamicUIPanel';
-
-export * from './extensions';
+// 动态 UI 组件
+export * from './dynamic-ui';

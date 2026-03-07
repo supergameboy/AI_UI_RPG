@@ -16,9 +16,8 @@ import type {
   ToolResponse,
   ToolCallContext,
   ToolPermission,
-  GameTemplate,
-  AgentInitializationResult,
-  Character,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { getMessageRouter, getMessageQueue } from '../services/MessageQueue';
 import { getLLMService } from '../services/llm/LLMService';
@@ -73,6 +72,13 @@ export abstract class AgentBase implements Agent {
   }
 
   abstract processMessage(message: AgentMessage): Promise<AgentResponse>;
+
+  /**
+   * 初始化方法（可选实现）
+   * 用于游戏开始时的数据初始化
+   * 子类可以重写此方法以实现特定的初始化逻辑
+   */
+  async initialize?(context: InitializationContext): Promise<InitializationResult>;
 
   /**
    * 从 ToolRegistry 获取 Tool 实例
@@ -190,10 +196,11 @@ export abstract class AgentBase implements Agent {
     };
   }
 
-  async initialize(_params?: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<void | AgentInitializationResult> {
+  /**
+   * 初始化 Agent 状态（内部方法）
+   * 在 start() 之前调用，设置初始状态
+   */
+  async initAgent(): Promise<void> {
     console.log(`[${this.name}] Initializing...`);
     this.status = 'idle';
   }

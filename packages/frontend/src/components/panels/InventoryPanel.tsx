@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { Button } from '../common';
-import type { ItemType } from '@ai-rpg/shared';
+import type { ItemType, ItemRarity } from '@ai-rpg/shared';
 import { RARITY_CONFIG } from '@ai-rpg/shared';
 import styles from './InventoryPanel.module.css';
 
@@ -43,24 +43,96 @@ const ITEM_TYPE_NAMES: Record<ItemType, string> = {
   misc: '其他',
 };
 
+/**
+ * 模拟物品数据（用于演示）
+ */
+const MOCK_ITEMS: Array<{
+  id: string;
+  itemId: string;
+  name: string;
+  description: string;
+  type: ItemType;
+  rarity: ItemRarity;
+  quantity: number;
+  stats: Record<string, number>;
+}> = [
+  {
+    id: '1',
+    itemId: 'sword_001',
+    name: '铁剑',
+    description: '一把普通的铁剑，适合新手使用。',
+    type: 'weapon',
+    rarity: 'common',
+    quantity: 1,
+    stats: { attack: 5 },
+  },
+  {
+    id: '2',
+    itemId: 'potion_hp_001',
+    name: '生命药水',
+    description: '恢复50点生命值。',
+    type: 'consumable',
+    rarity: 'common',
+    quantity: 10,
+    stats: { heal: 50 },
+  },
+  {
+    id: '3',
+    itemId: 'armor_leather_001',
+    name: '皮甲',
+    description: '轻便的皮革护甲，提供基础防护。',
+    type: 'armor',
+    rarity: 'uncommon',
+    quantity: 1,
+    stats: { defense: 3, speed: 1 },
+  },
+  {
+    id: '4',
+    itemId: 'material_bone_001',
+    name: '野兽骨头',
+    description: '从野兽身上获取的骨头，可用于制作。',
+    type: 'material',
+    rarity: 'common',
+    quantity: 5,
+    stats: {},
+  },
+  {
+    id: '5',
+    itemId: 'quest_letter_001',
+    name: '神秘信件',
+    description: '一封来自陌生人的信件，似乎隐藏着秘密。',
+    type: 'quest',
+    rarity: 'rare',
+    quantity: 1,
+    stats: {},
+  },
+];
+
+/**
+ * 背包面板组件
+ * 显示物品列表、分类筛选、物品详情
+ */
 export const InventoryPanel: React.FC = () => {
   const character = useGameStore((state) => state.character);
-  const inventory = useGameStore((state) => state.inventory);
   const [filter, setFilter] = useState<ItemType | 'all'>('all');
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const items = inventory.slots;
-  const maxCapacity = inventory.capacity;
+  // 使用模拟数据（实际应从 character.inventory 获取）
+  const items = MOCK_ITEMS;
+
+  // 背包容量
+  const maxCapacity = 20;
   const usedSlots = items.length;
 
+  // 过滤物品
   const filteredItems = useMemo(() => {
     if (filter === 'all') return items;
-    return items.filter((slot) => slot.item?.type === filter);
+    return items.filter((item) => item.type === filter);
   }, [items, filter]);
 
-  const selectedSlot = items.find((slot) => slot.id === selectedSlotId);
-  const selectedItem = selectedSlot?.item;
+  // 选中的物品
+  const selectedItem = items.find((item) => item.id === selectedItemId);
 
   // 使用物品
   const handleUseItem = (itemId: string) => {
@@ -143,34 +215,30 @@ export const InventoryPanel: React.FC = () => {
           </div>
         ) : (
           <div className={[styles.itemsList, viewMode === 'grid' ? styles.gridView : styles.listView].join(' ')}>
-            {filteredItems.map((slot) => {
-              const item = slot.item;
-              if (!item) return null;
-              return (
-                <div
-                  key={slot.id}
-                  className={[
-                    styles.itemSlot,
-                    selectedSlotId === slot.id && styles.itemSlotSelected,
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => setSelectedSlotId(slot.id)}
-                  style={{ '--rarity-color': RARITY_CONFIG[item.rarity].color } as React.CSSProperties}
-                >
-                  <div className={styles.itemIcon}>
-                    {ITEM_TYPE_ICONS[item.type]}
-                  </div>
-                  {viewMode === 'list' && (
-                    <div className={styles.itemInfo}>
-                      <span className={styles.itemName}>{item.name}</span>
-                      <span className={styles.itemType}>{ITEM_TYPE_NAMES[item.type]}</span>
-                    </div>
-                  )}
-                  {slot.quantity > 1 && (
-                    <span className={styles.itemQuantity}>×{slot.quantity}</span>
-                  )}
+            {filteredItems.map((item) => (
+              <div
+                key={item.id}
+                className={[
+                  styles.itemSlot,
+                  selectedItemId === item.id && styles.itemSlotSelected,
+                ].filter(Boolean).join(' ')}
+                onClick={() => setSelectedItemId(item.id)}
+                style={{ '--rarity-color': RARITY_CONFIG[item.rarity].color } as React.CSSProperties}
+              >
+                <div className={styles.itemIcon}>
+                  {ITEM_TYPE_ICONS[item.type]}
                 </div>
-              );
-            })}
+                {viewMode === 'list' && (
+                  <div className={styles.itemInfo}>
+                    <span className={styles.itemName}>{item.name}</span>
+                    <span className={styles.itemType}>{ITEM_TYPE_NAMES[item.type]}</span>
+                  </div>
+                )}
+                {item.quantity > 1 && (
+                  <span className={styles.itemQuantity}>×{item.quantity}</span>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -195,7 +263,7 @@ export const InventoryPanel: React.FC = () => {
             </div>
             <button
               className={styles.closeDetail}
-              onClick={() => setSelectedSlotId(null)}
+              onClick={() => setSelectedItemId(null)}
             >
               ✕
             </button>

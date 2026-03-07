@@ -1204,7 +1204,7 @@ async function compressContext(
 
 **场景1：系统通知**
 ```markdown
-:::system-notify{type=achievement}
+
 ## 🏆 成就解锁！
 **首次击杀**
 你成功击败了第一个敌人，迈出了冒险的第一步！
@@ -1219,7 +1219,7 @@ async function compressContext(
 
 **场景2：装备强化**
 ```markdown
-:::enhancement
+
 ## ⚒️ 装备强化
 
 当前装备：**精钢长剑** (Lv.3)
@@ -1242,7 +1242,7 @@ async function compressContext(
 
 **场景3：银行/仓库**
 ```markdown
-:::warehouse
+
 ## 🏦 仓库管理
 
 **背包空间**: 45/50

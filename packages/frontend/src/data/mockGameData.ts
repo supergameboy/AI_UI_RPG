@@ -1,1222 +1,1577 @@
+/**
+ * 模拟游戏数据
+ * 用于前端开发和测试，格式与后端类型定义一致
+ */
+
 import type {
   Character,
-  ExtendedSkill,
-  SkillCooldownState,
-  InventorySlot,
-  EquipmentState,
-  EquippedItem,
+  Skill,
+  StatusEffect,
+  InventoryItem,
   Item,
+  EquippedItem,
+  EquipmentState,
   Quest,
+  QuestObjective,
+  QuestLogEntry,
   NPC,
+  NPCPersonality,
+  NPCStatus,
+  NPCStats,
+  NPCFlags,
   NPCRelationship,
-  JournalEntry,
   GameMap,
+  MapTile,
   MapLocation,
-  DynamicUIData,
-  SkillState,
-  InventoryGameState,
-  QuestState,
-  NPCGameState,
-  MapGameState,
+  MapConnection,
+  MapEncounter,
+  MapItem,
+  CombatUnit,
+  CombatUnitStats,
+  CombatAction,
+  CombatInstanceData,
+  GlobalContext,
+  DialogueOption,
 } from '@ai-rpg/shared';
+import { CombatState, CombatDifficulty, ActionType } from '@ai-rpg/shared';
 
-const now = Date.now();
+// ==================== 模拟角色数据 ====================
 
 export const mockCharacter: Character = {
-  id: 'char_001',
+  id: 'char-mock-001',
   name: '艾瑞克',
-  race: '人类',
-  class: '战士',
+  race: 'human',
+  class: 'warrior',
   level: 5,
-  experience: 2450,
+  experience: 1250,
 
   baseAttributes: {
-    strength: 18,
+    strength: 16,
     dexterity: 12,
-    constitution: 16,
+    constitution: 14,
     intelligence: 10,
-    wisdom: 11,
-    charisma: 14,
+    wisdom: 8,
+    charisma: 10,
   },
 
   derivedAttributes: {
-    maxHp: 150,
-    currentHp: 142,
+    maxHp: 120,
+    currentHp: 95,
     maxMp: 40,
     currentMp: 35,
-    attack: 45,
-    defense: 38,
-    speed: 15,
-    luck: 8,
+    attack: 25,
+    defense: 18,
+    speed: 10,
+    luck: 5,
   },
 
   skills: [],
 
   equipment: {
-    weapon: 'item_weapon_001',
-    head: undefined,
-    body: 'item_armor_001',
-    feet: 'item_boots_001',
-    accessory: ['item_ring_001'],
+    weapon: 'item-weapon-001',
+    body: 'item-armor-001',
+    feet: 'item-boots-001',
+    accessory: ['item-ring-001'],
   },
 
   inventory: [],
 
   currency: {
-    gold: 325,
-    silver: 50,
+    gold: 500,
+    silver: 250,
   },
 
   statusEffects: [],
 
-  appearance: '身材魁梧的男性，有着一头黑色短发和坚毅的眼神。左脸颊有一道浅浅的伤疤，据说是从前在王国骑士团服役时留下的。',
-  imagePrompt: 'A battle-hardened warrior with short black hair, determined eyes, and a faint scar on his left cheek, wearing iron armor',
-  personality: '正直、勇敢、有责任感。虽然已经离开骑士团，但仍然保持着骑士的荣誉准则。',
-  backstory: '曾是王国骑士团的一员，在一次边境冲突中因违抗上级命令保护平民而被逐出骑士团。现在作为一名冒险者游历大陆，寻找能够证明自己的机会。',
+  appearance: '一位身材魁梧的战士，有着棕色的短发和坚毅的眼神。身穿铁甲，手持长剑。',
+  imagePrompt: 'A tall warrior with brown short hair, wearing iron armor and holding a longsword, determined eyes, fantasy RPG style',
+  personality: '勇敢、正直、有时过于直率',
+  backstory: '出生于边境小镇，曾是当地卫队的一员。为了寻找更强的对手和保护更多的人，踏上了冒险之旅。',
 
   statistics: {
-    battlesWon: 23,
-    questsCompleted: 7,
-    distanceTraveled: 450,
-    itemsCrafted: 3,
-    npcsMet: 12,
-    playTime: 7200,
+    battlesWon: 15,
+    questsCompleted: 8,
+    distanceTraveled: 1200,
+    itemsCrafted: 5,
+    npcsMet: 25,
+    playTime: 36000,
   },
 };
 
-export const mockSkills: ExtendedSkill[] = [
+// ==================== 模拟技能数据 ====================
+
+export const mockSkills: Skill[] = [
   {
-    id: 'skill_001',
-    name: '基础剑术',
-    description: '使用剑类武器进行基础攻击，造成物理伤害。',
-    type: 'active',
-    category: 'combat',
-    costs: [{ type: 'stamina', value: 5 }],
-    cooldown: 0,
-    effects: [{ type: 'physical_damage', value: 25 }],
-    requirements: [{ type: 'level', value: 1 }],
+    id: 'skill-001',
+    name: '猛击',
+    description: '用尽全力挥击，造成 150% 武器伤害',
     level: 3,
-    maxLevel: 10,
-    targetType: 'single_enemy',
-    range: { type: 'melee', maxDistance: 1 },
-    tags: ['weapon', 'physical', 'basic'],
+    maxLevel: 5,
+    type: 'active',
+    cost: {
+      type: 'mp',
+      value: 10,
+    },
+    cooldown: 2,
+    effects: [
+      { type: 'damage', value: 1.5, condition: 'weapon_damage' },
+    ],
+    requirements: [
+      { type: 'level', value: 1 },
+      { type: 'attribute', value: 'strength' },
+    ],
   },
   {
-    id: 'skill_002',
-    name: '盾牌防御',
-    description: '举起盾牌进行防御，减少受到的伤害。',
+    id: 'skill-002',
+    name: '盾击',
+    description: '用盾牌猛击敌人，造成伤害并有几率眩晕',
+    level: 2,
+    maxLevel: 5,
     type: 'active',
-    category: 'combat',
-    costs: [{ type: 'stamina', value: 15 }],
+    cost: {
+      type: 'mp',
+      value: 8,
+    },
     cooldown: 3,
     effects: [
-      { type: 'damage_reduction', value: 50, duration: 2 },
-      { type: 'block_chance', value: 25, duration: 2 },
-    ],
-    requirements: [{ type: 'level', value: 2 }],
-    level: 2,
-    maxLevel: 10,
-    targetType: 'self',
-    tags: ['defensive', 'shield'],
-  },
-  {
-    id: 'skill_003',
-    name: '冲锋',
-    description: '向敌人发起冲锋，造成伤害并使其短暂眩晕。',
-    type: 'active',
-    category: 'combat',
-    costs: [{ type: 'stamina', value: 20 }],
-    cooldown: 5,
-    effects: [
-      { type: 'physical_damage', value: 40 },
+      { type: 'damage', value: 80 },
       { type: 'stun', value: 1, duration: 1 },
     ],
-    requirements: [{ type: 'level', value: 3 }],
-    level: 1,
-    maxLevel: 10,
-    targetType: 'single_enemy',
-    range: { type: 'ranged', minDistance: 2, maxDistance: 5 },
-    tags: ['movement', 'control', 'physical'],
+    requirements: [
+      { type: 'level', value: 3 },
+    ],
   },
   {
-    id: 'skill_004',
-    name: '战吼',
-    description: '发出震耳欲聋的战吼，提升自身攻击力并威慑敌人。',
-    type: 'active',
-    category: 'combat',
-    costs: [{ type: 'mana', value: 10 }],
-    cooldown: 8,
-    effects: [
-      { type: 'attack_boost', value: 20, duration: 3 },
-      { type: 'fear_chance', value: 30 },
-    ],
-    requirements: [{ type: 'level', value: 4 }],
+    id: 'skill-003',
+    name: '战斗怒吼',
+    description: '发出震慑敌人的怒吼，提升自身攻击力',
     level: 1,
     maxLevel: 5,
-    targetType: 'self',
-    tags: ['buff', 'debuff', 'mental'],
+    type: 'active',
+    cost: {
+      type: 'mp',
+      value: 15,
+    },
+    cooldown: 5,
+    effects: [
+      { type: 'buff_attack', value: 20, duration: 3 },
+    ],
+    requirements: [
+      { type: 'level', value: 5 },
+    ],
   },
   {
-    id: 'skill_005',
+    id: 'skill-004',
     name: '坚韧体质',
-    description: '被动技能：提升最大生命值和生命恢复速度。',
+    description: '被动提升最大生命值 10%',
+    level: 2,
+    maxLevel: 3,
     type: 'passive',
-    category: 'combat',
-    costs: [],
+    cost: {
+      type: 'mp',
+      value: 0,
+    },
     cooldown: 0,
     effects: [
-      { type: 'max_hp_boost', value: 20 },
-      { type: 'hp_regen', value: 2 },
+      { type: 'max_hp_bonus', value: 0.1 },
     ],
-    requirements: [{ type: 'level', value: 1 }],
-    level: 2,
+    requirements: [
+      { type: 'attribute', value: 'constitution' },
+    ],
+  },
+  {
+    id: 'skill-005',
+    name: '反击姿态',
+    description: '进入防御姿态，下次受到攻击时进行反击',
+    level: 1,
     maxLevel: 5,
-    targetType: 'self',
-    tags: ['passive', 'survival'],
-  },
-  {
-    id: 'skill_006',
-    name: '旋风斩',
-    description: '挥舞武器旋转攻击周围所有敌人。',
     type: 'active',
-    category: 'combat',
-    costs: [{ type: 'stamina', value: 30 }],
-    cooldown: 6,
-    effects: [{ type: 'physical_damage', value: 35 }],
-    requirements: [{ type: 'level', value: 5 }],
-    level: 1,
-    maxLevel: 10,
-    targetType: 'all_enemies',
-    range: { type: 'area', areaRadius: 2 },
-    tags: ['weapon', 'physical', 'aoe'],
+    cost: {
+      type: 'mp',
+      value: 12,
+    },
+    cooldown: 4,
+    effects: [
+      { type: 'counter', value: 1, duration: 1 },
+    ],
+    requirements: [
+      { type: 'level', value: 4 },
+    ],
   },
 ];
 
-export const mockSkillCooldowns: SkillCooldownState[] = [
+// ==================== 模拟物品数据 ====================
+
+export const mockItems: Item[] = [
   {
-    skillId: 'skill_002',
-    remainingTurns: 1,
-    totalCooldown: 3,
-    lastUsedAt: now - 30000,
+    id: 'item-weapon-001',
+    name: '精钢长剑',
+    description: '一把精心锻造的长剑，剑身泛着寒光',
+    type: 'weapon',
+    rarity: 'uncommon',
+    stats: {
+      attack: 15,
+      criticalRate: 5,
+    },
+    effects: [],
+    requirements: {
+      level: 3,
+      class: ['warrior', 'paladin'],
+    },
+    value: {
+      buy: 200,
+      sell: 80,
+      currency: 'gold',
+    },
+    stackable: false,
+    maxStack: 1,
+  },
+  {
+    id: 'item-armor-001',
+    name: '铁制胸甲',
+    description: '坚固的铁制胸甲，提供良好的防护',
+    type: 'armor',
+    rarity: 'common',
+    stats: {
+      defense: 12,
+      maxHp: 20,
+    },
+    effects: [],
+    requirements: {
+      level: 1,
+      class: ['warrior', 'paladin'],
+    },
+    value: {
+      buy: 150,
+      sell: 60,
+      currency: 'gold',
+    },
+    stackable: false,
+    maxStack: 1,
+  },
+  {
+    id: 'item-boots-001',
+    name: '皮靴',
+    description: '舒适的皮靴，适合长途跋涉',
+    type: 'armor',
+    rarity: 'common',
+    stats: {
+      defense: 3,
+      speed: 2,
+    },
+    effects: [],
+    requirements: {},
+    value: {
+      buy: 50,
+      sell: 20,
+      currency: 'gold',
+    },
+    stackable: false,
+    maxStack: 1,
+  },
+  {
+    id: 'item-ring-001',
+    name: '力量戒指',
+    description: '一枚散发着微弱光芒的戒指',
+    type: 'accessory',
+    rarity: 'uncommon',
+    stats: {
+      strength: 2,
+    },
+    effects: [],
+    requirements: {
+      level: 1,
+    },
+    value: {
+      buy: 100,
+      sell: 40,
+      currency: 'gold',
+    },
+    stackable: false,
+    maxStack: 1,
+  },
+  {
+    id: 'item-potion-001',
+    name: '治疗药水',
+    description: '恢复 50 点生命值',
+    type: 'consumable',
+    rarity: 'common',
+    stats: {},
+    effects: [
+      { type: 'heal', value: 50 },
+    ],
+    requirements: {},
+    value: {
+      buy: 25,
+      sell: 10,
+      currency: 'gold',
+    },
+    stackable: true,
+    maxStack: 99,
+  },
+  {
+    id: 'item-potion-002',
+    name: '魔力药水',
+    description: '恢复 30 点魔力值',
+    type: 'consumable',
+    rarity: 'common',
+    stats: {},
+    effects: [
+      { type: 'restore_mp', value: 30 },
+    ],
+    requirements: {},
+    value: {
+      buy: 30,
+      sell: 12,
+      currency: 'gold',
+    },
+    stackable: true,
+    maxStack: 99,
+  },
+  {
+    id: 'item-material-001',
+    name: '铁矿石',
+    description: '用于锻造的原材料',
+    type: 'material',
+    rarity: 'common',
+    stats: {},
+    effects: [],
+    requirements: {},
+    value: {
+      buy: 5,
+      sell: 2,
+      currency: 'gold',
+    },
+    stackable: true,
+    maxStack: 999,
+  },
+  {
+    id: 'item-quest-001',
+    name: '神秘的信件',
+    description: '一封来自未知寄件人的信件，上面有着奇怪的印章',
+    type: 'quest',
+    rarity: 'unique',
+    stats: {},
+    effects: [],
+    requirements: {},
+    value: {
+      buy: 0,
+      sell: 0,
+      currency: 'gold',
+    },
+    stackable: false,
+    maxStack: 1,
   },
 ];
 
-export const mockSkillPoints = 2;
+// ==================== 模拟装备数据 ====================
 
-export const mockSkillState: SkillState = {
-  skills: mockSkills,
-  cooldowns: mockSkillCooldowns,
-  skillPoints: mockSkillPoints,
-};
-
-const ironSword: Item = {
-  id: 'item_weapon_001',
-  name: '铁剑',
-  description: '一把普通的铁制长剑，虽然不是什么名贵武器，但胜在结实耐用。',
-  type: 'weapon',
-  rarity: 'common',
-  stats: {
-    attack: 12,
-    criticalChance: 5,
-  },
-  effects: [],
-  requirements: {
-    level: 1,
-    class: ['战士', '骑士'],
-  },
-  value: {
-    buy: 50,
-    sell: 20,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-const leatherArmor: Item = {
-  id: 'item_armor_001',
-  name: '皮甲',
-  description: '由厚实皮革制成的护甲，提供基本的防护能力。',
-  type: 'armor',
-  rarity: 'common',
-  stats: {
-    defense: 8,
-    maxHp: 10,
-  },
-  effects: [],
-  requirements: {
-    level: 1,
-  },
-  value: {
-    buy: 40,
-    sell: 15,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-const leatherBoots: Item = {
-  id: 'item_boots_001',
-  name: '皮靴',
-  description: '轻便的皮制靴子，适合长途跋涉。',
-  type: 'armor',
-  rarity: 'common',
-  stats: {
-    defense: 3,
-    speed: 2,
-  },
-  effects: [],
-  requirements: {
-    level: 1,
-  },
-  value: {
-    buy: 25,
-    sell: 10,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-const silverRing: Item = {
-  id: 'item_ring_001',
-  name: '银戒指',
-  description: '一枚简单的银戒指，镶嵌着一颗小小的蓝宝石。',
-  type: 'accessory',
-  rarity: 'uncommon',
-  stats: {
-    maxMp: 10,
-    wisdom: 2,
-  },
-  effects: [],
-  requirements: {
-    level: 1,
-  },
-  value: {
-    buy: 80,
-    sell: 30,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-const healthPotion: Item = {
-  id: 'item_potion_001',
-  name: '治疗药水',
-  description: '一瓶红色的药水，饮用后可以恢复一定量的生命值。',
-  type: 'consumable',
-  rarity: 'common',
-  stats: {},
-  effects: [
-    { type: 'heal', value: 50 },
-  ],
-  requirements: {},
-  value: {
-    buy: 15,
-    sell: 5,
-    currency: 'gold',
-  },
-  stackable: true,
-  maxStack: 20,
-};
-
-const bread: Item = {
-  id: 'item_food_001',
-  name: '面包',
-  description: '一块新鲜烤制的面包，可以恢复少量生命值。',
-  type: 'consumable',
-  rarity: 'common',
-  stats: {},
-  effects: [
-    { type: 'heal', value: 10 },
-    { type: 'hunger_restore', value: 20 },
-  ],
-  requirements: {},
-  value: {
-    buy: 2,
-    sell: 1,
-    currency: 'gold',
-  },
-  stackable: true,
-  maxStack: 50,
-};
-
-const ironOre: Item = {
-  id: 'item_material_001',
-  name: '铁矿石',
-  description: '一块未经提炼的铁矿石，可以用来锻造武器和装备。',
-  type: 'material',
-  rarity: 'common',
-  stats: {},
-  effects: [],
-  requirements: {},
-  value: {
-    buy: 5,
-    sell: 2,
-    currency: 'gold',
-  },
-  stackable: true,
-  maxStack: 100,
-};
-
-const rareGem: Item = {
-  id: 'item_gem_001',
-  name: '蓝宝石',
-  description: '一颗闪闪发光的蓝宝石，可以镶嵌在装备上提升属性。',
-  type: 'material',
-  rarity: 'rare',
-  stats: {},
-  effects: [],
-  requirements: {},
-  value: {
-    buy: 200,
-    sell: 80,
-    currency: 'gold',
-  },
-  stackable: true,
-  maxStack: 10,
-};
-
-const ancientScroll: Item = {
-  id: 'item_quest_001',
-  name: '古老的卷轴',
-  description: '一份泛黄的古老卷轴，上面记载着某种神秘的知识。',
-  type: 'quest',
-  rarity: 'unique',
-  stats: {},
-  effects: [],
-  requirements: {},
-  value: {
-    buy: 0,
-    sell: 0,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-const steelSword: Item = {
-  id: 'item_weapon_002',
-  name: '精钢长剑',
-  description: '一把由精钢锻造的长剑，锋利无比。',
-  type: 'weapon',
-  rarity: 'uncommon',
-  stats: {
-    attack: 20,
-    criticalChance: 8,
-    criticalDamage: 15,
-  },
-  effects: [],
-  requirements: {
-    level: 5,
-    class: ['战士', '骑士'],
-    attributes: { strength: 15 },
-  },
-  value: {
-    buy: 150,
-    sell: 60,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-const epicShield: Item = {
-  id: 'item_shield_001',
-  name: '骑士之盾',
-  description: '一面刻有骑士团徽章的重型盾牌，曾经属于一位传奇骑士。',
-  type: 'armor',
-  rarity: 'epic',
-  stats: {
-    defense: 25,
-    blockChance: 20,
-    maxHp: 30,
-  },
-  effects: [
-    { type: 'damage_reduction', value: 10 },
-  ],
-  requirements: {
-    level: 8,
-    class: ['战士', '骑士'],
-    attributes: { constitution: 14 },
-  },
-  value: {
-    buy: 500,
-    sell: 200,
-    currency: 'gold',
-  },
-  stackable: false,
-  maxStack: 1,
-};
-
-export const mockItems: Record<string, Item> = {
-  'item_weapon_001': ironSword,
-  'item_weapon_002': steelSword,
-  'item_armor_001': leatherArmor,
-  'item_boots_001': leatherBoots,
-  'item_ring_001': silverRing,
-  'item_shield_001': epicShield,
-  'item_potion_001': healthPotion,
-  'item_food_001': bread,
-  'item_material_001': ironOre,
-  'item_gem_001': rareGem,
-  'item_quest_001': ancientScroll,
-};
-
-export const mockInventorySlots: InventorySlot[] = [
+export const mockEquippedItems: EquippedItem[] = [
   {
-    id: 'slot_001',
-    slotIndex: 0,
-    itemId: 'item_potion_001',
-    quantity: 3,
-    item: healthPotion,
+    id: 'equipped-001',
+    itemId: 'item-weapon-001',
+    slot: 'weapon',
+    equippedAt: Date.now() - 86400000,
+    item: mockItems[0],
   },
   {
-    id: 'slot_002',
-    slotIndex: 1,
-    itemId: 'item_food_001',
-    quantity: 5,
-    item: bread,
+    id: 'equipped-002',
+    itemId: 'item-armor-001',
+    slot: 'body',
+    equippedAt: Date.now() - 86400000,
+    item: mockItems[1],
   },
   {
-    id: 'slot_003',
-    slotIndex: 2,
-    itemId: 'item_material_001',
-    quantity: 8,
-    item: ironOre,
+    id: 'equipped-003',
+    itemId: 'item-boots-001',
+    slot: 'feet',
+    equippedAt: Date.now() - 86400000,
+    item: mockItems[2],
   },
   {
-    id: 'slot_004',
-    slotIndex: 3,
-    itemId: 'item_gem_001',
-    quantity: 1,
-    item: rareGem,
-  },
-  {
-    id: 'slot_005',
-    slotIndex: 4,
-    itemId: 'item_quest_001',
-    quantity: 1,
-    item: ancientScroll,
-  },
-  {
-    id: 'slot_006',
-    slotIndex: 5,
-    itemId: 'item_weapon_002',
-    quantity: 1,
-    item: steelSword,
+    id: 'equipped-004',
+    itemId: 'item-ring-001',
+    slot: 'accessory',
+    equippedAt: Date.now() - 43200000,
+    item: mockItems[3],
   },
 ];
-
-export const mockInventoryState: InventoryGameState = {
-  slots: mockInventorySlots,
-  capacity: 50,
-  currency: {
-    gold: 325,
-    silver: 50,
-  },
-};
-
-export const mockEquippedWeapon: EquippedItem = {
-  id: 'equipped_001',
-  itemId: 'item_weapon_001',
-  slot: 'weapon',
-  equippedAt: now - 86400000,
-  item: ironSword,
-};
-
-export const mockEquippedBody: EquippedItem = {
-  id: 'equipped_002',
-  itemId: 'item_armor_001',
-  slot: 'body',
-  equippedAt: now - 86400000,
-  item: leatherArmor,
-};
-
-export const mockEquippedFeet: EquippedItem = {
-  id: 'equipped_003',
-  itemId: 'item_boots_001',
-  slot: 'feet',
-  equippedAt: now - 86400000,
-  item: leatherBoots,
-};
-
-export const mockEquippedAccessory: EquippedItem = {
-  id: 'equipped_004',
-  itemId: 'item_ring_001',
-  slot: 'accessory',
-  equippedAt: now - 43200000,
-  item: silverRing,
-};
 
 export const mockEquipmentState: EquipmentState = {
-  weapon: mockEquippedWeapon,
+  weapon: mockEquippedItems[0],
   head: undefined,
-  body: mockEquippedBody,
-  feet: mockEquippedFeet,
-  accessories: [mockEquippedAccessory],
+  body: mockEquippedItems[1],
+  feet: mockEquippedItems[2],
+  accessories: [mockEquippedItems[3]],
+};
+
+// ==================== 模拟背包数据 ====================
+
+export const mockInventoryItems: InventoryItem[] = [
+  {
+    id: 'inv-001',
+    itemId: 'item-potion-001',
+    quantity: 5,
+    equipped: false,
+    obtainedAt: Date.now() - 3600000,
+  },
+  {
+    id: 'inv-002',
+    itemId: 'item-potion-002',
+    quantity: 3,
+    equipped: false,
+    obtainedAt: Date.now() - 3600000,
+  },
+  {
+    id: 'inv-003',
+    itemId: 'item-material-001',
+    quantity: 15,
+    equipped: false,
+    obtainedAt: Date.now() - 7200000,
+  },
+  {
+    id: 'inv-004',
+    itemId: 'item-quest-001',
+    quantity: 1,
+    equipped: false,
+    obtainedAt: Date.now() - 1800000,
+  },
+];
+
+// ==================== 模拟任务数据 ====================
+
+export const mockQuestObjectives: Record<string, QuestObjective[]> = {
+  'quest-001': [
+    {
+      id: 'obj-001-1',
+      description: '前往村庄东边的森林',
+      type: 'explore',
+      target: 'forest_east',
+      current: 0,
+      required: 1,
+      isCompleted: false,
+    },
+    {
+      id: 'obj-001-2',
+      description: '击败森林中的狼群',
+      type: 'kill',
+      target: 'wolf',
+      current: 2,
+      required: 5,
+      isCompleted: false,
+    },
+    {
+      id: 'obj-001-3',
+      description: '返回村长处报告',
+      type: 'talk',
+      target: 'npc_village_chief',
+      current: 0,
+      required: 1,
+      isCompleted: false,
+    },
+  ],
+  'quest-002': [
+    {
+      id: 'obj-002-1',
+      description: '收集 10 个铁矿石',
+      type: 'collect',
+      target: 'item-material-001',
+      current: 10,
+      required: 10,
+      isCompleted: true,
+    },
+    {
+      id: 'obj-002-2',
+      description: '将铁矿石交给铁匠',
+      type: 'talk',
+      target: 'npc_blacksmith',
+      current: 0,
+      required: 1,
+      isCompleted: false,
+    },
+  ],
+  'quest-003': [
+    {
+      id: 'obj-003-1',
+      description: '调查神秘洞穴',
+      type: 'explore',
+      target: 'mysterious_cave',
+      current: 1,
+      required: 1,
+      isCompleted: true,
+    },
+    {
+      id: 'obj-003-2',
+      description: '击败洞穴深处的怪物',
+      type: 'kill',
+      target: 'cave_monster',
+      current: 1,
+      required: 1,
+      isCompleted: true,
+    },
+    {
+      id: 'obj-003-3',
+      description: '找到宝藏',
+      type: 'collect',
+      target: 'treasure_chest',
+      current: 1,
+      required: 1,
+      isCompleted: true,
+    },
+  ],
+};
+
+export const mockQuestLogEntries: Record<string, QuestLogEntry[]> = {
+  'quest-001': [
+    { timestamp: Date.now() - 86400000, event: '接受了村长的委托' },
+    { timestamp: Date.now() - 43200000, event: '进入森林探索' },
+    { timestamp: Date.now() - 3600000, event: '击败了 2 只狼' },
+  ],
+  'quest-002': [
+    { timestamp: Date.now() - 172800000, event: '铁匠请求帮助收集材料' },
+    { timestamp: Date.now() - 86400000, event: '收集完成所有铁矿石' },
+  ],
+  'quest-003': [
+    { timestamp: Date.now() - 259200000, event: '发现了神秘洞穴的入口' },
+    { timestamp: Date.now() - 259200000, event: '击败了洞穴怪物' },
+    { timestamp: Date.now() - 259200000, event: '找到了隐藏的宝藏' },
+    { timestamp: Date.now() - 259200000, event: '任务完成！' },
+  ],
 };
 
 export const mockQuests: Quest[] = [
   {
-    id: 'quest_001',
-    name: '前往村庄报告',
-    description: '前往绿野村向村长报告边境的情况，并寻求帮助。',
+    id: 'quest-001',
+    name: '拯救村庄',
+    description: '村长请求你清除威胁村庄安全的狼群',
     type: 'main',
     status: 'in_progress',
-    objectives: [
-      {
-        id: 'obj_001_1',
-        description: '前往绿野村',
-        type: 'explore',
-        target: 'location_green_village',
-        current: 0,
-        required: 1,
-        isCompleted: false,
-      },
-      {
-        id: 'obj_001_2',
-        description: '与村长交谈',
-        type: 'talk',
-        target: 'npc_village_head',
-        current: 0,
-        required: 1,
-        isCompleted: false,
-      },
-    ],
-    prerequisites: [],
-    rewards: {
-      experience: 100,
-      currency: { gold: 50 },
-      items: [{ itemId: 'item_potion_001', quantity: 2 }],
-    },
-    log: [
-      { timestamp: now - 3600000, event: '任务开始：收到来自边境的紧急消息' },
-    ],
-    characterId: 'char_001',
-    createdAt: now - 3600000,
-    updatedAt: now - 3600000,
-  },
-  {
-    id: 'quest_002',
-    name: '铁匠的请求',
-    description: '铁匠需要一些铁矿石来修理村民的工具。',
-    type: 'side',
-    status: 'in_progress',
-    objectives: [
-      {
-        id: 'obj_002_1',
-        description: '收集铁矿石',
-        type: 'collect',
-        target: 'item_material_001',
-        current: 8,
-        required: 10,
-        isCompleted: false,
-      },
-      {
-        id: 'obj_002_2',
-        description: '将铁矿石交给铁匠',
-        type: 'talk',
-        target: 'npc_blacksmith',
-        current: 0,
-        required: 1,
-        isCompleted: false,
-      },
-    ],
-    prerequisites: [],
-    rewards: {
-      experience: 50,
-      currency: { gold: 30 },
-      items: [{ itemId: 'item_weapon_002', quantity: 1 }],
-    },
-    log: [
-      { timestamp: now - 7200000, event: '铁匠请求帮助收集铁矿石' },
-      { timestamp: now - 1800000, event: '在附近的山洞发现了铁矿' },
-    ],
-    characterId: 'char_001',
-    createdAt: now - 7200000,
-    updatedAt: now - 1800000,
-  },
-  {
-    id: 'quest_003',
-    name: '失落的宝藏',
-    description: '根据古老的地图，在森林深处似乎隐藏着某个宝藏。',
-    type: 'side',
-    status: 'available',
-    objectives: [
-      {
-        id: 'obj_003_1',
-        description: '探索神秘森林',
-        type: 'explore',
-        target: 'location_mystery_forest',
-        current: 0,
-        required: 1,
-        isCompleted: false,
-      },
-      {
-        id: 'obj_003_2',
-        description: '找到宝藏',
-        type: 'explore',
-        target: 'location_treasure_chest',
-        current: 0,
-        required: 1,
-        isCompleted: false,
-      },
-    ],
+    objectives: mockQuestObjectives['quest-001'],
     prerequisites: [],
     rewards: {
       experience: 200,
       currency: { gold: 100 },
-      items: [{ itemId: 'item_gem_001', quantity: 3 }],
+      items: [{ itemId: 'item-potion-001', quantity: 3 }],
+    },
+    log: mockQuestLogEntries['quest-001'],
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now() - 3600000,
+  },
+  {
+    id: 'quest-002',
+    name: '铁匠的请求',
+    description: '帮助铁匠收集铁矿石以锻造新装备',
+    type: 'side',
+    status: 'in_progress',
+    objectives: mockQuestObjectives['quest-002'],
+    prerequisites: [],
+    rewards: {
+      experience: 50,
+      currency: { gold: 50 },
+      items: [{ itemId: 'item-armor-001', quantity: 1 }],
+    },
+    log: mockQuestLogEntries['quest-002'],
+    createdAt: Date.now() - 172800000,
+    updatedAt: Date.now() - 86400000,
+  },
+  {
+    id: 'quest-003',
+    name: '洞穴探险',
+    description: '探索神秘洞穴并寻找宝藏',
+    type: 'side',
+    status: 'completed',
+    objectives: mockQuestObjectives['quest-003'],
+    prerequisites: [],
+    rewards: {
+      experience: 150,
+      currency: { gold: 200 },
+      items: [{ itemId: 'item-ring-001', quantity: 1 }],
+    },
+    log: mockQuestLogEntries['quest-003'],
+    createdAt: Date.now() - 259200000,
+    updatedAt: Date.now() - 259200000,
+  },
+  {
+    id: 'quest-004',
+    name: '失落的神器',
+    description: '传说中有一件神器散落在远古遗迹中...',
+    type: 'main',
+    status: 'locked',
+    objectives: [
+      {
+        id: 'obj-004-1',
+        description: '达到 10 级',
+        type: 'custom',
+        target: 'level',
+        current: 5,
+        required: 10,
+        isCompleted: false,
+      },
+    ],
+    prerequisites: ['quest-001'],
+    rewards: {
+      experience: 500,
+      currency: { gold: 500 },
     },
     log: [],
-    characterId: 'char_001',
-    createdAt: now - 86400000,
-    updatedAt: now - 86400000,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   },
 ];
 
-export const mockQuestState: QuestState = {
-  activeQuests: mockQuests,
-  completedQuestIds: ['quest_tutorial', 'quest_first_blood'],
-  failedQuestIds: [],
+// ==================== 模拟 NPC 数据 ====================
+
+const mockNpcPersonality: NPCPersonality = {
+  traits: ['友善', '热心', '有责任感'],
+  values: ['正义', '和平', '社区'],
+  fears: ['失去村民的信任', '怪物入侵'],
+  desires: ['村庄繁荣', '村民安全'],
+  quirks: ['喜欢在说话时摸胡子', '总是随身带着烟斗'],
+  speech_style: '正式但亲切',
+};
+
+const mockNpcStats: NPCStats = {
+  level: 10,
+  strength: 12,
+  dexterity: 10,
+  constitution: 14,
+  intelligence: 16,
+  wisdom: 14,
+  charisma: 15,
+  attack: 15,
+  defense: 12,
+  speed: 8,
+  customStats: {},
+};
+
+const mockNpcFlags: NPCFlags = {
+  isCompanion: false,
+  isMerchant: false,
+  isQuestGiver: true,
+  isRomanceable: false,
+  isEssential: true,
+  isHostile: false,
+  isInvulnerable: false,
+  canFollow: false,
+  canTrade: false,
+  canFight: false,
+  customFlags: {},
+};
+
+const mockNpcStatus: NPCStatus = {
+  health: 100,
+  maxHealth: 100,
+  mood: 'happy',
+  currentLocation: 'village_chief_house',
+  isAvailable: true,
+  isAlive: true,
+  schedule: [
+    {
+      id: 'schedule-001',
+      dayOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      startTime: '06:00',
+      endTime: '12:00',
+      location: 'village_chief_house',
+      activity: '办公',
+      priority: 1,
+    },
+    {
+      id: 'schedule-002',
+      dayOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      startTime: '12:00',
+      endTime: '14:00',
+      location: 'village_square',
+      activity: '午休散步',
+      priority: 2,
+    },
+    {
+      id: 'schedule-003',
+      dayOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      startTime: '14:00',
+      endTime: '20:00',
+      location: 'village_chief_house',
+      activity: '办公',
+      priority: 1,
+    },
+  ],
+  currentActivity: '办公',
+  statusEffects: [],
+  customData: {},
+};
+
+export const mockNpcRelationships: Record<string, NPCRelationship> = {
+  'npc-001': {
+    characterId: 'char-mock-001',
+    npcId: 'npc-001',
+    type: 'friendly',
+    level: 45,
+    trustLevel: 50,
+    respectLevel: 60,
+    affectionLevel: 30,
+    fearLevel: 0,
+    interactionCount: 5,
+    lastInteractionAt: Date.now() - 3600000,
+    firstMetAt: Date.now() - 86400000,
+    flags: {
+      met: true,
+      befriended: false,
+      romanced: false,
+      betrayed: false,
+      killed: false,
+      custom: {},
+    },
+    notes: ['帮助解决了狼群问题'],
+    customData: {},
+  },
+  'npc-002': {
+    characterId: 'char-mock-001',
+    npcId: 'npc-002',
+    type: 'neutral',
+    level: 20,
+    trustLevel: 25,
+    respectLevel: 20,
+    affectionLevel: 10,
+    fearLevel: 0,
+    interactionCount: 2,
+    lastInteractionAt: Date.now() - 86400000,
+    firstMetAt: Date.now() - 172800000,
+    flags: {
+      met: true,
+      befriended: false,
+      romanced: false,
+      betrayed: false,
+      killed: false,
+      custom: {},
+    },
+    notes: [],
+    customData: {},
+  },
 };
 
 export const mockNPCs: NPC[] = [
   {
-    id: 'npc_village_head',
-    saveId: 'save_001',
-    name: '托马斯',
-    title: '绿野村村长',
-    race: '人类',
+    id: 'npc-001',
+    saveId: 'save-mock-001',
+    name: '村长霍华德',
+    title: '绿荫村村长',
+    race: 'human',
     occupation: '村长',
     appearance: {
-      description: '一位年迈但精神矍铄的老人，留着灰白色的胡须，穿着朴素的村民服装。',
+      description: '一位年迈但精神矍铄的老人，留着白色的胡须',
       height: '中等',
       build: '瘦削',
-      hairColor: '灰白',
+      hairColor: '白色',
       eyeColor: '棕色',
-      distinguishingFeatures: ['左眼下方有一颗痣', '走路时略微跛脚'],
-      imagePrompt: 'An elderly but spirited village headman with gray beard, wearing simple villager clothes',
+      distinguishingFeatures: ['左眼有一道浅浅的疤痕'],
+      imagePrompt: 'An elderly village chief with white beard, kind eyes, wearing simple robes, fantasy RPG style',
     },
-    personality: {
-      traits: ['睿智', '善良', '谨慎', '有责任感'],
-      values: ['村庄安全', '村民福祉', '传统'],
-      fears: ['村庄被摧毁', '无法保护村民'],
-      desires: ['村庄繁荣', '和平'],
-      quirks: ['喜欢在说话时抚摸胡须', '经常引用古老的谚语'],
-      speech_style: '温和而有威严，喜欢使用敬语',
-    },
-    status: {
-      health: 80,
-      maxHealth: 80,
-      mood: 'neutral',
-      currentLocation: 'location_village_hall',
-      isAvailable: true,
-      isAlive: true,
-      schedule: [
-        {
-          id: 'schedule_001',
-          startTime: '06:00',
-          endTime: '08:00',
-          location: 'location_village_hall',
-          activity: '处理村务',
-          priority: 1,
-        },
-        {
-          id: 'schedule_002',
-          startTime: '08:00',
-          endTime: '12:00',
-          location: 'location_village_square',
-          activity: '巡视村庄',
-          priority: 2,
-        },
-      ],
-      currentActivity: '处理村务',
-      statusEffects: [],
-      customData: {},
-    },
-    stats: {
-      level: 10,
-      strength: 8,
-      dexterity: 6,
-      constitution: 10,
-      intelligence: 16,
-      wisdom: 18,
-      charisma: 14,
-      attack: 5,
-      defense: 8,
-      speed: 5,
-      customStats: {},
-    },
-    flags: {
-      isCompanion: false,
-      isMerchant: false,
-      isQuestGiver: true,
-      isRomanceable: false,
-      isEssential: true,
-      isHostile: false,
-      isInvulnerable: true,
-      canFollow: false,
-      canTrade: false,
-      canFight: false,
-      customFlags: {},
-    },
+    personality: mockNpcPersonality,
+    status: mockNpcStatus,
+    stats: mockNpcStats,
+    flags: mockNpcFlags,
     role: 'quest_giver',
     disposition: 'helpful',
     dialogue: {
-      greetings: ['欢迎来到绿野村，旅行者。', '啊，是新来的冒险者吗？'],
-      farewells: ['愿风指引你的道路。', '保重，朋友。'],
-      idle: ['最近边境不太平啊...', '希望今年的收成会好一些。'],
+      greetings: ['欢迎来到绿荫村，旅行者。', '有什么我可以帮助你的吗？'],
+      farewells: ['愿神明保佑你的旅程。', '随时欢迎回来。'],
+      idle: ['最近森林里的狼群越来越多了...', '希望今年能有个好收成。'],
       combat: [],
       custom: {
-        quest: ['关于边境的情况，我正要和你说...'],
+        quest: ['关于那些狼群...', '你愿意帮助我们吗？'],
       },
     },
     services: [],
     inventory: [],
-    quests: ['quest_001'],
-    relationships: {},
-    backstory: '托马斯曾是王国军队的一名军官，退役后回到家乡绿野村，被村民推选为村长。他用自己的军事经验保护村庄免受野兽和盗贼的侵扰。',
-    secrets: ['年轻时曾参与过一场秘密战役', '知道村庄附近某个古代遗迹的位置'],
+    quests: ['quest-001'],
+    relationships: { 'char-mock-001': mockNpcRelationships['npc-001'] },
+    backstory: '霍华德年轻时曾是一名冒险者，后来定居在这个村庄并成为了村长。他一直致力于保护村民的安全。',
+    secrets: ['年轻时曾是皇家骑士团的一员'],
     customData: {},
-    createdAt: now - 86400000 * 30,
-    updatedAt: now - 3600000,
+    createdAt: Date.now() - 2592000000,
+    updatedAt: Date.now() - 3600000,
   },
   {
-    id: 'npc_blacksmith',
-    saveId: 'save_001',
-    name: '格罗姆',
-    title: '铁匠',
-    race: '矮人',
+    id: 'npc-002',
+    saveId: 'save-mock-001',
+    name: '铁匠马库斯',
+    title: '绿荫村铁匠',
+    race: 'human',
     occupation: '铁匠',
     appearance: {
-      description: '一位身材矮壮的矮人，有着浓密的红胡子和粗壮的手臂，身上总是沾满煤灰。',
-      height: '矮小',
-      build: '结实',
-      hairColor: '红色',
+      description: '一个身材魁梧的中年男子，手臂上有着明显的肌肉线条',
+      height: '高大',
+      build: '健壮',
+      hairColor: '黑色',
       eyeColor: '深棕色',
-      distinguishingFeatures: ['左臂有一个烧伤的疤痕', '总是戴着皮围裙'],
-      imagePrompt: 'A sturdy dwarf blacksmith with thick red beard, muscular arms covered in coal dust, wearing leather apron',
+      distinguishingFeatures: ['右臂上有一个火焰纹身'],
+      imagePrompt: 'A muscular blacksmith with black hair, soot-stained apron, working at a forge, fantasy RPG style',
     },
     personality: {
-      traits: ['直率', '勤劳', '固执', '热心'],
-      values: ['工艺质量', '诚实', '友谊'],
-      fears: ['技艺失传', '锻造出劣质武器'],
-      desires: ['打造一把传奇武器', '收一个好徒弟'],
-      quirks: ['工作时喜欢哼小调', '对金属有独特的嗅觉'],
-      speech_style: '粗犷直接，偶尔夹杂矮人语',
+      traits: ['直率', '勤劳', '技艺精湛'],
+      values: ['工匠精神', '诚实', '质量'],
+      fears: ['技艺失传', '无法完成订单'],
+      desires: ['打造传世之作', '培养徒弟'],
+      quirks: ['工作时喜欢哼小曲', '对武器有独特的见解'],
+      speech_style: '直接、简洁',
     },
     status: {
-      health: 120,
-      maxHealth: 120,
-      mood: 'happy',
-      currentLocation: 'location_blacksmith_shop',
+      health: 100,
+      maxHealth: 100,
+      mood: 'neutral',
+      currentLocation: 'village_blacksmith',
       isAvailable: true,
       isAlive: true,
-      schedule: [
-        {
-          id: 'schedule_003',
-          startTime: '05:00',
-          endTime: '18:00',
-          location: 'location_blacksmith_shop',
-          activity: '锻造',
-          priority: 1,
-        },
-      ],
+      schedule: [],
       currentActivity: '锻造',
       statusEffects: [],
       customData: {},
     },
     stats: {
-      level: 8,
+      ...mockNpcStats,
       strength: 18,
-      dexterity: 10,
-      constitution: 16,
       intelligence: 12,
-      wisdom: 10,
-      charisma: 8,
-      attack: 15,
-      defense: 12,
-      speed: 6,
-      customStats: { crafting: 20 },
+      level: 8,
     },
     flags: {
-      isCompanion: false,
-      isMerchant: true,
+      ...mockNpcFlags,
       isQuestGiver: true,
-      isRomanceable: false,
+      isMerchant: true,
       isEssential: false,
-      isHostile: false,
-      isInvulnerable: false,
-      canFollow: false,
       canTrade: true,
-      canFight: true,
-      customFlags: {},
     },
     role: 'merchant',
-    disposition: 'helpful',
+    disposition: 'neutral',
     dialogue: {
-      greetings: ['哈！又一个需要武器的冒险者！', '欢迎来到我的铁匠铺！'],
-      farewells: ['下次再来，我给你打个折！', '愿你的剑永远锋利！'],
-      idle: ['这把剑还需要再打磨一下...', '铁矿石越来越难找了。'],
-      combat: ['尝尝我的锤子！', '没人能在我的铁匠铺撒野！'],
+      greetings: ['需要修理装备吗？', '看看有什么你需要的。'],
+      farewells: ['下次再来。', '愿你的剑永远锋利。'],
+      idle: ['这块铁还需要多打几遍...', '最近矿石质量越来越差了。'],
+      combat: [],
       custom: {
-        trade: ['看看这些宝贝，都是我亲手打造的！'],
-        quest: ['如果你能帮我找些铁矿石，我可以给你打造更好的装备。'],
+        trade: ['这是我的商品列表。', '好眼光，这是上等货。'],
       },
     },
-    services: ['weapon_repair', 'armor_repair', 'weapon_craft', 'armor_craft'],
-    inventory: ['item_weapon_001', 'item_weapon_002', 'item_armor_001', 'item_boots_001'],
-    quests: ['quest_002'],
-    relationships: {},
-    backstory: '格罗姆来自北方的矮人王国，年轻时曾是皇家铁匠。因为与王室发生争执而离开家乡，来到绿野村开设了自己的铁匠铺。',
-    secrets: ['知道如何锻造附魔武器的方法', '藏有一块罕见的陨铁'],
+    services: ['repair', 'craft', 'trade'],
+    inventory: ['item-weapon-001', 'item-armor-001'],
+    quests: ['quest-002'],
+    relationships: { 'char-mock-001': mockNpcRelationships['npc-002'] },
+    backstory: '马库斯从小跟随父亲学习锻造，后来成为了村里最好的铁匠。他的作品在附近几个村庄都很有名。',
+    secrets: ['其实他年轻时曾是皇家武器匠'],
     customData: {},
-    createdAt: now - 86400000 * 60,
-    updatedAt: now - 7200000,
+    createdAt: Date.now() - 2592000000,
+    updatedAt: Date.now() - 86400000,
   },
   {
-    id: 'npc_merchant',
-    saveId: 'save_001',
-    name: '莉娜',
-    title: '旅行商人',
-    race: '精灵',
-    occupation: '商人',
+    id: 'npc-003',
+    saveId: 'save-mock-001',
+    name: '旅店老板娘玛丽',
+    title: '绿荫村旅店老板',
+    race: 'human',
+    occupation: '旅店老板',
     appearance: {
-      description: '一位优雅的精灵女性，有着银白色的长发和碧绿的眼睛，穿着精致的旅行服装。',
-      height: '高挑',
-      build: '纤细',
-      hairColor: '银白',
-      eyeColor: '碧绿',
-      distinguishingFeatures: ['耳朵上戴着精致的银饰', '总是带着一个神秘的微笑'],
-      imagePrompt: 'An elegant elven merchant woman with silver hair and emerald eyes, wearing fine traveling clothes',
+      description: '一位和蔼可亲的中年女性，总是带着温暖的微笑',
+      height: '中等',
+      build: '丰满',
+      hairColor: '棕色',
+      eyeColor: '绿色',
+      distinguishingFeatures: ['脖子上戴着一条精致的项链'],
+      imagePrompt: 'A friendly middle-aged innkeeper woman with brown hair, warm smile, wearing an apron, fantasy RPG style',
     },
     personality: {
-      traits: ['精明', '优雅', '好奇', '神秘'],
-      values: ['知识', '财富', '自由'],
-      fears: ['被困在一个地方', '失去自由'],
-      desires: ['收集世界各地的珍奇物品', '探索未知的土地'],
-      quirks: ['喜欢收集各种小道消息', '说话时喜欢用谜语'],
-      speech_style: '优雅而神秘，喜欢用隐喻',
+      traits: ['热情', '健谈', '善良'],
+      values: ['家庭', '友情', '美食'],
+      fears: ['旅店生意不好', '儿子在外面出事'],
+      desires: ['旅店生意兴隆', '儿子平安归来'],
+      quirks: ['喜欢给客人推荐特色菜', '总是记得常客的喜好'],
+      speech_style: '亲切、热情',
     },
     status: {
-      health: 60,
-      maxHealth: 60,
-      mood: 'excited',
-      currentLocation: 'location_village_square',
+      health: 80,
+      maxHealth: 80,
+      mood: 'happy',
+      currentLocation: 'village_inn',
       isAvailable: true,
       isAlive: true,
       schedule: [],
-      currentActivity: '摆摊',
+      currentActivity: '招待客人',
       statusEffects: [],
       customData: {},
     },
     stats: {
-      level: 5,
-      strength: 6,
-      dexterity: 14,
-      constitution: 8,
-      intelligence: 16,
-      wisdom: 14,
+      ...mockNpcStats,
       charisma: 18,
-      attack: 3,
-      defense: 5,
-      speed: 12,
-      customStats: { barter: 15 },
+      strength: 8,
+      level: 5,
     },
     flags: {
-      isCompanion: false,
-      isMerchant: true,
+      ...mockNpcFlags,
       isQuestGiver: false,
-      isRomanceable: true,
+      isMerchant: true,
       isEssential: false,
-      isHostile: false,
-      isInvulnerable: false,
-      canFollow: false,
       canTrade: true,
-      canFight: false,
-      customFlags: {},
     },
     role: 'merchant',
     disposition: 'helpful',
     dialogue: {
-      greetings: ['啊，一位有趣的旅行者。', '看看我的商品吧，也许有你喜欢的东西。'],
-      farewells: ['愿星辰指引你的道路。', '下次再见，也许我会有新的宝贝。'],
-      idle: ['这个世界真大，还有那么多地方没去过...', '听说北方有座神秘的古城...'],
+      greetings: ['欢迎光临！需要住宿还是用餐？', '哎呀，又见面了！'],
+      farewells: ['欢迎下次再来！', '祝你旅途愉快！'],
+      idle: ['今天的炖肉特别香...', '最近客人越来越多了。'],
       combat: [],
       custom: {
-        trade: ['这些都是我从各地收集来的珍品。'],
-        gossip: ['你想知道些什么？我的消息可不便宜哦。'],
+        rest: ['需要休息吗？一晚只要 10 金币。', '房间已经为你准备好了。'],
       },
     },
-    services: ['trade', 'appraisal', 'information'],
-    inventory: ['item_potion_001', 'item_gem_001', 'item_ring_001'],
+    services: ['rest', 'food', 'drink'],
+    inventory: [],
     quests: [],
     relationships: {},
-    backstory: '莉娜是一位来自精灵王国的旅行商人，因为厌倦了精灵社会的刻板而选择流浪。她游历各地，收集珍奇物品和各种有趣的消息。',
-    secrets: ['实际上是精灵王国的逃亡公主', '知道一个通往异世界的秘密通道'],
+    backstory: '玛丽的丈夫几年前去世了，她独自经营着这家旅店。她的儿子现在是一名冒险者，正在远方旅行。',
+    secrets: ['她其实知道很多旅行者带来的秘密'],
     customData: {},
-    createdAt: now - 86400000 * 7,
-    updatedAt: now - 1800000,
+    createdAt: Date.now() - 2592000000,
+    updatedAt: Date.now() - 86400000,
   },
 ];
 
-export const mockNPCRelationships: Record<string, NPCRelationship> = {
-  'npc_village_head': {
-    characterId: 'char_001',
-    npcId: 'npc_village_head',
-    type: 'friendly',
-    level: 35,
-    trustLevel: 40,
-    respectLevel: 50,
-    affectionLevel: 20,
-    fearLevel: 0,
-    interactionCount: 5,
-    lastInteractionAt: now - 3600000,
-    firstMetAt: now - 86400000,
-    flags: {
-      met: true,
-      befriended: false,
-      romanced: false,
-      betrayed: false,
-      killed: false,
-      custom: {},
-    },
-    notes: ['村长似乎对边境的情况很担忧'],
-    customData: {},
-  },
-  'npc_blacksmith': {
-    characterId: 'char_001',
-    npcId: 'npc_blacksmith',
-    type: 'friendly',
-    level: 25,
-    trustLevel: 30,
-    respectLevel: 35,
-    affectionLevel: 15,
-    fearLevel: 0,
-    interactionCount: 8,
-    lastInteractionAt: now - 7200000,
-    firstMetAt: now - 86400000 * 3,
-    flags: {
-      met: true,
-      befriended: false,
-      romanced: false,
-      betrayed: false,
-      killed: false,
-      custom: {},
-    },
-    notes: ['格罗姆是个好铁匠，但需要铁矿石'],
-    customData: {},
-  },
-  'npc_merchant': {
-    characterId: 'char_001',
-    npcId: 'npc_merchant',
-    type: 'neutral',
-    level: 10,
-    trustLevel: 15,
-    respectLevel: 10,
-    affectionLevel: 5,
-    fearLevel: 0,
-    interactionCount: 2,
-    lastInteractionAt: now - 1800000,
-    firstMetAt: now - 86400000,
-    flags: {
-      met: true,
-      befriended: false,
-      romanced: false,
-      betrayed: false,
-      killed: false,
-      custom: {},
-    },
-    notes: ['莉娜是个神秘的商人，似乎知道很多秘密'],
-    customData: {},
-  },
-};
+// ==================== 模拟地图数据 ====================
 
-export const mockNPCState: NPCGameState = {
-  npcs: mockNPCs,
-  relationships: mockNPCRelationships,
-  partyMemberIds: [],
+const generateMockTiles = (): MapTile[][] => {
+  const tiles: MapTile[][] = [];
+  for (let y = 0; y < 15; y++) {
+    const row: MapTile[] = [];
+    for (let x = 0; x < 20; x++) {
+      // 创建一个简单的地图布局
+      let type = 'grass';
+      let walkable = true;
+
+      // 边界是墙
+      if (x === 0 || x === 19 || y === 0 || y === 14) {
+        type = 'wall';
+        walkable = false;
+      }
+      // 中心区域是村庄
+      else if (x >= 8 && x <= 11 && y >= 6 && y <= 8) {
+        type = 'village';
+      }
+      // 一些水域
+      else if (x >= 2 && x <= 4 && y >= 10 && y <= 12) {
+        type = 'water';
+        walkable = false;
+      }
+      // 森林区域
+      else if (x >= 14 && x <= 17 && y >= 2 && y <= 5) {
+        type = 'forest';
+      }
+      // 山地
+      else if (x >= 15 && x <= 18 && y >= 10 && y <= 13) {
+        type = 'mountain';
+        walkable = false;
+      }
+
+      row.push({
+        type,
+        walkable,
+        properties: {},
+      });
+    }
+    tiles.push(row);
+  }
+  return tiles;
 };
 
 export const mockMapLocations: MapLocation[] = [
   {
-    id: 'location_green_village',
-    name: '绿野村',
-    type: 'town',
-    position: { x: 100, y: 100 },
-    description: '一个宁静的小村庄，坐落在翠绿的平原上。村民们过着简单而幸福的生活。',
+    id: 'loc-001',
+    name: '绿荫村',
+    type: 'village',
+    position: { x: 9, y: 7 },
+    description: '一个宁静的小村庄，周围环绕着茂密的森林。',
     discovered: true,
   },
   {
-    id: 'location_village_hall',
-    name: '村政厅',
+    id: 'loc-002',
+    name: '村长家',
     type: 'building',
-    position: { x: 105, y: 102 },
-    description: '村庄的中心建筑，村长托马斯在这里处理村务。',
+    position: { x: 10, y: 6 },
+    description: '村长霍华德的住所，也是村庄的行政中心。',
     discovered: true,
   },
   {
-    id: 'location_blacksmith_shop',
+    id: 'loc-003',
     name: '铁匠铺',
     type: 'building',
-    position: { x: 98, y: 105 },
-    description: '格罗姆的铁匠铺，炉火日夜不息，锤声不绝于耳。',
+    position: { x: 8, y: 7 },
+    description: '马库斯的铁匠铺，可以修理和购买装备。',
     discovered: true,
   },
   {
-    id: 'location_village_square',
-    name: '村庄广场',
-    type: 'landmark',
-    position: { x: 100, y: 100 },
-    description: '村庄的中心广场，商人们在这里摆摊，村民们在这里交流。',
+    id: 'loc-004',
+    name: '旅店',
+    type: 'building',
+    position: { x: 11, y: 7 },
+    description: '玛丽经营的旅店，提供住宿和餐饮服务。',
     discovered: true,
   },
   {
-    id: 'location_mystery_forest',
-    name: '神秘森林',
-    type: 'wilderness',
-    position: { x: 150, y: 80 },
-    description: '一片古老的森林，据说深处隐藏着某种秘密。',
+    id: 'loc-005',
+    name: '东部森林',
+    type: 'forest',
+    position: { x: 16, y: 3 },
+    description: '一片茂密的森林，据说有狼群出没。',
+    discovered: true,
+  },
+  {
+    id: 'loc-006',
+    name: '小湖',
+    type: 'water',
+    position: { x: 3, y: 11 },
+    description: '一个清澈的小湖，适合钓鱼。',
+    discovered: true,
+  },
+  {
+    id: 'loc-007',
+    name: '矿山',
+    type: 'mountain',
+    position: { x: 17, y: 12 },
+    description: '一座废弃的矿山，传说深处有宝藏。',
     discovered: false,
   },
+];
+
+export const mockMapConnections: MapConnection[] = [
+  { from: 'loc-001', to: 'loc-002', type: 'bidirectional' },
+  { from: 'loc-001', to: 'loc-003', type: 'bidirectional' },
+  { from: 'loc-001', to: 'loc-004', type: 'bidirectional' },
+  { from: 'loc-001', to: 'loc-005', type: 'bidirectional' },
+  { from: 'loc-001', to: 'loc-006', type: 'bidirectional' },
+  { from: 'loc-005', to: 'loc-007', type: 'oneway', requirements: ['quest-001'] },
+];
+
+export const mockMapEncounters: MapEncounter[] = [
   {
-    id: 'location_iron_mine',
-    name: '铁矿洞',
-    type: 'dungeon',
-    position: { x: 80, y: 130 },
-    description: '一个废弃的铁矿洞，现在偶尔还有矿工来采集矿石。',
-    discovered: true,
+    id: 'encounter-001',
+    type: 'combat',
+    position: { x: 16, y: 3 },
+    trigger: 'random',
+    probability: 0.3,
+    data: {
+      enemies: ['wolf', 'wolf'],
+      minLevel: 3,
+      maxLevel: 5,
+    },
+  },
+  {
+    id: 'encounter-002',
+    type: 'treasure',
+    position: { x: 17, y: 12 },
+    trigger: 'interact',
+    probability: 1,
+    data: {
+      items: ['item-ring-001'],
+      gold: 100,
+    },
+  },
+];
+
+export const mockMapItems: MapItem[] = [
+  {
+    itemId: 'item-material-001',
+    position: { x: 15, y: 4 },
+    quantity: 3,
+    hidden: false,
+  },
+  {
+    itemId: 'item-potion-001',
+    position: { x: 4, y: 10 },
+    quantity: 2,
+    hidden: true,
   },
 ];
 
 export const mockGameMap: GameMap = {
-  id: 'map_001',
-  name: '绿野平原',
-  description: '一片广阔的平原，散布着小村庄和农田，远处是连绵的山脉。',
+  id: 'map-001',
+  name: '绿荫村及周边',
+  description: '一个宁静的小村庄，周围环绕着森林、湖泊和山脉。',
   type: 'overworld',
-  size: { width: 200, height: 200 },
-  tiles: [],
+  size: {
+    width: 20,
+    height: 15,
+  },
+  tiles: generateMockTiles(),
   locations: mockMapLocations,
-  connections: [
-    { from: 'location_green_village', to: 'location_village_hall', type: 'bidirectional' },
-    { from: 'location_green_village', to: 'location_blacksmith_shop', type: 'bidirectional' },
-    { from: 'location_green_village', to: 'location_village_square', type: 'bidirectional' },
-    { from: 'location_green_village', to: 'location_iron_mine', type: 'bidirectional' },
-    { from: 'location_green_village', to: 'location_mystery_forest', type: 'bidirectional' },
-  ],
-  encounters: [
-    {
-      id: 'encounter_001',
-      type: 'combat',
-      position: { x: 120, y: 90 },
-      trigger: 'random',
-      probability: 0.2,
-      data: { enemies: ['goblin', 'wolf'] },
+  connections: mockMapConnections,
+  encounters: mockMapEncounters,
+  npcs: ['npc-001', 'npc-002', 'npc-003'],
+  items: mockMapItems,
+};
+
+// ==================== 模拟战斗数据 ====================
+
+export const mockCombatUnitStats: CombatUnitStats = {
+  maxHp: 120,
+  currentHp: 95,
+  maxMp: 40,
+  currentMp: 35,
+  attack: 25,
+  defense: 18,
+  speed: 10,
+  luck: 5,
+};
+
+export const mockCombatUnits: CombatUnit[] = [
+  {
+    id: 'char-mock-001',
+    name: '艾瑞克',
+    type: 'player',
+    level: 5,
+    stats: mockCombatUnitStats,
+    skills: ['skill-001', 'skill-002', 'skill-003'],
+    statusEffects: [],
+    isDefending: false,
+    isAlive: true,
+    position: { x: 2, y: 2 },
+  },
+  {
+    id: 'enemy-001',
+    name: '森林狼',
+    type: 'enemy',
+    level: 4,
+    stats: {
+      maxHp: 60,
+      currentHp: 60,
+      maxMp: 0,
+      currentMp: 0,
+      attack: 18,
+      defense: 8,
+      speed: 12,
+      luck: 3,
     },
-  ],
-  npcs: ['npc_village_head', 'npc_blacksmith', 'npc_merchant'],
-  items: [],
-};
-
-export const mockMapState: MapGameState = {
-  currentMapId: 'map_001',
-  currentLocationId: 'location_green_village',
-  visitedLocations: [
-    'location_green_village',
-    'location_village_hall',
-    'location_blacksmith_shop',
-    'location_village_square',
-    'location_iron_mine',
-  ],
-  discoveredAreas: ['location_green_village', 'location_iron_mine'],
-  mapData: mockGameMap,
-};
-
-export const mockJournalEntries: JournalEntry[] = [
-  {
-    id: 'journal_001',
-    timestamp: now - 86400000,
-    type: 'story',
-    title: '旅程的开始',
-    content: '我离开了熟悉的边境哨所，踏上了前往绿野村的旅程。村长托马斯应该能给我一些建议。',
-    tags: ['主线', '开始'],
-    relatedQuestId: 'quest_001',
+    skills: ['bite', 'howl'],
+    statusEffects: [],
+    isDefending: false,
+    isAlive: true,
+    position: { x: 4, y: 3 },
   },
   {
-    id: 'journal_002',
-    timestamp: now - 7200000,
-    type: 'dialogue',
-    title: '与格罗姆的对话',
-    content: '铁匠格罗姆需要铁矿石来修理村民的工具。我答应帮他收集一些。他说附近有个废弃的铁矿洞。',
-    tags: ['支线', '铁匠'],
-    relatedQuestId: 'quest_002',
-    relatedNpcId: 'npc_blacksmith',
-  },
-  {
-    id: 'journal_003',
-    timestamp: now - 3600000,
-    type: 'discovery',
-    title: '发现铁矿洞',
-    content: '在村庄西北方向发现了一个废弃的铁矿洞。洞口有些坍塌，但应该还能进去。我在里面找到了一些铁矿石。',
-    tags: ['探索', '资源'],
-    relatedLocationId: 'location_iron_mine',
-  },
-  {
-    id: 'journal_004',
-    timestamp: now - 1800000,
-    type: 'combat',
-    title: '遭遇野狼',
-    content: '在前往铁矿洞的路上遭遇了一群野狼。经过一番激战，我成功击退了它们，但也受了一些轻伤。',
-    tags: ['战斗', '野兽'],
-  },
-  {
-    id: 'journal_005',
-    timestamp: now - 900000,
-    type: 'system',
-    title: '等级提升',
-    content: '经过不断的历练，我的实力有所提升。等级从4级提升到了5级！',
-    tags: ['系统', '成长'],
+    id: 'enemy-002',
+    name: '森林狼',
+    type: 'enemy',
+    level: 3,
+    stats: {
+      maxHp: 50,
+      currentHp: 50,
+      maxMp: 0,
+      currentMp: 0,
+      attack: 15,
+      defense: 6,
+      speed: 11,
+      luck: 2,
+    },
+    skills: ['bite'],
+    statusEffects: [],
+    isDefending: false,
+    isAlive: true,
+    position: { x: 5, y: 2 },
   },
 ];
 
+export const mockCombatActions: CombatAction[] = [
+  {
+    id: 'action-001',
+    actorId: 'char-mock-001',
+    type: ActionType.ATTACK,
+    targetId: 'enemy-001',
+    damage: 22,
+    success: true,
+    message: '艾瑞克 攻击了 森林狼，造成 22 点伤害！',
+    timestamp: Date.now() - 60000,
+  },
+  {
+    id: 'action-002',
+    actorId: 'enemy-001',
+    type: ActionType.ATTACK,
+    targetId: 'char-mock-001',
+    damage: 12,
+    success: true,
+    message: '森林狼 咬伤了 艾瑞克，造成 12 点伤害！',
+    timestamp: Date.now() - 55000,
+  },
+  {
+    id: 'action-003',
+    actorId: 'enemy-002',
+    type: ActionType.ATTACK,
+    targetId: 'char-mock-001',
+    damage: 8,
+    success: true,
+    message: '森林狼 攻击了 艾瑞克，造成 8 点伤害！',
+    timestamp: Date.now() - 50000,
+  },
+  {
+    id: 'action-004',
+    actorId: 'char-mock-001',
+    type: ActionType.SKILL,
+    targetId: 'enemy-001',
+    skillId: 'skill-001',
+    damage: 35,
+    success: true,
+    message: '艾瑞克 使用了 猛击，对 森林狼 造成 35 点伤害！',
+    timestamp: Date.now() - 45000,
+  },
+];
+
+export const mockCombatInstance: CombatInstanceData = {
+  id: 'combat-mock-001',
+  state: CombatState.IN_PROGRESS,
+  difficulty: CombatDifficulty.NORMAL,
+  turnOrder: ['char-mock-001', 'enemy-001', 'enemy-002'],
+  currentTurnIndex: 0,
+  turnNumber: 2,
+  units: mockCombatUnits.map((unit) => [unit.id, unit]),
+  turnHistory: [
+    {
+      turnNumber: 1,
+      phase: 'player',
+      actions: mockCombatActions.slice(0, 1),
+      timestamp: Date.now() - 60000,
+    },
+    {
+      turnNumber: 1,
+      phase: 'enemy',
+      actions: mockCombatActions.slice(1, 3),
+      timestamp: Date.now() - 55000,
+    },
+  ],
+  startTime: Date.now() - 120000,
+  environment: {
+    terrain: 'forest',
+    weather: 'clear',
+    modifiers: { speed: -1 },
+  },
+};
+
+// ==================== 模拟状态效果 ====================
+
+export const mockStatusEffects: StatusEffect[] = [
+  {
+    id: 'status-001',
+    name: '攻击提升',
+    type: 'buff',
+    duration: 3,
+    remainingTurns: 2,
+    effects: [
+      { attribute: 'attack', modifier: 10, type: 'flat' },
+    ],
+  },
+  {
+    id: 'status-002',
+    name: '中毒',
+    type: 'debuff',
+    duration: 5,
+    remainingTurns: 3,
+    effects: [
+      { attribute: 'currentHp', modifier: -5, type: 'flat' },
+    ],
+  },
+];
+
+// ==================== 模拟全局上下文 ====================
+
+export const mockGlobalContext: GlobalContext = {
+  player: {
+    id: 'char-mock-001',
+    name: '艾瑞克',
+    race: 'human',
+    class: 'warrior',
+    background: 'soldier',
+    level: 5,
+    experience: 1250,
+    attributes: {
+      strength: 16,
+      dexterity: 12,
+      constitution: 14,
+      intelligence: 10,
+      wisdom: 8,
+      charisma: 10,
+    },
+    health: 95,
+    maxHealth: 120,
+    mana: 35,
+    maxMana: 40,
+    location: '绿荫村',
+  },
+  world: {
+    id: 'world-001',
+    name: '艾尔德兰大陆',
+    currentTime: Date.now(),
+    weather: '晴朗',
+    exploredAreas: ['绿荫村', '东部森林', '小湖'],
+    worldState: {
+      dayCount: 7,
+      season: 'spring',
+    },
+  },
+  combat: null,
+  inventory: {
+    items: mockInventoryItems,
+    equipment: mockEquipmentState as unknown as Record<string, unknown>,
+    currency: { gold: 500, silver: 250 },
+  },
+  quests: {
+    active: mockQuests.filter((q) => q.status === 'in_progress').map((q) => q.id),
+    completed: mockQuests.filter((q) => q.status === 'completed').map((q) => q.id),
+    failed: [],
+  },
+  npcs: {
+    met: mockNPCs.map((npc) => npc.id),
+    relationships: Object.fromEntries(
+      Object.entries(mockNpcRelationships).map(([id, rel]) => [id, rel.level])
+    ),
+    party: [],
+  },
+  story: {
+    currentNode: 'node-001',
+    choices: [],
+    plotPoints: [],
+  },
+  dialogue: {
+    history: [],
+    currentNpc: undefined,
+  },
+  metadata: {
+    createdAt: Date.now() - 259200000,
+    updatedAt: Date.now() - 3600,
+    saveVersion: '1.0.0',
+    templateId: 'template-fantasy-001',
+    gameMode: 'turn_based_rpg',
+  },
+};
+
+// ==================== 模拟对话选项 ====================
+
+export const mockDialogueOptions: DialogueOption[] = [
+  { id: 'opt-001', text: '询问关于狼群的情况', type: 'normal' },
+  { id: 'opt-002', text: '接受任务', type: 'quest' },
+  { id: 'opt-003', text: '拒绝任务', type: 'normal' },
+  { id: 'opt-004', text: '询问其他村民的看法', type: 'normal' },
+  { id: 'opt-005', text: '离开', type: 'system' },
+];
+
+// ==================== 模拟日志数据 ====================
+
+export interface JournalEntry {
+  id: string;
+  timestamp: number;
+  type: 'quest' | 'combat' | 'exploration' | 'dialogue' | 'system';
+  content: string;
+  relatedId?: string;
+}
+
+export const mockJournalEntries: JournalEntry[] = [
+  {
+    id: 'journal-001',
+    timestamp: Date.now() - 86400000,
+    type: 'quest',
+    content: '接受了村长的委托，前往东部森林清除狼群',
+    relatedId: 'quest-001',
+  },
+  {
+    id: 'journal-002',
+    timestamp: Date.now() - 43200000,
+    type: 'exploration',
+    content: '进入了东部森林，发现了狼群的踪迹',
+  },
+  {
+    id: 'journal-003',
+    timestamp: Date.now() - 3600000,
+    type: 'combat',
+    content: '与森林狼战斗，击败了 2 只狼',
+  },
+  {
+    id: 'journal-004',
+    timestamp: Date.now() - 172800000,
+    type: 'quest',
+    content: '帮助铁匠收集了 10 个铁矿石',
+    relatedId: 'quest-002',
+  },
+  {
+    id: 'journal-005',
+    timestamp: Date.now() - 259200000,
+    type: 'exploration',
+    content: '发现了神秘洞穴的入口',
+  },
+  {
+    id: 'journal-006',
+    timestamp: Date.now() - 259200000,
+    type: 'combat',
+    content: '击败了洞穴深处的怪物，找到了宝藏',
+  },
+  {
+    id: 'journal-007',
+    timestamp: Date.now() - 259200000,
+    type: 'quest',
+    content: '完成了洞穴探险任务',
+    relatedId: 'quest-003',
+  },
+  {
+    id: 'journal-008',
+    timestamp: Date.now() - 7200000,
+    type: 'dialogue',
+    content: '与村长霍华德交谈，了解了更多关于村庄的历史',
+    relatedId: 'npc-001',
+  },
+];
+
+// ==================== 动态 UI 数据 ====================
+
+export interface DynamicUIData {
+  id: string;
+  markdown: string;
+  context?: Record<string, unknown>;
+}
+
 export const mockDynamicUI: DynamicUIData = {
-  id: 'dynamic_ui_001',
-  type: 'welcome',
+  id: 'dynamic-ui-mock',
   markdown: `:::system-notify{type=welcome}
-## 🌟 欢迎来到绿野平原
+## 🌟 欢迎来到绿荫村
 
 **艾瑞克**，你的冒险即将开始！
 
----
-
-### 角色信息
-| 属性 | 值 |
-|------|-----|
-| 种族 | 人类 |
-| 职业 | 战士 |
-| 等级 | 5 |
-| 背景 | 前王国骑士 |
-
-### 当前状态
-- 💰 金币: 325
-- 📦 物品: 6 种
-- ⚔️ 技能: 6 个
-- 📜 任务: 2 个进行中
-
----
-
-> 你曾是王国骑士团的一员，在一次边境冲突中因违抗上级命令保护平民而被逐出骑士团。现在作为一名冒险者游历大陆，寻找能够证明自己的机会。
+当前任务：拯救村庄
+- 前往村庄东边的森林
+- 击败森林中的狼群
+- 返回村长处报告
 
 :::options
-[开始冒险](action:start_game) [查看详情](action:view_details)
+[查看任务详情](action:view_quest)
+[打开地图](action:open_map)
+[继续探索](action:explore)
 :::
 :::`,
-  context: {
-    characterName: '艾瑞克',
-    location: '绿野村',
+  context: { characterId: 'char-mock-001', location: '绿荫村' },
+};
+
+// ==================== 完整模拟游戏状态 ====================
+
+export interface MockGameState {
+  character: Character;
+  skills: Skill[];
+  items: Item[];
+  equipment: EquipmentState;
+  inventory: InventoryItem[];
+  quests: Quest[];
+  npcs: NPC[];
+  npcRelationships: Record<string, NPCRelationship>;
+  map: GameMap;
+  combat: CombatInstanceData | null;
+  statusEffects: StatusEffect[];
+  globalContext: GlobalContext;
+  dialogueOptions: DialogueOption[];
+  journalEntries: JournalEntry[];
+  dynamicUI: DynamicUIData;
+}
+
+export const mockGameState: MockGameState = {
+  character: mockCharacter,
+  skills: mockSkills,
+  items: mockItems,
+  equipment: mockEquipmentState,
+  inventory: mockInventoryItems,
+  quests: mockQuests,
+  npcs: mockNPCs,
+  npcRelationships: mockNpcRelationships,
+  map: mockGameMap,
+  combat: null,
+  statusEffects: mockStatusEffects,
+  globalContext: mockGlobalContext,
+  dialogueOptions: mockDialogueOptions,
+  journalEntries: mockJournalEntries,
+  dynamicUI: mockDynamicUI,
+};
+
+// ==================== 边界情况数据 ====================
+
+/**
+ * 空数据状态，用于测试边界情况
+ */
+export const emptyMockData = {
+  character: null,
+  skills: [],
+  items: [],
+  equipment: {
+    weapon: undefined,
+    head: undefined,
+    body: undefined,
+    feet: undefined,
+    accessories: [],
   },
+  inventory: [],
+  quests: [],
+  npcs: [],
+  npcRelationships: {},
+  map: null,
+  combat: null,
+  statusEffects: [],
+  globalContext: null,
+  dialogueOptions: [],
+  journalEntries: [],
+};
+
+/**
+ * 异常数据状态，用于测试错误处理
+ */
+export const invalidMockData = {
+  character: {
+    id: '',
+    name: '',
+    race: 'invalid_race',
+    class: 'invalid_class',
+    level: -1,
+    experience: -100,
+    baseAttributes: {
+      strength: -5,
+      dexterity: 0,
+      constitution: 0,
+      intelligence: 0,
+      wisdom: 0,
+      charisma: 0,
+    },
+    derivedAttributes: {
+      maxHp: 0,
+      currentHp: -10,
+      maxMp: 0,
+      currentMp: 0,
+      attack: 0,
+      defense: 0,
+      speed: 0,
+      luck: 0,
+    },
+    skills: [],
+    equipment: {},
+    inventory: [],
+    currency: {},
+    statusEffects: [],
+    appearance: '',
+    personality: '',
+    backstory: '',
+    statistics: {
+      battlesWon: 0,
+      questsCompleted: 0,
+      distanceTraveled: 0,
+      itemsCrafted: 0,
+      npcsMet: 0,
+      playTime: 0,
+    },
+  },
+  skills: [],
+  items: [],
+  equipment: {},
+  inventory: [],
+  quests: [],
+  npcs: [],
+  npcRelationships: {},
+  map: null,
+  combat: null,
+  statusEffects: [],
+  globalContext: null,
+  dialogueOptions: [],
+  journalEntries: [],
 };

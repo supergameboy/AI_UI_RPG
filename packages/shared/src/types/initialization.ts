@@ -1,20 +1,30 @@
 import type { Character } from './character';
 import type { StoryTemplate, NPCDefinition, QuestDefinition } from './template';
-import type { Skill } from './skill';
-import type { Item } from './item';
-import type { Quest } from './quest';
-import type { NPC } from './npc';
-import type { GameMap, MapLocation } from './map';
+
+// ==================== Agent 初始化相关类型 ====================
 
 /**
- * Agent 初始化结果
- * 各 Agent 的 initialize 方法返回的统一格式
+ * 初始化上下文
+ * 传递给各 Agent 的 initialize 方法
  */
-export interface AgentInitializationResult {
-  success: boolean;
-  error?: string;
-  data?: Record<string, unknown>;
+export interface InitializationContext {
+  characterId: string;
+  saveId: string;
+  template: GameTemplate;
+  character: Character;
 }
+
+/**
+ * 初始化结果
+ * Agent initialize 方法的返回类型
+ */
+export interface InitializationResult {
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+}
+
+// ==================== 游戏模板类型 ====================
 
 /**
  * 游戏模板类型

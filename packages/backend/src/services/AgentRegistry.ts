@@ -213,7 +213,10 @@ export class AgentRegistry {
   private async doInitializeAll(): Promise<void> {
     const initPromises = Array.from(this.agents.values()).map(async (agent) => {
       try {
-        await agent.initialize();
+        // 调用 Agent 内部初始化方法
+        if (agent.initAgent) {
+          await agent.initAgent();
+        }
         gameLog.debug('agent', `Agent '${agent.id}' initialized`);
       } catch (error) {
         gameLog.error('agent', `Failed to initialize agent '${agent.id}'`, {

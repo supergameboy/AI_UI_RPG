@@ -1,12 +1,10 @@
 import type {
   ToolResponse,
   ToolCallContext,
-  GameState,
 } from '@ai-rpg/shared';
 import { ToolType } from '@ai-rpg/shared';
 import { ToolBase } from '../ToolBase';
 import { getUIService, UIState, UIInstruction, NotificationItem } from '../../services/UIService';
-import { getWebSocketService } from '../../services/WebSocketService';
 import { gameLog } from '../../services/GameLogService';
 
 /**
@@ -36,9 +34,6 @@ export class UIDataTool extends ToolBase {
     this.registerMethod('dismissNotification', '关闭通知', false, { saveId: 'string', characterId: 'string', notificationId: 'string' }, 'boolean');
     this.registerMethod('cacheComponent', '缓存组件', false, { componentId: 'string', type: 'string', props: 'Record<string, unknown>' }, 'UIComponent');
     this.registerMethod('invalidateComponent', '使缓存失效', false, { componentId: 'string' }, 'boolean');
-
-    // 统一游戏状态更新方法
-    this.registerMethod('updateGameState', '更新游戏状态，通过WebSocket推送到前端', false, { data: 'Partial<GameState>' }, 'void');
   }
 
   protected async executeMethod<T>(
@@ -165,9 +160,6 @@ export class UIDataTool extends ToolBase {
           this.logWriteOperation(method, params, context);
           break;
 
-        case 'updateGameState':
-          return this.handleUpdateGameState(params.data as Partial<GameState>, context);
-
         default:
           return this.createError<T>('METHOD_NOT_FOUND', `Method '${method}' not found in UIDataTool`);
       }
@@ -191,35 +183,5 @@ export class UIDataTool extends ToolBase {
       permission: context.permission,
       paramsKeys: Object.keys(params),
     });
-  }
-
-  private async handleUpdateGameState<T>(
-    data: Partial<GameState>,
-    context: ToolCallContext
-  ): Promise<ToolResponse<T>> {
-    try {
-      const webSocketService = getWebSocketService();
-
-      gameLog.info('backend', 'UIDataTool.updateGameState: 推送游戏状态更新', {
-        agentId: context.agentId,
-        requestId: context.requestId,
-        updateKeys: Object.keys(data),
-      });
-
-      webSocketService.broadcast({
-        type: 'game_state_update',
-        payload: data,
-        timestamp: Date.now(),
-      });
-
-      return this.createSuccess<T>(undefined as T);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      gameLog.error('backend', 'UIDataTool.updateGameState error', {
-        error: errorMessage,
-        agentId: context.agentId,
-      });
-      return this.createError<T>('EXECUTION_ERROR', errorMessage, { method: 'updateGameState' });
-    }
   }
 }

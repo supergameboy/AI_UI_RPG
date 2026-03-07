@@ -2,248 +2,204 @@ import React, { useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import type { DynamicUIAction } from './dynamic-ui/types';
+import { preprocessMarkdown, parseAttrs } from './dynamic-ui/utils';
+
+// 动态 UI 组件
+import { OptionsComponent } from './dynamic-ui/OptionsComponent';
+import { ProgressComponent } from './dynamic-ui/ProgressComponent';
+import { TabsComponent } from './dynamic-ui/TabsComponent';
+import { SystemNotifyComponent } from './dynamic-ui/SystemNotifyComponent';
+import { BadgeComponent } from './dynamic-ui/BadgeComponent';
+import { TooltipComponent } from './dynamic-ui/TooltipComponent';
+import { ConditionalComponent } from './dynamic-ui/ConditionalComponent';
+import { EnhancementComponent } from './dynamic-ui/EnhancementComponent';
+import { WarehouseComponent } from './dynamic-ui/WarehouseComponent';
+
 import styles from './MarkdownRenderer.module.css';
-import {
-  OptionsComponent,
-  ProgressComponent,
-  TabsComponent,
-  SystemNotifyComponent,
-  BadgeComponent,
-  TooltipComponent,
-  ConditionalComponent,
-  EnhancementComponent,
-  WarehouseComponent,
-} from './extensions';
-import type {
-  ExtensionComponentProps,
-  ProgressComponentProps,
-  SystemNotifyComponentProps,
-  BadgeComponentProps,
-} from './extensions';
 
 export interface MarkdownRendererProps {
   content: string;
-  onAction?: (action: string, data?: unknown) => void;
+  onAction?: (action: DynamicUIAction) => void;
+  className?: string;
+  /** 条件渲染的上下文数据 */
   context?: Record<string, unknown>;
 }
 
-interface CustomBlockProps extends ExtensionComponentProps {
-  type: string;
-  attributes?: Record<string, string>;
-  rawContent?: string;
-}
-
-const CustomBlock: React.FC<CustomBlockProps> = ({
-  type,
-  attributes = {},
-  rawContent = '',
-  onAction,
-  context,
-  children,
-}) => {
-  const commonProps = { onAction, context, children };
-
-  switch (type) {
-    case 'options':
-      return <OptionsComponent rawContent={rawContent} {...commonProps} />;
-    case 'progress':
-      return (
-        <ProgressComponent
-          value={parseFloat(attributes.value || '0')}
-          max={parseFloat(attributes.max || '100')}
-          label={attributes.label}
-          color={attributes.color as ProgressComponentProps['color']}
-          {...commonProps}
-        />
-      );
-    case 'tabs':
-      return (
-        <TabsComponent
-          rawContent={rawContent}
-          defaultTab={attributes.defaultTab}
-          {...commonProps}
-        />
-      );
-    case 'system-notify':
-      return (
-        <SystemNotifyComponent
-          type={attributes.type as SystemNotifyComponentProps['type']}
-          {...commonProps}
-        />
-      );
-    case 'badge':
-      return (
-        <BadgeComponent
-          color={attributes.color as BadgeComponentProps['color']}
-          {...commonProps}
-        />
-      );
-    case 'if':
-      return (
-        <ConditionalComponent
-          condition={attributes.condition || 'true'}
-          {...commonProps}
-        />
-      );
-    case 'enhancement':
-      return <EnhancementComponent {...commonProps} />;
-    case 'warehouse':
-      return <WarehouseComponent {...commonProps} />;
-    default:
-      return <div className={styles.customBlock}>{children}</div>;
-  }
-};
-
+/**
+ * Markdown 动态 UI 渲染器
+ * 
+ * 支持的扩展语法:
+ * - :::options{...} [选项文本](action:action-id) :::
+ * - :::progress{value=75 max=100 label="生命值"} :::
+ * - :::tabs{...} [标签名](tab:tab-id) 内容 :::
+ * - :::notify{type=welcome} 消息内容 :::
+ * - :::badge{type=rarity color=gold} 徽章文本 :::
+ * - [文本](tooltip:提示内容) - 内联悬浮提示
+ * - :::conditional{condition="hasItem:key"} 条件内容 :::
+ * - :::enhancement{...} 强化界面 :::
+ * - :::warehouse{...} 仓库界面 :::
+ */
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   onAction,
+  className,
   context = {},
 }) => {
+  // 预处理 Markdown 内容
   const processedContent = useMemo(() => {
-    let result = content;
-    
-    const blockRegex = /:::(\w+)(?:\{([^}]*)\})?\n([\s\S]*?)\n:::/g;
-    result = result.replace(blockRegex, (_match, type, attrsStr, innerContent) => {
-      const attributes: Record<string, string> = {};
-      if (attrsStr) {
-        const attrRegex = /(\w+)=(?:"([^"]*)"|(\S+))/g;
-        let attrMatch;
-        while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
-          attributes[attrMatch[1]] = attrMatch[2] || attrMatch[3];
+    return preprocessMarkdown(content);
+  }, [content]);
+
+  // 处理动作回调
+  const handleAction = useCallback((action: DynamicUIAction) => {
+    onAction?.(action);
+  }, [onAction]);
+
+  // 自定义组件映射
+  const components = useMemo(() => ({
+    div: ({ node, className: divClassName, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { node?: unknown }) => {
+      const classList = divClassName?.split(' ') || [];
+      
+      // 检查是否是动态 UI 组件
+      const dynamicUIClass = classList.find(c => c.startsWith('dynamic-ui-'));
+      
+      if (dynamicUIClass) {
+        const componentName = dynamicUIClass.replace('dynamic-ui-', '');
+        const attrsString = (props as React.HTMLAttributes<HTMLDivElement> & { 'data-attrs'?: string })['data-attrs'] || '';
+        const attrs = parseAttrs(attrsString);
+        const contentString = typeof children === 'string' ? children : '';
+        
+        // 根据组件名称渲染对应组件
+        switch (componentName) {
+          case 'options':
+            return (
+              <OptionsComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'progress':
+            return (
+              <ProgressComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'tabs':
+            return (
+              <TabsComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'notify':
+          case 'system-notify':
+            return (
+              <SystemNotifyComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'badge':
+            return (
+              <BadgeComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'tooltip':
+            return (
+              <TooltipComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'conditional':
+            return (
+              <ConditionalComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+                context={context}
+              />
+            );
+          case 'enhancement':
+            return (
+              <EnhancementComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          case 'warehouse':
+            return (
+              <WarehouseComponent
+                content={contentString}
+                attrs={attrs}
+                onAction={handleAction}
+              />
+            );
+          default:
+            // 未知组件，渲染为普通 div
+            return (
+              <div className={divClassName} {...props}>
+                {children}
+              </div>
+            );
         }
       }
       
-      const escapedContent = innerContent
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      
-      return `<div data-custom-block="true" data-block-type="${type}" data-attributes="${encodeURIComponent(JSON.stringify(attributes))}" data-raw-content="${encodeURIComponent(innerContent)}">${escapedContent}</div>`;
-    });
-
-    const actionLinkRegex = /\[([^\]]+)\]\(action:([^)\s]+)\)/g;
-    result = result.replace(actionLinkRegex, (_match, text, action) => {
-      return `<span data-action-link="true" data-action="${action}">${text}</span>`;
-    });
-
-    const tooltipLinkRegex = /\[([^\]]+)\]\(tooltip:([^)]+)\)/g;
-    result = result.replace(tooltipLinkRegex, (_match, text, tooltipText) => {
-      return `<span data-tooltip="true" data-tooltip-text="${tooltipText}">${text}</span>`;
-    });
-
-    return result;
-  }, [content]);
-
-  const handleActionClick = useCallback(
-    (action: string) => {
-      onAction?.(action, context);
+      // 普通 div
+      return (
+        <div className={divClassName} {...props}>
+          {children}
+        </div>
+      );
     },
-    [onAction, context]
-  );
-
-  const components = useMemo(
-    () => ({
-      div: ({ node, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { node?: { properties?: Record<string, unknown> } }) => {
-        const properties = node?.properties || {};
-        
-        if (properties['dataCustomBlock']) {
-          const blockType = properties['dataBlockType'] as string;
-          const attributes = properties['dataAttributes']
-            ? JSON.parse(decodeURIComponent(properties['dataAttributes'] as string))
-            : {};
-          const rawContent = properties['dataRawContent']
-            ? decodeURIComponent(properties['dataRawContent'] as string)
-            : '';
-          
-          return (
-            <CustomBlock
-              type={blockType}
-              attributes={attributes}
-              rawContent={rawContent}
-              onAction={onAction}
-              context={context}
-            >
-              {children}
-            </CustomBlock>
-          );
-        }
-        
-        return <div {...props}>{children}</div>;
-      },
-      span: ({ node, children, ...props }: React.HTMLAttributes<HTMLSpanElement> & { node?: { properties?: Record<string, unknown> } }) => {
-        const properties = node?.properties || {};
-        
-        if (properties['dataActionLink']) {
-          const action = properties['dataAction'] as string;
-          return (
-            <span
-              className={styles.actionLink}
-              onClick={() => handleActionClick(action)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleActionClick(action);
-                }
-              }}
-            >
-              {children}
-            </span>
-          );
-        }
-        
-        if (properties['dataTooltip']) {
-          const tooltipText = properties['dataTooltipText'] as string;
-          return (
-            <TooltipComponent tooltipText={tooltipText}>
-              <span className={styles.tooltipLink}>{children}</span>
-            </TooltipComponent>
-          );
-        }
-        
-        return <span {...props}>{children}</span>;
-      },
-      a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-        if (href?.startsWith('action:')) {
-          const action = href.slice(7);
-          return (
-            <span
-              className={styles.actionLink}
-              onClick={() => handleActionClick(action)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleActionClick(action);
-                }
-              }}
-            >
-              {children}
-            </span>
-          );
-        }
-        
-        if (href?.startsWith('tooltip:')) {
-          const tooltipText = href.slice(8);
-          return (
-            <TooltipComponent tooltipText={tooltipText}>
-              <span className={styles.tooltipLink}>{children}</span>
-            </TooltipComponent>
-          );
-        }
-        
+    // 处理内联 tooltip 链接
+    a: ({ node, href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => {
+      if (href?.startsWith('tooltip:')) {
+        const tooltipText = href.replace('tooltip:', '');
         return (
-          <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-            {children}
-          </a>
+          <TooltipComponent
+            content={typeof children === 'string' ? children : ''}
+            attrs={{ text: tooltipText }}
+            onAction={handleAction}
+          />
         );
-      },
-    }),
-    [onAction, context, handleActionClick]
-  );
+      }
+      
+      if (href?.startsWith('action:')) {
+        const actionId = href.replace('action:', '');
+        return (
+          <button
+            type="button"
+            className={styles.actionLink}
+            onClick={() => handleAction({ type: actionId })}
+          >
+            {children}
+          </button>
+        );
+      }
+      
+      // 普通链接
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+          {children}
+        </a>
+      );
+    },
+  }), [handleAction, context]);
 
   return (
-    <div className={styles.markdownRenderer}>
+    <div className={[styles.container, className].filter(Boolean).join(' ')}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
@@ -254,3 +210,5 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     </div>
   );
 };
+
+export default MarkdownRenderer;

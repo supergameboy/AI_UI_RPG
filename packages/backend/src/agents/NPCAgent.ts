@@ -5,9 +5,8 @@ import type {
   Message,
   AgentBinding,
   ToolType,
-  GameTemplate,
-  AgentInitializationResult,
-  Character,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
@@ -291,94 +290,206 @@ NPC标记：
   }
 
   /**
-   * 初始化 NPC
-   * 从模板的 initialNPCs 获取初始 NPC 列表
+   * 初始化方法
+   * 用于游戏开始时初始化 NPC
    */
-  async initialize(params: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<AgentInitializationResult> {
-    const { character, template } = params;
-    
+  async initialize(context: InitializationContext): Promise<InitializationResult> {
     try {
-      const initialNPCs = template.initialNPCs || [];
-      const createdNPCs: string[] = [];
-      const failedNPCs: string[] = [];
+      const { character, template } = context;
       
-      for (const npcDef of initialNPCs) {
-        const npcId = npcDef.id || this.generateNPCId();
-        const now = Date.now();
-        
-        const npc: NPCData = {
-          id: npcId,
-          name: npcDef.name,
-          title: npcDef.title,
-          race: 'human',
-          occupation: npcDef.role || 'commoner',
-          description: npcDef.description || '',
-          appearance: '',
-          backstory: '',
-          location: {
-            currentLocationId: 'start',
-            defaultLocationId: 'start',
-          },
-          flags: {
-            isCompanion: npcDef.role === 'ally',
-            isMerchant: npcDef.role === 'merchant',
-            isQuestGiver: npcDef.role === 'quest_giver',
-            isRomanceable: false,
-            isEssential: false,
-            isHostile: npcDef.role === 'enemy',
-          },
-          behavior: {
-            personality: npcDef.personality || '普通',
-            traits: [],
-            dialogueStyle: 'normal',
-            preferences: {
-              likes: [],
-              dislikes: [],
-              fears: [],
-            },
-          },
-          stats: npcDef.stats ? {
-            level: npcDef.stats.level || 1,
-            hp: npcDef.stats.hp || 100,
-            maxHp: npcDef.stats.hp || 100,
-            mp: 0,
-            maxMp: 0,
-            attack: npcDef.stats.attack || 0,
-            defense: npcDef.stats.defense || 0,
-          } : undefined,
-          tags: [],
-          createdAt: now,
-          updatedAt: now,
-        };
-        
-        this.npcState.npcs.set(npcId, npc);
-        createdNPCs.push(npcId);
+      const createdNPCs: string[] = [];
+      
+      // 1. 从模板获取初始 NPC
+      if (template.initialNPCs && template.initialNPCs.length > 0) {
+        for (const npcDef of template.initialNPCs) {
+          const npc = this.createNPCFromDefinition(npcDef);
+          if (npc) {
+            this.npcState.npcs.set(npc.id, npc);
+            // 初始化关系
+            const relationKey = `${character.id}_${npc.id}`;
+            this.npcState.relations.set(relationKey, this.createInitialRelation(npc.id, 'neutral', 0));
+            createdNPCs.push(npc.id);
+          }
+        }
+      }
+      
+      // 2. 从模板起始场景获取 NPC
+      if (template.startingScene?.npcs) {
+        for (const npcDef of template.startingScene.npcs) {
+          const npc = this.createNPCFromDefinition(npcDef);
+          if (npc) {
+            this.npcState.npcs.set(npc.id, npc);
+            // 初始化关系
+            const relationKey = `${character.id}_${npc.id}`;
+            this.npcState.relations.set(relationKey, this.createInitialRelation(npc.id, 'neutral', 0));
+            createdNPCs.push(npc.id);
+          }
+        }
+      }
+      
+      // 3. 如果没有模板 NPC，创建默认引导 NPC
+      if (createdNPCs.length === 0) {
+        const guideNPC = this.createDefaultGuideNPC(character);
+        if (guideNPC) {
+          this.npcState.npcs.set(guideNPC.id, guideNPC);
+          // 初始化关系（引导NPC有初始好感度）
+          const relationKey = `${character.id}_${guideNPC.id}`;
+          this.npcState.relations.set(relationKey, this.createInitialRelation(guideNPC.id, 'friendly', 10));
+          createdNPCs.push(guideNPC.id);
+        }
       }
       
       this.addMemory(
-        `初始化NPC: ${character.name}, NPC数: ${createdNPCs.length}/${initialNPCs.length}`,
+        `Initialized NPCs for character: ${character.name}. NPCs: ${createdNPCs.length}`,
         'assistant',
         7,
-        { characterId: character.id, createdNPCs, failedNPCs }
+        { characterId: character.id, createdNPCs }
       );
       
       return {
         success: true,
         data: {
           createdNPCs,
-          failedNPCs,
-          npcCount: createdNPCs.length,
+          totalNPCs: createdNPCs.length,
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'NPC初始化失败',
+        error: error instanceof Error ? error.message : 'Unknown error during NPC initialization',
       };
     }
+  }
+
+  /**
+   * 创建初始关系
+   */
+  private createInitialRelation(npcId: string, type: NPCRelationType, affectionValue: number): NPCRelation {
+    const now = Date.now();
+    return {
+      npcId,
+      type,
+      affection: {
+        value: affectionValue,
+        level: this.getAffectionLevel(affectionValue),
+        history: [],
+      },
+      firstMet: now,
+      lastInteraction: now,
+      interactionCount: 0,
+    };
+  }
+
+  /**
+   * 根据定义创建 NPC
+   */
+  private createNPCFromDefinition(npcDef: { id: string; name: string; description?: string; role?: string; personality?: string; location?: string }): NPCData | null {
+    if (!npcDef.id || !npcDef.name) {
+      return null;
+    }
+    
+    return {
+      id: npcDef.id,
+      name: npcDef.name,
+      description: npcDef.description || npcDef.name,
+      race: 'human',
+      occupation: npcDef.role || 'civilian',
+      appearance: `${npcDef.name}的外表看起来很普通。`,
+      backstory: `一位${npcDef.role || '普通人'}，生活在这个世界中。`,
+      location: {
+        currentLocationId: npcDef.location || 'start',
+        defaultLocationId: npcDef.location || 'start',
+      },
+      flags: {
+        isCompanion: false,
+        isMerchant: npcDef.role === 'merchant',
+        isQuestGiver: npcDef.role === 'quest_giver',
+        isRomanceable: false,
+        isEssential: false,
+        isHostile: false,
+      },
+      behavior: {
+        personality: npcDef.personality || '友好，乐于助人',
+        traits: (npcDef.personality?.split(',') || ['友好', '乐于助人']).map(t => t.trim()),
+        dialogueStyle: 'normal',
+        preferences: {
+          likes: [],
+          dislikes: [],
+          fears: [],
+        },
+      },
+      stats: {
+        level: 1,
+        hp: 100,
+        maxHp: 100,
+      },
+      tags: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+  }
+
+  /**
+   * 创建默认引导 NPC
+   */
+  private createDefaultGuideNPC(character: { name: string; class: string }): NPCData {
+    const guideNames: Record<string, string> = {
+      'warrior': '老兵杰克',
+      'mage': '导师艾琳',
+      'rogue': '暗影大师',
+      'cleric': '神父托马斯',
+      'ranger': '猎人玛丽',
+      'paladin': '圣骑士队长',
+      'necromancer': '亡灵导师',
+      'bard': '吟游诗人艾伦',
+      'monk': '大师陈',
+      'druid': '德鲁伊长老',
+    };
+    
+    const guideName = guideNames[character.class] || '向导';
+    
+    return {
+      id: `guide_${character.class}`,
+      name: guideName,
+      title: '导师',
+      race: 'human',
+      occupation: '导师',
+      description: `一位经验丰富的${character.class === 'warrior' ? '战士' : character.class === 'mage' ? '法师' : '导师'}，将引导你开始冒险。`,
+      appearance: `${guideName}看起来经验丰富，眼神中透露着智慧。饱经风霜的面容，坚定的眼神。`,
+      backstory: '曾是冒险者，现在指导新人',
+      location: {
+        currentLocationId: 'start',
+        defaultLocationId: 'start',
+      },
+      flags: {
+        isCompanion: false,
+        isMerchant: false,
+        isQuestGiver: true,
+        isRomanceable: false,
+        isEssential: true,
+        isHostile: false,
+      },
+      behavior: {
+        personality: '耐心，智慧，友善',
+        traits: ['耐心', '智慧', '友善'],
+        dialogueStyle: 'helpful',
+        preferences: {
+          likes: ['帮助新人', '传授知识'],
+          dislikes: [],
+          fears: [],
+        },
+      },
+      stats: {
+        level: 10,
+        hp: 200,
+        maxHp: 200,
+        attack: 30,
+        defense: 20,
+      },
+      tags: ['guide', 'essential'],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
   }
 
   /**

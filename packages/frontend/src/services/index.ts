@@ -56,3 +56,6 @@ export type {
 
 export { initializationService } from './initializationService';
 export type { GetStatusResponse } from './initializationService';
+
+export { mockGameService, useMockGameData, mockDataGenerator } from './mockGameService';
+export type { MockGameService } from './mockGameService';

@@ -8,12 +8,12 @@ import type {
   UIInstruction,
   AgentBinding,
   ToolType,
-  GameTemplate,
-  AgentInitializationResult,
-  Character,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { getInitialItems, getInitialEquipment, getInitialGold } from '../data/initialData';
 
 // ==================== 类型定义 ====================
 
@@ -251,78 +251,249 @@ export class InventoryAgent extends AgentBase {
   }
 
   /**
-   * 初始化角色背包
-   * 优先使用 startingScene.items，其次使用 initialData.items[backgroundId]
+   * 初始化方法
+   * 用于游戏开始时为角色添加初始物品和装备
    */
-  async initialize(params: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<AgentInitializationResult> {
-    const { character, template } = params;
-    
+  async initialize(context: InitializationContext): Promise<InitializationResult> {
     try {
-      const backgroundId = character.backstory || 'commoner';
-      
-      const initialItems = template.startingScene?.items?.map(item => ({
-        itemId: item.id,
-        quantity: item.quantity || 1,
-      })) || template.initialData?.items?.[backgroundId] || [];
+      const { character, template } = context;
       
       const addedItems: Array<{ itemId: string; quantity: number }> = [];
-      const failedItems: string[] = [];
+      const equippedItems: Array<{ slot: string; itemId: string }> = [];
       
+      // 1. 获取背景初始物品
+      const initialItems = getInitialItems(character.backstory);
       for (const itemConfig of initialItems) {
-        const item = this.handleCreateItem({
-          name: itemConfig.itemId,
-          type: 'material',
-          rarity: 'common',
-          description: `初始物品: ${itemConfig.itemId}`,
-          stackable: true,
-          maxStack: 99,
-        });
-        
-        if (item.success && item.data) {
-          const itemData = item.data as { item: Item };
-          const addResult = this.handleAddItem({
-            item: itemData.item,
-            quantity: itemConfig.quantity,
-          });
-          
-          if (addResult.success) {
-            addedItems.push({ itemId: itemConfig.itemId, quantity: itemConfig.quantity });
-          } else {
-            failedItems.push(itemConfig.itemId);
-          }
-        } else {
-          failedItems.push(itemConfig.itemId);
+        const item = this.createItemFromId(itemConfig.itemId);
+        if (item) {
+          this.items.set(item.id, item);
+          this.addItemToInventory(item, itemConfig.quantity);
+          addedItems.push({ itemId: item.id, quantity: itemConfig.quantity });
         }
       }
       
-      const initialGold = template.initialData?.gold?.[backgroundId] || 100;
+      // 2. 获取模板中起始场景的物品
+      if (template.startingScene?.items) {
+        for (const itemDef of template.startingScene.items) {
+          const item = this.createItemFromDefinition(itemDef);
+          if (item) {
+            this.items.set(item.id, item);
+            const quantity = itemDef.quantity || 1;
+            this.addItemToInventory(item, quantity);
+            addedItems.push({ itemId: item.id, quantity });
+          }
+        }
+      }
+      
+      // 3. 获取职业初始装备
+      const initialEquipment = getInitialEquipment(character.class);
+      for (const [slot, itemId] of Object.entries(initialEquipment)) {
+        if (itemId) {
+          const item = this.createItemFromId(itemId);
+          if (item) {
+            this.items.set(item.id, item);
+            // 直接装备
+            const equipmentSlot = slot as EquipmentSlot;
+            this.inventoryState.equipment.set(equipmentSlot, {
+              itemId: item.id,
+              slot: equipmentSlot,
+              equippedAt: Date.now(),
+            });
+            equippedItems.push({ slot, itemId: item.id });
+          }
+        }
+      }
+      
+      // 4. 设置初始金币
+      const initialGold = getInitialGold(character.backstory);
       this.inventoryState.currency.gold = initialGold;
       
       this.addMemory(
-        `初始化角色背包: ${character.name}, 背景: ${backgroundId}, 物品: ${addedItems.length}/${initialItems.length}, 金币: ${initialGold}`,
+        `Initialized inventory for character: ${character.name}. Items: ${addedItems.length}, Equipment: ${equippedItems.length}, Gold: ${initialGold}`,
         'assistant',
         7,
-        { characterId: character.id, addedItems, failedItems, initialGold }
+        { characterId: character.id, addedItems, equippedItems, initialGold }
       );
       
       return {
         success: true,
         data: {
           addedItems,
-          failedItems,
+          equippedItems,
           initialGold,
-          backgroundId,
+          totalItems: addedItems.length,
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '背包初始化失败',
+        error: error instanceof Error ? error.message : 'Unknown error during inventory initialization',
       };
     }
+  }
+
+  /**
+   * 根据物品ID创建物品实例
+   */
+  private createItemFromId(itemId: string): Item | null {
+    // 物品模板数据
+    const itemTemplates: Record<string, Partial<Item>> = {
+      // 贵族物品
+      'gold_ring': { name: '金戒指', type: 'accessory', rarity: 'uncommon', stats: { charisma: 2 } },
+      'fine_clothes': { name: '精美服装', type: 'armor', rarity: 'common', stats: { defense: 2 } },
+      'signet_ring': { name: '印章戒指', type: 'accessory', rarity: 'rare', stats: { charisma: 3 } },
+      'noble_document': { name: '贵族文件', type: 'quest', rarity: 'common', stats: {} },
+      
+      // 平民物品
+      'simple_clothes': { name: '朴素服装', type: 'armor', rarity: 'common', stats: { defense: 1 } },
+      'bread': { name: '面包', type: 'consumable', rarity: 'common', stats: {}, effects: [{ type: 'healing', value: 10 }] },
+      'water_skin': { name: '水袋', type: 'consumable', rarity: 'common', stats: {} },
+      'tool_set': { name: '工具套装', type: 'material', rarity: 'common', stats: {} },
+      
+      // 商人物品
+      'merchant_clothes': { name: '商人服装', type: 'armor', rarity: 'common', stats: { defense: 2 } },
+      'trade_goods': { name: '贸易货物', type: 'material', rarity: 'common', stats: {} },
+      'merchant_ledger': { name: '商人账本', type: 'quest', rarity: 'common', stats: {} },
+      'traveler_pack': { name: '旅行背包', type: 'material', rarity: 'common', stats: {} },
+      
+      // 士兵物品
+      'military_uniform': { name: '军装', type: 'armor', rarity: 'common', stats: { defense: 3 } },
+      'rations': { name: '口粮', type: 'consumable', rarity: 'common', stats: {}, effects: [{ type: 'healing', value: 15 }] },
+      'whetstone': { name: '磨刀石', type: 'material', rarity: 'common', stats: {} },
+      'military_badge': { name: '军徽', type: 'quest', rarity: 'uncommon', stats: {} },
+      
+      // 学者物品
+      'scholar_robe': { name: '学者长袍', type: 'armor', rarity: 'common', stats: { defense: 1, intelligence: 1 } },
+      'book': { name: '书籍', type: 'material', rarity: 'common', stats: {} },
+      'ink_and_quill': { name: '笔墨', type: 'material', rarity: 'common', stats: {} },
+      'research_notes': { name: '研究笔记', type: 'quest', rarity: 'common', stats: {} },
+      
+      // 孤儿物品
+      'worn_clothes': { name: '破旧衣服', type: 'armor', rarity: 'common', stats: { defense: 1 } },
+      'lucky_charm': { name: '幸运护符', type: 'accessory', rarity: 'uncommon', stats: { luck: 2 } },
+      'stolen_loaf': { name: '偷来的面包', type: 'consumable', rarity: 'common', stats: {}, effects: [{ type: 'healing', value: 8 }] },
+      
+      // 罪犯物品
+      'dark_clothes': { name: '暗色服装', type: 'armor', rarity: 'common', stats: { defense: 2 } },
+      'lockpick_set': { name: '撬锁工具', type: 'material', rarity: 'uncommon', stats: {} },
+      'hidden_dagger': { name: '隐藏匕首', type: 'weapon', rarity: 'common', stats: { attack: 5 } },
+      'fake_documents': { name: '伪造文件', type: 'quest', rarity: 'common', stats: {} },
+      
+      // 工匠物品
+      'work_clothes': { name: '工作服', type: 'armor', rarity: 'common', stats: { defense: 2 } },
+      'crafting_tools': { name: '制作工具', type: 'material', rarity: 'common', stats: {} },
+      'raw_materials': { name: '原材料', type: 'material', rarity: 'common', stats: {} },
+      'guild_membership': { name: '公会会员证', type: 'quest', rarity: 'uncommon', stats: {} },
+      
+      // 侍从物品
+      'priest_vestments': { name: '祭司法衣', type: 'armor', rarity: 'common', stats: { defense: 1, wisdom: 1 } },
+      'prayer_book': { name: '祈祷书', type: 'material', rarity: 'common', stats: {} },
+      'incense': { name: '香', type: 'consumable', rarity: 'common', stats: {} },
+      'holy_symbol': { name: '圣徽', type: 'accessory', rarity: 'uncommon', stats: { wisdom: 2 } },
+      
+      // 外乡人物品
+      'traveler_clothes': { name: '旅行者服装', type: 'armor', rarity: 'common', stats: { defense: 2 } },
+      'hunting_trap': { name: '狩猎陷阱', type: 'material', rarity: 'common', stats: {} },
+      'herbalism_kit': { name: '草药工具包', type: 'material', rarity: 'common', stats: {} },
+      'regional_map': { name: '区域地图', type: 'material', rarity: 'common', stats: {} },
+      
+      // 基础装备
+      'iron_sword': { name: '铁剑', type: 'weapon', rarity: 'common', stats: { attack: 10 } },
+      'wooden_staff': { name: '木杖', type: 'weapon', rarity: 'common', stats: { attack: 6, intelligence: 1 } },
+      'dagger': { name: '匕首', type: 'weapon', rarity: 'common', stats: { attack: 6 } },
+      'mace': { name: '钉头锤', type: 'weapon', rarity: 'common', stats: { attack: 8 } },
+      'hunting_bow': { name: '猎弓', type: 'weapon', rarity: 'common', stats: { attack: 8 } },
+      'longsword': { name: '长剑', type: 'weapon', rarity: 'uncommon', stats: { attack: 12 } },
+      'death_staff': { name: '死亡法杖', type: 'weapon', rarity: 'uncommon', stats: { attack: 8, intelligence: 2 } },
+      'lute': { name: '鲁特琴', type: 'weapon', rarity: 'common', stats: { attack: 4, charisma: 2 } },
+      'quarterstaff': { name: '长棍', type: 'weapon', rarity: 'common', stats: { attack: 6 } },
+      'druid_staff': { name: '德鲁伊法杖', type: 'weapon', rarity: 'uncommon', stats: { attack: 7, wisdom: 2 } },
+      
+      'leather_armor': { name: '皮甲', type: 'armor', rarity: 'common', stats: { defense: 5 } },
+      'mage_robe': { name: '法师长袍', type: 'armor', rarity: 'common', stats: { defense: 2, intelligence: 1 } },
+      'leather_vest': { name: '皮背心', type: 'armor', rarity: 'common', stats: { defense: 4 } },
+      'priest_robe': { name: '祭司长袍', type: 'armor', rarity: 'common', stats: { defense: 2, wisdom: 1 } },
+      'hunter_gear': { name: '猎人装备', type: 'armor', rarity: 'common', stats: { defense: 4 } },
+      'chain_mail': { name: '锁子甲', type: 'armor', rarity: 'uncommon', stats: { defense: 8 } },
+      'dark_robe': { name: '暗色长袍', type: 'armor', rarity: 'common', stats: { defense: 2, intelligence: 1 } },
+      'performer_outfit': { name: '表演者服装', type: 'armor', rarity: 'common', stats: { defense: 2, charisma: 1 } },
+      'monk_robe': { name: '僧侣长袍', type: 'armor', rarity: 'common', stats: { defense: 2, dexterity: 1 } },
+      'nature_robe': { name: '自然长袍', type: 'armor', rarity: 'common', stats: { defense: 2, wisdom: 1 } },
+      
+      'iron_boots': { name: '铁靴', type: 'armor', rarity: 'common', stats: { defense: 2 } },
+      'soft_boots': { name: '软靴', type: 'armor', rarity: 'common', stats: { defense: 1, speed: 5 } },
+      'traveler_boots': { name: '旅行者靴子', type: 'armor', rarity: 'common', stats: { defense: 1, speed: 3 } },
+      'cloth_wraps': { name: '布绑腿', type: 'armor', rarity: 'common', stats: { defense: 1, dexterity: 1 } },
+      
+      'mana_crystal': { name: '魔力水晶', type: 'accessory', rarity: 'uncommon', stats: { intelligence: 2 } },
+      'divine_symbol': { name: '神圣徽记', type: 'accessory', rarity: 'uncommon', stats: { wisdom: 2 } },
+      'soul_gem': { name: '灵魂宝石', type: 'accessory', rarity: 'rare', stats: { intelligence: 3 } },
+      'lucky_coin': { name: '幸运硬币', type: 'accessory', rarity: 'uncommon', stats: { luck: 3 } },
+      'nature_amulet': { name: '自然护符', type: 'accessory', rarity: 'uncommon', stats: { wisdom: 2 } },
+      
+      'gold_coin': { name: '金币', type: 'misc', rarity: 'common', stats: {} },
+    };
+    
+    const template = itemTemplates[itemId];
+    if (!template) {
+      return null;
+    }
+    
+    return {
+      id: `${itemId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: template.name || itemId,
+      description: `${template.name || itemId} - 初始物品`,
+      type: template.type || 'misc',
+      rarity: template.rarity || 'common',
+      stats: template.stats || {},
+      effects: template.effects || [],
+      requirements: {},
+      value: {
+        buy: this.calculateItemValue(template.rarity || 'common'),
+        sell: Math.floor(this.calculateItemValue(template.rarity || 'common') * 0.5),
+        currency: 'gold',
+      },
+      stackable: template.type === 'consumable' || template.type === 'material',
+      maxStack: template.type === 'consumable' || template.type === 'material' ? 99 : 1,
+    };
+  }
+
+  /**
+   * 根据定义创建物品
+   */
+  private createItemFromDefinition(itemDef: { id: string; name: string; description?: string; type: string; rarity: string; stats?: Record<string, number>; effects?: { type: string; value: number }[]; quantity?: number }): Item | null {
+    return {
+      id: `${itemDef.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: itemDef.name,
+      description: itemDef.description || itemDef.name,
+      type: itemDef.type as Item['type'],
+      rarity: itemDef.rarity as Item['rarity'],
+      stats: itemDef.stats || {},
+      effects: itemDef.effects || [],
+      requirements: {},
+      value: {
+        buy: this.calculateItemValue(itemDef.rarity as Item['rarity']),
+        sell: Math.floor(this.calculateItemValue(itemDef.rarity as Item['rarity']) * 0.5),
+        currency: 'gold',
+      },
+      stackable: itemDef.type === 'consumable' || itemDef.type === 'material',
+      maxStack: itemDef.type === 'consumable' || itemDef.type === 'material' ? 99 : 1,
+    };
+  }
+
+  /**
+   * 计算物品价值
+   */
+  private calculateItemValue(rarity: Item['rarity']): number {
+    const values: Record<Item['rarity'], number> = {
+      common: 10,
+      uncommon: 50,
+      rare: 200,
+      epic: 800,
+      legendary: 3000,
+      unique: 10000,
+    };
+    return values[rarity] || 10;
   }
 
   /**

@@ -5,6 +5,8 @@ import type {
   UIInstruction,
   AgentBinding,
   ToolType,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
@@ -289,9 +291,15 @@ export class EventAgent extends AgentBase {
   /**
    * 初始化
    */
-  async initialize(): Promise<void> {
-    await super.initialize();
+  async initialize(_context: InitializationContext): Promise<InitializationResult> {
+    await super.initAgent();
     this.startRandomEventCheck();
+    return {
+      success: true,
+      data: {
+        initialized: true,
+      },
+    };
   }
 
   /**

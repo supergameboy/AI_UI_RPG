@@ -1,0 +1,238 @@
+.container {
+  margin: var(--spacing-md) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* 标签页 */
+.tabs {
+  display: flex;
+  background: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--spacing-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.tab.active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.tabLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.tabCount {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.tab.active .tabCount {
+  color: var(--color-primary-light);
+}
+
+/* 容量显示 */
+.capacity {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-tertiary);
+}
+
+.capacityBar {
+  height: 4px;
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--spacing-xs);
+}
+
+.capacityFill {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.capacityText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.tabCapacity {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.used {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 物品网格 */
+.itemGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+/* 物品格子 */
+.itemSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.itemSlot:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.itemSlot:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 稀有度边框 */
+.itemSlot.common {
+  border-color: rgba(156, 163, 175, 0.3);
+}
+
+.itemSlot.uncommon {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.itemSlot.rare {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.itemSlot.epic {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.itemSlot.legendary {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.itemIcon {
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: var(--spacing-xs);
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  text-align: center;
+}
+
+.itemName {
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.itemQty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-monospace);
+}
+
+.useButton {
+  margin-top: var(--spacing-xs);
+  padding: 2px 8px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.useButton:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* 操作按钮 */
+.actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-secondary);
+  border-top: 1px solid var(--color-border);
+}
+
+.actionButton {
+  flex: 1;
+  padding: var(--spacing-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.actionButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
+}

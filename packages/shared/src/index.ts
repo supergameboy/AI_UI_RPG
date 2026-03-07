@@ -25,4 +25,4 @@ export * from './types/decision-log';
 export * from './types/story';
 export * from './types/agent-output';
 export * from './types/initialization';
-export * from './types/game-state';
+export * from './types/gameState';

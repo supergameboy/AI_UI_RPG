@@ -7,11 +7,16 @@ import type {
   StatusEffect,
   AgentBinding,
   ToolType,
-  GameTemplate,
-  AgentInitializationResult,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import {
+  calculateInitialAttributes,
+  calculateInitialHP,
+  calculateInitialMP,
+} from '../data/initialData';
 
 // ==================== 类型定义 ====================
 
@@ -380,73 +385,73 @@ export class NumericalAgent extends AgentBase {
   }
 
   /**
-   * 初始化角色数值
-   * 从模板数据初始化角色的基础属性和派生属性
+   * 初始化方法
+   * 用于游戏开始时计算角色的初始属性值
    */
-  async initialize(params: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<AgentInitializationResult> {
-    const { character, template } = params;
-    
+  async initialize(context: InitializationContext): Promise<InitializationResult> {
     try {
-      const race = character.race;
-      const characterClass = character.class;
-      const level = character.level || 1;
-
-      const baseAttributes = this.handleCalculateBaseAttributes({
-        level,
-        race,
-        class: characterClass,
-      });
-
-      if (!baseAttributes.success || !baseAttributes.data) {
-        return {
-          success: false,
-          error: baseAttributes.error || '计算基础属性失败',
-        };
-      }
-
-      const baseData = baseAttributes.data as { attributes: Record<BaseAttributeName, number> };
+      const { character } = context;
       
-      const derivedResult = this.handleCalculateDerivedAttributes({
-        baseAttributes: baseData.attributes,
-        level,
-        buffs: [],
-      });
-
-      if (!derivedResult.success || !derivedResult.data) {
-        return {
-          success: false,
-          error: derivedResult.error || '计算派生属性失败',
-        };
-      }
-
-      const derivedData = derivedResult.data as { derivedAttributes: Record<DerivedAttributeName, number> };
-
-      const raceDef = template.characterCreation?.races?.find(r => r.id === race);
-      const classDef = template.characterCreation?.classes?.find(c => c.id === characterClass);
-
-      this.addMemory(
-        `初始化角色数值: ${character.name}, 职业: ${characterClass}, 种族: ${race}`,
-        'assistant',
-        8,
-        { characterId: character.id, baseAttributes: baseData.attributes, derivedAttributes: derivedData.derivedAttributes }
+      // 计算基础属性（基于种族、职业、背景）
+      const baseAttributes = calculateInitialAttributes(
+        character.race,
+        character.class,
+        character.backstory // 使用 backstory 作为 backgroundId
       );
-
+      
+      // 计算派生属性
+      const constitution = baseAttributes['constitution'] || 10;
+      const intelligence = baseAttributes['intelligence'] || 10;
+      const wisdom = baseAttributes['wisdom'] || 10;
+      
+      const maxHp = calculateInitialHP(character.class, constitution);
+      const maxMp = calculateInitialMP(character.class, intelligence, wisdom);
+      
+      // 注册角色到数值系统
+      this.characters.set(character.id, {
+        ...character,
+        baseAttributes: {
+          strength: baseAttributes['strength'] || 10,
+          dexterity: baseAttributes['dexterity'] || 10,
+          constitution: baseAttributes['constitution'] || 10,
+          intelligence: baseAttributes['intelligence'] || 10,
+          wisdom: baseAttributes['wisdom'] || 10,
+          charisma: baseAttributes['charisma'] || 10,
+        },
+        derivedAttributes: {
+          maxHp,
+          currentHp: maxHp,
+          maxMp,
+          currentMp: maxMp,
+          attack: Math.floor((baseAttributes['strength'] || 10) * 0.5 + (baseAttributes['dexterity'] || 10) * 0.3),
+          defense: Math.floor((baseAttributes['constitution'] || 10) * 0.5),
+          speed: 100 + Math.floor((baseAttributes['dexterity'] || 10) * 2),
+          luck: Math.floor((baseAttributes['charisma'] || 10) * 0.5),
+        },
+        statusEffects: [],
+      });
+      
+      this.addMemory(
+        `Initialized numerical data for character: ${character.name}`,
+        'assistant',
+        7,
+        { characterId: character.id, baseAttributes }
+      );
+      
       return {
         success: true,
         data: {
-          baseAttributes: baseData.attributes,
-          derivedAttributes: derivedData.derivedAttributes,
-          raceBonuses: raceDef?.bonuses || {},
-          classBonuses: classDef?.primaryAttributes || [],
+          baseAttributes,
+          derivedAttributes: {
+            maxHp,
+            maxMp,
+          },
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '数值初始化失败',
+        error: error instanceof Error ? error.message : 'Unknown error during numerical initialization',
       };
     }
   }

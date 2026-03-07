@@ -7,12 +7,10 @@ import type {
   MapConnection,
   MapEncounter,
   MapTile,
-  MapItem,
   AgentBinding,
   ToolType,
-  GameTemplate,
-  AgentInitializationResult,
-  Character,
+  InitializationContext,
+  InitializationResult,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
@@ -204,97 +202,128 @@ export class MapAgent extends AgentBase {
   }
 
   /**
-   * 初始化地图
-   * 从模板获取地图配置并初始化起始位置
+   * 初始化方法
+   * 用于游戏开始时初始化地图和起始位置
    */
-  async initialize(params: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<AgentInitializationResult> {
-    const { character, template } = params;
-    
+  async initialize(context: InitializationContext): Promise<InitializationResult> {
     try {
-      const startingScene = template.startingScene;
-      if (!startingScene) {
-        return {
-          success: false,
-          error: '模板缺少 startingScene 配置',
-        };
+      const { character, template } = context;
+      
+      const createdLocations: string[] = [];
+      
+      // 1. 从模板获取初始地图配置
+      if (template.startingScene) {
+        // 创建起始位置
+        const startingLocation = this.createStartingLocation(template.startingScene);
+        this.mapState.locations.set(startingLocation.id, startingLocation);
+        this.mapState.currentLocationId = startingLocation.id;
+        this.mapState.visitedLocations.add(startingLocation.id);
+        createdLocations.push(startingLocation.id);
       }
       
-      const mapItems: MapItem[] = (startingScene.items || []).map(item => ({
-        itemId: item.id,
-        position: { x: 50, y: 50 },
-        quantity: item.quantity || 1,
-        hidden: false,
-      }));
-      
-      const gameMap: GameMap = {
-        id: this.generateMapId(),
-        name: startingScene.location || '起始之地',
-        description: startingScene.description || '你的冒险从这里开始',
-        type: 'overworld',
-        size: { width: 100, height: 100 },
-        tiles: this.generateEmptyTiles({ width: 100, height: 100 }),
-        locations: [],
-        connections: [],
-        encounters: [],
-        npcs: (startingScene.npcs || []).map(n => n.id),
-        items: mapItems,
-      };
-      
-      this.mapState.currentMap = gameMap;
-      
-      const startingLocation: ExtendedLocation = {
-        id: 'start',
-        name: startingScene.location || '起始之地',
-        type: LocationType.VILLAGE,
-        position: { x: 50, y: 50 },
-        description: startingScene.description || '你的冒险从这里开始',
-        discovered: true,
-        isDiscovered: true,
-        isAccessible: true,
-        environment: this.generateEnvironment(LocationType.VILLAGE),
-        connections: [],
-        npcs: (startingScene.npcs || []).map(n => n.id),
-        items: (startingScene.items || []).map(i => i.id),
-        encounters: [],
-        dangerLevel: 1,
-        tags: ['starting', 'safe'],
-      };
-      
-      this.mapState.locations.set(startingLocation.id, startingLocation);
-      this.mapState.currentLocationId = startingLocation.id;
-      this.mapState.visitedLocations.add(startingLocation.id);
-      
-      this.mapState.lastUpdated = Date.now();
+      // 2. 如果没有模板配置，创建默认起始位置
+      if (createdLocations.length === 0) {
+        const defaultLocation = this.createDefaultStartingLocation(character);
+        this.mapState.locations.set(defaultLocation.id, defaultLocation);
+        this.mapState.currentLocationId = defaultLocation.id;
+        this.mapState.visitedLocations.add(defaultLocation.id);
+        createdLocations.push(defaultLocation.id);
+      }
       
       this.addMemory(
-        `初始化地图: ${character.name}, 起始位置: ${startingLocation.name}`,
+        `Initialized map for character: ${character.name}. Locations: ${createdLocations.length}`,
         'assistant',
-        8,
-        { 
-          characterId: character.id, 
-          mapId: gameMap.id, 
-          startingLocation: startingLocation.id,
-          totalLocations: this.mapState.locations.size,
-        }
+        7,
+        { characterId: character.id, createdLocations }
       );
       
       return {
         success: true,
         data: {
-          map: gameMap,
-          startingLocation,
-          totalLocations: this.mapState.locations.size,
+          createdLocations,
+          startingLocationId: this.mapState.currentLocationId,
+          totalLocations: createdLocations.length,
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '地图初始化失败',
+        error: error instanceof Error ? error.message : 'Unknown error during map initialization',
       };
     }
+  }
+
+  /**
+   * 创建起始位置
+   */
+  private createStartingLocation(sceneDef: { id?: string; name?: string; description?: string; type?: string }): ExtendedLocation {
+    return {
+      id: sceneDef.id || `start_${Date.now()}`,
+      name: sceneDef.name || '起始点',
+      description: sceneDef.description || '你的冒险从这里开始。',
+      type: (sceneDef.type as LocationType) || LocationType.VILLAGE,
+      position: { x: 0, y: 0 },
+      environment: {
+        timeOfDay: TimeOfDay.DAY,
+        weather: WeatherType.CLEAR,
+        atmosphere: AtmosphereType.PEACEFUL,
+        temperature: 20,
+        visibility: 100,
+      },
+      connections: [],
+      npcs: [],
+      items: [],
+      encounters: [],
+      isDiscovered: true,
+      discovered: true,
+      isAccessible: true,
+      dangerLevel: 0,
+      tags: ['starting', 'safe'],
+    };
+  }
+
+  /**
+   * 创建默认起始位置
+   */
+  private createDefaultStartingLocation(character: { name: string; class: string }): ExtendedLocation {
+    const startingLocations: Record<string, { name: string; description: string; type: LocationType }> = {
+      'warrior': { name: '训练营', description: '一个充满汗水与钢铁气息的训练场，战士们在这里磨练技艺。', type: LocationType.BUILDING },
+      'mage': { name: '法师塔大厅', description: '高耸的法师塔底层，空气中弥漫着魔力的气息。', type: LocationType.BUILDING },
+      'rogue': { name: '暗影小巷', description: '城市中隐秘的角落，阴影中似乎有人在注视着你。', type: LocationType.BUILDING },
+      'cleric': { name: '神殿入口', description: '神圣的光芒从神殿中透出，信徒们在此祈祷。', type: LocationType.BUILDING },
+      'ranger': { name: '森林边缘', description: '茂密的森林边缘，远处传来鸟鸣声。', type: LocationType.WILDERNESS },
+      'paladin': { name: '圣骑士大厅', description: '庄严的大厅，圣骑士们在此接受神圣使命。', type: LocationType.BUILDING },
+      'necromancer': { name: '废弃墓地', description: '荒凉的墓地，死亡的气息弥漫在空气中。', type: LocationType.WILDERNESS },
+      'bard': { name: '酒馆舞台', description: '热闹的酒馆，吟游诗人的歌声回荡。', type: LocationType.BUILDING },
+      'monk': { name: '寺院庭院', description: '宁静的寺院庭院，僧侣们在此修行。', type: LocationType.BUILDING },
+      'druid': { name: '神圣橡树', description: '古老的橡树下，自然的力量在此汇聚。', type: LocationType.WILDERNESS },
+    };
+    
+    const locationInfo = startingLocations[character.class] || { name: '村庄广场', description: '一个宁静的村庄广场，你的冒险从这里开始。', type: LocationType.VILLAGE };
+    
+    return {
+      id: `start_${character.class}_${Date.now()}`,
+      name: locationInfo.name,
+      description: locationInfo.description,
+      type: locationInfo.type,
+      position: { x: 0, y: 0 },
+      environment: {
+        timeOfDay: TimeOfDay.DAY,
+        weather: WeatherType.CLEAR,
+        atmosphere: AtmosphereType.PEACEFUL,
+        temperature: 20,
+        visibility: 100,
+      },
+      connections: [],
+      npcs: [],
+      items: [],
+      encounters: [],
+      isDiscovered: true,
+      discovered: true,
+      isAccessible: true,
+      dangerLevel: 0,
+      tags: ['starting', 'safe'],
+    };
   }
 
   /**

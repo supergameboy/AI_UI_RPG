@@ -9,9 +9,10 @@ import type {
   UIInstruction,
   AgentBinding,
   ToolType,
-  GameTemplate,
-  AgentInitializationResult,
-  Character,
+  InitializationContext,
+  InitializationResult,
+  QuestDefinition,
+  ObjectiveType,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
@@ -181,78 +182,155 @@ export class QuestAgent extends AgentBase {
   }
 
   /**
-   * 初始化角色任务
-   * 从模板的 initialQuests 获取初始任务列表
+   * 初始化方法
+   * 用于游戏开始时添加初始任务
    */
-  async initialize(params: {
-    character: Character;
-    template: GameTemplate;
-  }): Promise<AgentInitializationResult> {
-    const { character, template } = params;
-    
+  async initialize(context: InitializationContext): Promise<InitializationResult> {
     try {
-      const initialQuests = template.initialQuests || [];
-      const createdQuests: string[] = [];
-      const failedQuests: string[] = [];
+      const { character, template } = context;
       
-      for (const questDef of initialQuests) {
-        const quest: Quest = {
-          id: questDef.id,
-          name: questDef.name,
-          description: questDef.description,
-          type: questDef.type as QuestType,
-          status: 'in_progress',
-          objectives: questDef.objectives.map((obj, index) => ({
-            id: obj.id || `obj_${index}`,
-            description: obj.description,
-            type: obj.type as 'kill' | 'collect' | 'talk' | 'explore' | 'custom',
-            target: obj.target,
-            current: 0,
-            required: obj.required,
-            isCompleted: false,
-          })),
-          rewards: {
-            experience: typeof questDef.rewards?.find(r => r.type === 'experience')?.value === 'number' 
-              ? questDef.rewards.find(r => r.type === 'experience')!.value as number 
-              : 0,
-            currency: {},
-            items: questDef.rewards?.filter(r => r.type === 'item').map(r => ({
-              itemId: String(r.value),
-              quantity: r.quantity || 1,
-            })) || [],
-          },
-          prerequisites: [],
-          log: [{ timestamp: Date.now(), event: '任务开始' }],
-          createdAt: Math.floor(Date.now() / 1000),
-          updatedAt: Math.floor(Date.now() / 1000),
-        };
-        
-        this.quests.set(quest.id, quest);
-        this.activeQuests.add(quest.id);
-        createdQuests.push(quest.id);
+      const addedQuests: string[] = [];
+      
+      // 1. 从模板获取初始任务
+      if (template.initialQuests && template.initialQuests.length > 0) {
+        for (const questDef of template.initialQuests) {
+          const quest = this.createQuestFromDefinition(questDef);
+          if (quest) {
+            this.quests.set(quest.id, quest);
+            // 自动接受初始任务
+            this.activeQuests.add(quest.id);
+            addedQuests.push(quest.id);
+          }
+        }
+      }
+      
+      // 2. 如果没有模板任务，创建默认新手任务
+      if (addedQuests.length === 0) {
+        const defaultQuest = this.createDefaultStarterQuest(character);
+        if (defaultQuest) {
+          this.quests.set(defaultQuest.id, defaultQuest);
+          this.activeQuests.add(defaultQuest.id);
+          addedQuests.push(defaultQuest.id);
+        }
       }
       
       this.addMemory(
-        `初始化角色任务: ${character.name}, 任务数: ${createdQuests.length}/${initialQuests.length}`,
+        `Initialized quests for character: ${character.name}. Active quests: ${addedQuests.length}`,
         'assistant',
         7,
-        { characterId: character.id, createdQuests, failedQuests }
+        { characterId: character.id, addedQuests }
       );
       
       return {
         success: true,
         data: {
-          createdQuests,
-          failedQuests,
-          questCount: createdQuests.length,
+          addedQuests,
+          totalQuests: addedQuests.length,
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '任务初始化失败',
+        error: error instanceof Error ? error.message : 'Unknown error during quest initialization',
       };
     }
+  }
+
+  /**
+   * 根据定义创建任务
+   */
+  private createQuestFromDefinition(questDef: QuestDefinition): Quest | null {
+    if (!questDef.id || !questDef.name) {
+      return null;
+    }
+    
+    const objectives: QuestObjective[] = questDef.objectives.map((obj) => ({
+      id: obj.id,
+      description: obj.description,
+      type: obj.type as ObjectiveType,
+      target: obj.target,
+      current: 0,
+      required: obj.required,
+      isCompleted: false,
+    }));
+    
+    // 转换奖励格式
+    const rewards: QuestRewards = {
+      experience: 0,
+      currency: {},
+      items: [],
+    };
+    
+    if (questDef.rewards) {
+      for (const reward of questDef.rewards) {
+        if (reward.type === 'experience') {
+          rewards.experience = typeof reward.value === 'number' ? reward.value : parseInt(reward.value as string, 10) || 100;
+        } else if (reward.type === 'currency') {
+          rewards.currency = rewards.currency || {};
+          rewards.currency.gold = typeof reward.value === 'number' ? reward.value : parseInt(reward.value as string, 10) || 50;
+        } else if (reward.type === 'item' && typeof reward.value === 'string') {
+          rewards.items = rewards.items || [];
+          rewards.items.push({ itemId: reward.value, quantity: reward.quantity || 1 });
+        }
+      }
+    }
+    
+    return {
+      id: questDef.id,
+      name: questDef.name,
+      description: questDef.description,
+      type: questDef.type as Quest['type'],
+      status: 'available' as const,
+      objectives,
+      rewards,
+      prerequisites: [],
+      timeLimit: questDef.timeLimit,
+      log: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+  }
+
+  /**
+   * 创建默认新手任务
+   */
+  private createDefaultStarterQuest(character: { name: string; class: string }): Quest {
+    return {
+      id: 'starter_quest_001',
+      name: '初次冒险',
+      description: `欢迎来到这个世界，${character.name}！完成这个简单的任务来熟悉环境。`,
+      type: 'main',
+      status: 'in_progress' as const,
+      objectives: [
+        {
+          id: 'starter_quest_001_obj_0',
+          description: '探索起始区域',
+          type: 'explore' as const,
+          target: 'starting_area',
+          current: 0,
+          required: 1,
+          isCompleted: false,
+        },
+        {
+          id: 'starter_quest_001_obj_1',
+          description: '与第一个NPC交谈',
+          type: 'talk' as const,
+          target: 'guide_npc',
+          current: 0,
+          required: 1,
+          isCompleted: false,
+        },
+      ],
+      rewards: {
+        experience: 100,
+        currency: { gold: 50 },
+        items: [],
+      },
+      prerequisites: [],
+      log: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
   }
 
   /**
