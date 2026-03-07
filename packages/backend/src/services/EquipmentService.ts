@@ -5,6 +5,7 @@ import type {
   EquipResult,
   RequirementCheckResult,
 } from '@ai-rpg/shared';
+import { NotFoundError, ValidationError, GameError } from '@ai-rpg/shared';
 import { getItemRepository, ItemRepository } from '../models/ItemRepository';
 import { getInventoryService, InventoryService } from './InventoryService';
 import { gameLog } from './GameLogService';
@@ -119,7 +120,7 @@ export class EquipmentService {
     // 1. 检查物品是否在背包中
     const entity = this.itemRepository.findByItemId(saveId, charId, itemId);
     if (!entity) {
-      throw new Error(`物品不在背包中: ${itemId}`);
+      throw new NotFoundError('背包中的物品', itemId);
     }
 
     const inventorySlot = this.itemRepository.entityToSlot(entity);
@@ -127,18 +128,18 @@ export class EquipmentService {
 
     // 2. 检查是否是装备类型
     if (!this.isEquipable(item)) {
-      throw new Error(`该物品类型无法装备: ${item.type}`);
+      throw new GameError(`该物品类型无法装备: ${item.type}`, { itemType: item.type });
     }
 
     // 3. 确定装备槽位
     const targetSlot = slot || this.determineEquipmentSlot(item);
     if (!targetSlot) {
-      throw new Error('无法确定装备槽位');
+      throw new GameError('无法确定装备槽位', { itemId: item.id });
     }
 
     // 4. 检查槽位是否有效
     if (!this.isValidSlot(targetSlot)) {
-      throw new Error(`无效的装备槽位: ${targetSlot}`);
+      throw new ValidationError(`无效的装备槽位: ${targetSlot}`, { slot: targetSlot });
     }
 
     // 5. 检查饰品槽位数量限制
@@ -152,7 +153,7 @@ export class EquipmentService {
       // 检查是否已有足够的饰品
       if (currentAccessoryCount >= this.slotConfig.maxAccessories) {
         // 需要先卸下一个饰品
-        throw new Error(`饰品槽位已满，最多可装备 ${this.slotConfig.maxAccessories} 个饰品`);
+        throw new GameError(`饰品槽位已满，最多可装备 ${this.slotConfig.maxAccessories} 个饰品`, { currentCount: currentAccessoryCount, maxCount: this.slotConfig.maxAccessories });
       }
     }
 
@@ -160,7 +161,7 @@ export class EquipmentService {
     const stats = playerStats || { level: 1, attributes: {} };
     const reqCheck = this.checkRequirements(item, stats);
     if (!reqCheck.met) {
-      throw new Error(`装备需求不满足: ${reqCheck.missing.join(', ')}`);
+      throw new GameError(`装备需求不满足: ${reqCheck.missing.join(', ')}`, { missing: reqCheck.missing });
     }
 
     // 7. 处理已装备的物品
@@ -173,7 +174,7 @@ export class EquipmentService {
       const usedSlots = this.itemRepository.findByCharacter(saveId, charId).length;
 
       if (usedSlots >= capacity) {
-        throw new Error('背包已满，无法卸下当前装备');
+        throw new GameError('背包已满，无法卸下当前装备', { usedSlots, capacity });
       }
 
       // 卸下原装备到背包
@@ -225,7 +226,7 @@ export class EquipmentService {
     const entity = this.itemRepository.findByEquipmentSlot(saveId, charId, slot);
 
     if (!entity) {
-      throw new Error(`该槽位没有装备: ${slot}`);
+      throw new NotFoundError('装备槽位', slot);
     }
 
     const equippedSlot = this.itemRepository.entityToSlot(entity);
@@ -236,7 +237,7 @@ export class EquipmentService {
     const usedSlots = this.itemRepository.findByCharacter(saveId, charId).length;
 
     if (usedSlots >= capacity) {
-      throw new Error('背包已满，无法卸下装备');
+      throw new GameError('背包已满，无法卸下装备', { usedSlots, capacity });
     }
 
     // 3. 卸下装备

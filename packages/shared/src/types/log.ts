@@ -1,5 +1,5 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogSource = 'frontend' | 'backend' | 'agent' | 'system' | 'llm' | 'prompt-editor' | 'dialogue' | 'combat' | 'decision' | 'context' | 'conflict';
+export type LogSource = 'frontend' | 'backend' | 'agent' | 'system' | 'llm' | 'prompt-editor' | 'dialogue' | 'combat' | 'decision' | 'context' | 'conflict' | 'database' | 'api' | 'store';
 
 export interface LogEntry {
   id: string;

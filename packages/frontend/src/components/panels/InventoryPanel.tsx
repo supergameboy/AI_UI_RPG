@@ -58,12 +58,14 @@ export const InventoryPanel: React.FC = () => {
   const maxCapacity = 20;
   const usedSlots = inventory.length;
 
-  // 过滤物品 - 需要处理 InventoryItem 没有 type 字段的情况
+  // 过滤物品
   const filteredItems = useMemo(() => {
     if (filter === 'all') return inventory;
-    // 由于 InventoryItem 没有 type 字段，暂时返回全部
-    // 实际项目中可能需要扩展 InventoryItem 类型或通过其他方式获取物品类型
-    return inventory;
+    return inventory.filter((invItem) => {
+      // 优先使用 InventoryItem 上的 type 字段，否则从 item 属性获取
+      const itemType = invItem.type || invItem.item?.type;
+      return itemType === filter;
+    });
   }, [inventory, filter]);
 
   // 选中的物品

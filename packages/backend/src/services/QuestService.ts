@@ -15,10 +15,13 @@ import type {
   AbandonQuestResponse,
   QuestListResponse,
   GetAvailableQuestsResponse,
+  CustomRewardDefinition,
 } from '@ai-rpg/shared';
 import { getQuestRepository, QuestRepository } from '../models/QuestRepository';
 import { getInventoryService } from './InventoryService';
 import { getNumericalService } from './NumericalService';
+import { getReputationService } from './ReputationService';
+import { getCustomRewardService, type CustomRewardContext } from './CustomRewardService';
 import { gameLog } from './GameLogService';
 
 // ==================== 服务接口 ====================
@@ -70,7 +73,7 @@ export class QuestService {
     getQuestRepository();
 
     this.initialized = true;
-    console.log('[QuestService] Initialized');
+    gameLog.info('backend', 'QuestService initialized');
   }
 
   // ==================== 任务管理 ====================
@@ -159,7 +162,7 @@ export class QuestService {
         message: `成功接取任务: ${quest.name}`,
       };
     } catch (error) {
-      console.error('[QuestService] Error accepting quest:', error);
+      gameLog.error('backend', 'Error accepting quest', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         quest: null as unknown as Quest,
@@ -171,7 +174,7 @@ export class QuestService {
   /**
    * 完成任务
    */
-  public completeQuest(characterId: string, questId: string): CompleteQuestResponse {
+  public async completeQuest(characterId: string, questId: string): Promise<CompleteQuestResponse> {
     try {
       const quest = this.questRepository.getQuest(questId, characterId);
 
@@ -209,7 +212,7 @@ export class QuestService {
       this.questRepository.addLogEntry(questId, characterId, '任务完成');
 
       // 发放奖励
-      this.grantRewards(characterId, quest.rewards);
+      await this.grantRewards(characterId, quest.rewards, questId, quest.name);
 
       // 获取更新后的任务
       const completedQuest = this.questRepository.getQuest(questId, characterId)!;
@@ -229,7 +232,7 @@ export class QuestService {
         message: `任务完成: ${quest.name}`,
       };
     } catch (error) {
-      console.error('[QuestService] Error completing quest:', error);
+      gameLog.error('backend', 'Error completing quest', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         quest: null as unknown as Quest,
@@ -317,7 +320,7 @@ export class QuestService {
         questCompleted,
       };
     } catch (error) {
-      console.error('[QuestService] Error updating progress:', error);
+      gameLog.error('backend', 'Error updating progress', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         quest: null as unknown as Quest,
@@ -404,7 +407,7 @@ export class QuestService {
         message: `已放弃任务: ${quest.name}`,
       };
     } catch (error) {
-      console.error('[QuestService] Error abandoning quest:', error);
+      gameLog.error('backend', 'Error abandoning quest', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         questId,
@@ -427,7 +430,7 @@ export class QuestService {
         statistics,
       };
     } catch (error) {
-      console.error('[QuestService] Error getting character quests:', error);
+      gameLog.error('backend', 'Error getting character quests', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         quests: [],
@@ -460,7 +463,7 @@ export class QuestService {
         quest,
       };
     } catch (error) {
-      console.error('[QuestService] Error getting quest:', error);
+      gameLog.error('backend', 'Error getting quest', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         quest: null,
@@ -513,7 +516,7 @@ export class QuestService {
         lockedCount,
       };
     } catch (error) {
-      console.error('[QuestService] Error getting available quests:', error);
+      gameLog.error('backend', 'Error getting available quests', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         quests: [],
@@ -560,7 +563,12 @@ export class QuestService {
   /**
    * 发放任务奖励
    */
-  public grantRewards(characterId: string, rewards: QuestRewards): void {
+  public async grantRewards(
+    characterId: string,
+    rewards: QuestRewards,
+    questId?: string,
+    questName?: string
+  ): Promise<void> {
     try {
       // 发放经验值
       if (rewards.experience && rewards.experience > 0) {
@@ -569,6 +577,11 @@ export class QuestService {
           characterId,
           amount: rewards.experience,
           source: 'quest_reward',
+        });
+        gameLog.debug('backend', '发放经验值奖励', {
+          characterId,
+          amount: rewards.experience,
+          questId,
         });
       }
 
@@ -579,6 +592,12 @@ export class QuestService {
           if (amount > 0) {
             // 使用 saveId 作为 characterId（简化处理）
             inventoryService.addCurrency(characterId, characterId, currency, amount);
+            gameLog.debug('backend', '发放货币奖励', {
+              characterId,
+              currency,
+              amount,
+              questId,
+            });
           }
         }
       }
@@ -599,15 +618,142 @@ export class QuestService {
 
           // 使用 saveId 作为 characterId（简化处理）
           inventoryService.addItem(characterId, characterId, item, itemReward.quantity);
+          gameLog.debug('backend', '发放物品奖励', {
+            characterId,
+            itemId: itemReward.itemId,
+            quantity: itemReward.quantity,
+            questId,
+          });
         }
       }
 
-      // TODO: 发放声望奖励
-      // TODO: 发放自定义奖励
+      // 发放声望奖励
+      if (rewards.reputation) {
+        const reputationService = getReputationService();
+        const reputationRewards = Object.entries(rewards.reputation).map(([reputationId, value]) => ({
+          reputationId,
+          value,
+          reason: questName ? `完成任务: ${questName}` : '任务奖励',
+        }));
 
-      console.log(`[QuestService] Rewards granted to character ${characterId}:`, rewards);
+        const result = reputationService.addReputations(
+          characterId,
+          reputationRewards,
+          'quest',
+          questId
+        );
+
+        if (result.success) {
+          gameLog.info('backend', '发放声望奖励成功', {
+            characterId,
+            reputations: reputationRewards,
+            questId,
+          });
+        } else {
+          gameLog.warn('backend', '部分声望奖励发放失败', {
+            characterId,
+            error: result.error,
+            questId,
+          });
+        }
+      }
+
+      // 发放自定义奖励
+      if (rewards.custom) {
+        await this.grantCustomRewards(characterId, rewards.custom, questId, questName);
+      }
+
+      gameLog.info('backend', '任务奖励发放完成', {
+        characterId,
+        questId,
+        questName,
+        rewards: {
+          experience: rewards.experience,
+          currency: rewards.currency,
+          items: rewards.items?.length ?? 0,
+          reputation: rewards.reputation ? Object.keys(rewards.reputation) : [],
+          custom: rewards.custom ? Object.keys(rewards.custom) : [],
+        },
+      });
     } catch (error) {
-      console.error('[QuestService] Error granting rewards:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      gameLog.error('backend', '任务奖励发放失败', {
+        characterId,
+        questId,
+        error: errorMessage,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 发放自定义奖励
+   */
+  private async grantCustomRewards(
+    characterId: string,
+    customRewards: Record<string, unknown>,
+    questId?: string,
+    questName?: string
+  ): Promise<void> {
+    const customRewardService = getCustomRewardService();
+
+    // 将自定义奖励配置转换为奖励定义数组
+    const rewards: CustomRewardDefinition[] = [];
+
+    for (const [key, value] of Object.entries(customRewards)) {
+      // 检查是否是标准奖励类型格式
+      if (typeof value === 'object' && value !== null && 'type' in value) {
+        rewards.push(value as CustomRewardDefinition);
+      } else {
+        // 简化格式：key 作为类型，value 作为配置
+        rewards.push({
+          type: key as CustomRewardDefinition['type'],
+          config: value as Record<string, unknown>,
+        });
+      }
+    }
+
+    if (rewards.length === 0) {
+      return;
+    }
+
+    // 创建奖励上下文
+    const context: CustomRewardContext = {
+      characterId,
+      saveId: characterId, // 使用 characterId 作为 saveId
+      questId,
+      questName,
+    };
+
+    // 执行所有自定义奖励
+    const results = await customRewardService.executeRewards(rewards, context);
+
+    // 记录结果
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    if (failCount > 0) {
+      const errors = results
+        .filter(r => !r.success)
+        .map(r => `${r.type}: ${r.error}`)
+        .join('; ');
+
+      gameLog.warn('backend', '部分自定义奖励发放失败', {
+        characterId,
+        questId,
+        successCount,
+        failCount,
+        errors,
+      });
+    }
+
+    if (successCount > 0) {
+      gameLog.info('backend', '自定义奖励发放完成', {
+        characterId,
+        questId,
+        successCount,
+        failCount,
+      });
     }
   }
 
@@ -733,14 +879,14 @@ export class QuestService {
   /**
    * 检查并自动完成任务
    */
-  public autoCompleteQuests(characterId: string): CompleteQuestResponse[] {
+  public async autoCompleteQuests(characterId: string): Promise<CompleteQuestResponse[]> {
     const results: CompleteQuestResponse[] = [];
     const inProgressQuests = this.questRepository.getInProgressQuests(characterId);
 
     for (const quest of inProgressQuests) {
       const allCompleted = quest.objectives.every(obj => obj.isCompleted);
       if (allCompleted) {
-        const result = this.completeQuest(characterId, quest.id);
+        const result = await this.completeQuest(characterId, quest.id);
         results.push(result);
       }
     }

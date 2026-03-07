@@ -33,6 +33,9 @@ export const ClassSelectionStep: React.FC = () => {
 
   const needsConfig = useMemo(() => isConfigurationError(error), [error]);
 
+  // 自动生成 AI 职业选项
+  // 使用 ref 防止重复生成（hasGeneratedRef 和 isGeneratingRef）
+  // storeRef 确保 generateAIClasses 调用始终有效
   useEffect(() => {
     if (aiRandomGeneration && aiGeneratedClasses.length === 0 && !hasGeneratedRef.current && !isLoading && !isGeneratingRef.current) {
       hasGeneratedRef.current = true;
@@ -43,6 +46,8 @@ export const ClassSelectionStep: React.FC = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // hasGeneratedRef/isGeneratingRef 是 ref，不会触发重新渲染
+    // storeRef.current.generateAIClasses 是稳定的引用
   }, [aiRandomGeneration, aiGeneratedClasses.length, isLoading]);
 
   const handleRetry = () => {

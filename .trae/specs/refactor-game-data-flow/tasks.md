@@ -329,27 +329,27 @@
 
 ## 任务 18: 类型检查与测试
 
-- [ ] Task 18.1: 运行前端类型检查
-- [ ] Task 18.2: 运行后端类型检查
-- [ ] Task 18.3: 测试 MarkdownRenderer 组件
-- [ ] Task 18.4: 测试 DynamicUIPanel 组件
-- [ ] Task 18.5: 测试模拟游戏界面入口
-- [ ] Task 18.6: 测试正常游戏初始化流程
-- [ ] Task 18.7: 测试动态 UI 显示和交互
-- [ ] Task 18.8: 测试存档加载后数据恢复
-- [ ] Task 18.9: 测试 updateGameState 统一更新
-- [ ] Task 18.10: 测试数据模拟面板
+- [x] Task 18.1: 运行前端类型检查
+- [x] Task 18.2: 运行后端类型检查
+- [x] Task 18.3: 测试 MarkdownRenderer 组件
+- [x] Task 18.4: 测试 DynamicUIPanel 组件
+- [x] Task 18.5: 测试模拟游戏界面入口
+- [x] Task 18.6: 测试正常游戏初始化流程
+- [x] Task 18.7: 测试动态 UI 显示和交互
+- [x] Task 18.8: 测试存档加载后数据恢复
+- [x] Task 18.9: 测试 updateGameState 统一更新
+- [x] Task 18.10: 测试数据模拟面板
 
 ## 任务 19: 更新开发文档
 
-- [ ] Task 19.1: 在 `docs/development.md` 中记录动态 UI 生成系统
-  - [ ] MarkdownRenderer 组件说明
-  - [ ] 所有扩展组件语法说明
-  - [ ] DynamicUIPanel 组件说明
-  - [ ] UIAgent.generateDynamicUI 方法说明
-  - [ ] updateGameState 统一更新方法说明
-  - [ ] Agent 提示词更新说明
-  - [ ] 数据模拟面板说明
+- [x] Task 19.1: 在 `docs/development.md` 中记录动态 UI 生成系统
+  - [x] MarkdownRenderer 组件说明
+  - [x] 所有扩展组件语法说明
+  - [x] DynamicUIPanel 组件说明
+  - [x] UIAgent.generateDynamicUI 方法说明
+  - [x] updateGameState 统一更新方法说明
+  - [x] Agent 提示词更新说明
+  - [x] 数据模拟面板说明
 
 # Task Dependencies
 

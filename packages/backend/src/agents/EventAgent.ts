@@ -10,6 +10,7 @@ import type {
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { gameLog } from '../services/GameLogService';
 
 // ==================== 事件类型定义 ====================
 
@@ -182,6 +183,26 @@ interface EventStatistics {
 }
 
 /**
+ * 解析的分支条件
+ */
+interface ParsedBranchCondition {
+  type: 'attribute' | 'item' | 'quest' | 'flag' | 'relationship' | 'custom';
+  target: string;
+  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'neq';
+  value: number | string | boolean;
+}
+
+/**
+ * 分支评估结果
+ */
+interface BranchEvaluationResult {
+  branchIndex: number;
+  conditionMet: boolean;
+  score: number;
+  nextEventIds: string[];
+}
+
+/**
  * 事件管理智能体
  * 负责随机事件生成、触发条件检查、事件链管理、事件结果处理
  */
@@ -207,41 +228,6 @@ export class EventAgent extends AgentBase {
     { agentType: AT.MAP, enabled: true },
   ];
 
-  readonly systemPrompt = `你是事件管理智能体，负责管理游戏中的所有事件系统。
-
-核心职责：
-1. 事件生成：根据游戏状态、玩家位置、故事进度生成合适的事件
-2. 触发检查：实时检查事件触发条件是否满足
-3. 事件链管理：管理链式事件的顺序推进和分支选择
-4. 结果处理：处理事件选项的结果，分发奖励或惩罚
-
-事件类型：
-- random: 随机事件，基于概率触发
-- scripted: 脚本事件，按剧情预设触发
-- triggered: 条件事件，满足特定条件触发
-- timed: 定时事件，在特定时间触发
-- chain: 链式事件，按顺序触发的事件序列
-
-触发条件类型：
-- location: 玩家进入特定地点
-- item: 玩家拥有或使用特定物品
-- time: 游戏时间达到特定值
-- quest: 任务状态变化
-- flag: 故事标志位设置
-- random: 纯随机触发
-
-事件优先级：
-- low: 低优先级，背景事件
-- normal: 普通优先级，一般事件
-- high: 高优先级，重要事件
-- critical: 关键优先级，必须处理的事件
-
-工作原则：
-- 确保事件的合理性和趣味性
-- 事件触发应与游戏节奏匹配
-- 维护事件链的连贯性
-- 及时处理事件结果`;
-
   // 事件存储
   private events: Map<string, GameEvent> = new Map();
 
@@ -261,6 +247,10 @@ export class EventAgent extends AgentBase {
   // 随机事件检查间隔
   private randomCheckInterval: ReturnType<typeof setInterval> | null = null;
   private randomCheckIntervalMs: number = 30000; // 30秒检查一次
+
+  // 游戏上下文（用于条件评估，保留供未来使用）
+  private _currentSaveId: string | null = null;
+  private _currentCharacterId: string | null = null;
 
   constructor() {
     super({
@@ -339,7 +329,7 @@ export class EventAgent extends AgentBase {
         case 'execute_event':
           return this.handleExecuteEvent(data);
         case 'select_option':
-          return this.handleSelectOption(data);
+          return await this.handleSelectOption(data);
         case 'complete_event':
           return this.handleCompleteEvent(data);
         case 'cancel_event':
@@ -871,10 +861,12 @@ export class EventAgent extends AgentBase {
   /**
    * 选择事件选项
    */
-  private handleSelectOption(data: Record<string, unknown>): AgentResponse {
+  private async handleSelectOption(data: Record<string, unknown>): Promise<AgentResponse> {
     const selectData = data as {
       eventId: string;
       optionId: string;
+      saveId?: string;
+      characterId?: string;
     };
 
     if (!selectData.eventId || !selectData.optionId) {
@@ -882,6 +874,14 @@ export class EventAgent extends AgentBase {
         success: false,
         error: 'Missing required fields: eventId, optionId',
       };
+    }
+
+    // 更新游戏上下文
+    if (selectData.saveId) {
+      this._currentSaveId = selectData.saveId;
+    }
+    if (selectData.characterId) {
+      this._currentCharacterId = selectData.characterId;
     }
 
     const event = this.events.get(selectData.eventId);
@@ -915,7 +915,7 @@ export class EventAgent extends AgentBase {
     let nextEvent: GameEvent | undefined;
 
     if (event.metadata.chainId) {
-      const chainResult = this.advanceEventChain(event.metadata.chainId, event.id);
+      const chainResult = await this.advanceEventChain(event.metadata.chainId, event.id);
       if (chainResult) {
         chainAdvanced = true;
         nextEvent = chainResult;
@@ -950,13 +950,25 @@ export class EventAgent extends AgentBase {
    * 完成事件
    */
   private handleCompleteEvent(data: Record<string, unknown>): AgentResponse {
-    const completeData = data as { eventId: string };
+    const completeData = data as {
+      eventId: string;
+      saveId?: string;
+      characterId?: string;
+    };
 
     if (!completeData.eventId) {
       return {
         success: false,
         error: 'Missing required field: eventId',
       };
+    }
+
+    // 更新游戏上下文
+    if (completeData.saveId) {
+      this._currentSaveId = completeData.saveId;
+    }
+    if (completeData.characterId) {
+      this._currentCharacterId = completeData.characterId;
     }
 
     const event = this.events.get(completeData.eventId);
@@ -1347,7 +1359,7 @@ export class EventAgent extends AgentBase {
           if (Math.random() < (trigger.probability || 0.1)) {
             trigger.lastTriggered = Date.now();
             // 可以在这里发送消息给协调器，通知有随机事件触发
-            console.log(`[EventAgent] Random event triggered: ${event.name}`);
+            gameLog.info('agent', 'Random event triggered', { eventName: event.name });
           }
         }
       }
@@ -1483,7 +1495,7 @@ export class EventAgent extends AgentBase {
   /**
    * 推进事件链
    */
-  private advanceEventChain(chainId: string, completedEventId: string): GameEvent | null {
+  private async advanceEventChain(chainId: string, completedEventId: string): Promise<GameEvent | null> {
     const chain = this.eventChains.get(chainId);
     if (!chain) return null;
 
@@ -1494,13 +1506,19 @@ export class EventAgent extends AgentBase {
       if (chain.branchPoints) {
         for (const branchPoint of chain.branchPoints) {
           if (branchPoint.afterEventId === completedEventId) {
-            // 这里需要根据条件选择分支
-            // 简化处理：选择第一个分支
-            if (branchPoint.branches.length > 0) {
-              const nextEventId = branchPoint.branches[0].nextEventIds[0];
+            // 根据条件选择分支
+            const selectedBranch = await this.selectBranch(branchPoint.branches);
+            if (selectedBranch && selectedBranch.nextEventIds.length > 0) {
+              const nextEventId = selectedBranch.nextEventIds[0];
               const nextEvent = this.events.get(nextEventId);
               if (nextEvent) {
                 chain.currentEventIndex = chain.eventIds.indexOf(nextEventId);
+                this.addMemory(
+                  `Event chain branch selected: ${chain.name}`,
+                  'assistant',
+                  7,
+                  { chainId: chain.id, branchEventId: nextEventId }
+                );
                 return nextEvent;
               }
             }
@@ -1629,6 +1647,431 @@ export class EventAgent extends AgentBase {
   private generateChainId(): string {
     this.chainIdCounter++;
     return `event_chain_${Date.now()}_${this.chainIdCounter}`;
+  }
+
+  // ==================== 分支条件评估 ====================
+
+  /**
+   * 解析分支条件字符串
+   * 支持格式：
+   * - "attribute.strength >= 10"
+   * - "item.sword_key == true"
+   * - "quest.main_quest == 'completed'"
+   * - "flag.talked_to_elder == true"
+   */
+  private parseBranchCondition(conditionStr: string): ParsedBranchCondition | null {
+    try {
+      // 匹配格式: type.target operator value
+      const match = conditionStr.match(/^(\w+)\.(\w+)\s*(==|>=|<=|>|<|!=)\s*(.+)$/);
+      if (!match) {
+        gameLog.warn('agent', '无法解析分支条件', { condition: conditionStr });
+        return null;
+      }
+
+      const [, type, target, operatorStr, valueStr] = match;
+
+      // 验证类型
+      const validTypes = ['attribute', 'item', 'quest', 'flag', 'relationship', 'custom'] as const;
+      if (!validTypes.includes(type as typeof validTypes[number])) {
+        gameLog.warn('agent', '无效的条件类型', { type, condition: conditionStr });
+        return null;
+      }
+
+      // 转换操作符
+      const operatorMap: Record<string, ParsedBranchCondition['operator']> = {
+        '==': 'eq',
+        '>=': 'gte',
+        '<=': 'lte',
+        '>': 'gt',
+        '<': 'lt',
+        '!=': 'neq',
+      };
+      const operator = operatorMap[operatorStr];
+      if (!operator) {
+        gameLog.warn('agent', '无效的操作符', { operator: operatorStr, condition: conditionStr });
+        return null;
+      }
+
+      // 解析值
+      let value: number | string | boolean;
+      const trimmedValue = valueStr.trim();
+
+      if (trimmedValue === 'true') {
+        value = true;
+      } else if (trimmedValue === 'false') {
+        value = false;
+      } else if (/^['"].*['"]$/.test(trimmedValue)) {
+        // 字符串值，去除引号
+        value = trimmedValue.slice(1, -1);
+      } else if (!isNaN(Number(trimmedValue))) {
+        value = Number(trimmedValue);
+      } else {
+        // 默认作为字符串处理
+        value = trimmedValue;
+      }
+
+      return {
+        type: type as ParsedBranchCondition['type'],
+        target,
+        operator,
+        value,
+      };
+    } catch (error) {
+      gameLog.error('agent', '解析分支条件失败', {
+        condition: conditionStr,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 评估分支条件
+   * 参考 StoryService.checkConditions 实现
+   */
+  private async evaluateBranchCondition(condition: ParsedBranchCondition): Promise<boolean> {
+    if (!this._currentSaveId || !this._currentCharacterId) {
+      gameLog.warn('agent', '缺少游戏上下文，无法评估条件', {
+        saveId: this._currentSaveId,
+        characterId: this._currentCharacterId,
+      });
+      return false;
+    }
+
+    try {
+      switch (condition.type) {
+        case 'attribute':
+          return await this.checkAttributeCondition(condition);
+        case 'item':
+          return await this.checkItemCondition(condition);
+        case 'quest':
+          return await this.checkQuestCondition(condition);
+        case 'flag':
+          return await this.checkFlagCondition(condition);
+        case 'relationship':
+          return await this.checkRelationshipCondition(condition);
+        case 'custom':
+          return true; // 自定义条件默认通过
+        default:
+          return false;
+      }
+    } catch (error) {
+      gameLog.error('agent', '评估分支条件失败', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 检查属性条件
+   */
+  private async checkAttributeCondition(condition: ParsedBranchCondition): Promise<boolean> {
+    try {
+      const response = await this.callTool<{
+        success: boolean;
+        data?: {
+          baseAttributes: Record<string, number>;
+          derivedAttributes: Record<string, number>;
+          level: number;
+          experience: number;
+        };
+      }>(ToolTypeEnum.NUMERICAL, 'getCharacterStats', {
+        characterId: this._currentCharacterId,
+      });
+
+      if (!response.success || !response.data?.data) {
+        return false;
+      }
+
+      const stats = response.data.data;
+      let actualValue: number | undefined;
+
+      // 检查基础属性
+      if (condition.target in stats.baseAttributes) {
+        actualValue = stats.baseAttributes[condition.target];
+      }
+      // 检查衍生属性
+      else if (condition.target in stats.derivedAttributes) {
+        actualValue = stats.derivedAttributes[condition.target];
+      }
+      // 检查等级和经验
+      else if (condition.target === 'level') {
+        actualValue = stats.level;
+      } else if (condition.target === 'experience') {
+        actualValue = stats.experience;
+      }
+
+      if (actualValue === undefined) {
+        gameLog.warn('agent', '未知的属性类型', { target: condition.target });
+        return false;
+      }
+
+      return this.compareValues(actualValue, condition.value as number, condition.operator);
+    } catch (error) {
+      gameLog.error('agent', '检查属性条件失败', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 检查物品条件
+   */
+  private async checkItemCondition(condition: ParsedBranchCondition): Promise<boolean> {
+    try {
+      const response = await this.callTool<{
+        success: boolean;
+        data?: {
+          slots: Array<{
+            item: { id: string; name: string } | null;
+            quantity: number;
+          }>;
+        };
+      }>(ToolTypeEnum.INVENTORY_DATA, 'getInventory', {
+        saveId: this._currentSaveId,
+        characterId: this._currentCharacterId,
+      });
+
+      if (!response.success || !response.data?.data) {
+        return condition.operator === 'neq'; // 如果要求不等于，没有物品则满足
+      }
+
+      const inventory = response.data.data;
+      const targetItemId = condition.target;
+      const requiredQuantity = typeof condition.value === 'number' ? condition.value : 1;
+
+      // 查找物品
+      const itemSlot = inventory.slots.find(
+        slot => slot.item && (slot.item.id === targetItemId || slot.item.name === targetItemId)
+      );
+
+      if (!itemSlot || !itemSlot.item) {
+        return condition.operator === 'neq';
+      }
+
+      const actualQuantity = itemSlot.quantity;
+
+      // 根据操作符比较
+      switch (condition.operator) {
+        case 'eq':
+          return actualQuantity === requiredQuantity;
+        case 'gt':
+          return actualQuantity > requiredQuantity;
+        case 'gte':
+          return actualQuantity >= requiredQuantity;
+        case 'lt':
+          return actualQuantity < requiredQuantity;
+        case 'lte':
+          return actualQuantity <= requiredQuantity;
+        case 'neq':
+          return actualQuantity !== requiredQuantity;
+        default:
+          return actualQuantity >= requiredQuantity;
+      }
+    } catch (error) {
+      gameLog.error('agent', '检查物品条件失败', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 检查任务条件
+   */
+  private async checkQuestCondition(condition: ParsedBranchCondition): Promise<boolean> {
+    try {
+      const response = await this.callTool<{
+        success: boolean;
+        quest?: { status: string };
+      }>(ToolTypeEnum.QUEST_DATA, 'getQuest', {
+        characterId: this._currentCharacterId,
+        questId: condition.target,
+      });
+
+      const requiredStatus = condition.value as string;
+
+      if (!response.success || !response.data?.quest) {
+        // 任务不存在时，如果要求状态是 'not_started' 或 'locked'，则满足
+        return requiredStatus === 'not_started' || requiredStatus === 'locked';
+      }
+
+      const actualStatus = response.data.quest.status;
+
+      switch (condition.operator) {
+        case 'eq':
+          return actualStatus === requiredStatus;
+        case 'neq':
+          return actualStatus !== requiredStatus;
+        default:
+          return actualStatus === requiredStatus;
+      }
+    } catch (error) {
+      gameLog.error('agent', '检查任务条件失败', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 检查标志条件
+   */
+  private async checkFlagCondition(condition: ParsedBranchCondition): Promise<boolean> {
+    try {
+      // 从事件上下文或游戏状态获取标志
+      // 这里简化处理，实际应该从 SaveRepository 或 StoryService 获取
+      const response = await this.callTool<Record<string, unknown>>(
+        ToolTypeEnum.EVENT_DATA,
+        'getStoryFlags',
+        {
+          saveId: this._currentSaveId,
+        }
+      );
+
+      if (!response.success || !response.data) {
+        return false;
+      }
+
+      const flags = response.data as Record<string, unknown>;
+      const currentValue = flags[condition.target];
+      const targetValue = condition.value;
+
+      switch (condition.operator) {
+        case 'eq':
+          return currentValue === targetValue;
+        case 'neq':
+          return currentValue !== targetValue;
+        default:
+          return currentValue === targetValue;
+      }
+    } catch (error) {
+      gameLog.error('agent', '检查标志条件失败', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 检查关系条件（预留接口）
+   */
+  private async checkRelationshipCondition(_condition: ParsedBranchCondition): Promise<boolean> {
+    // TODO: 实现 NPC 关系检查
+    gameLog.warn('agent', '关系条件检查暂未实现');
+    return true;
+  }
+
+  /**
+   * 比较数值
+   */
+  private compareValues(actual: number, target: number, operator: string): boolean {
+    switch (operator) {
+      case 'eq':
+        return actual === target;
+      case 'gt':
+        return actual > target;
+      case 'gte':
+        return actual >= target;
+      case 'lt':
+        return actual < target;
+      case 'lte':
+        return actual <= target;
+      case 'neq':
+        return actual !== target;
+      default:
+        return actual >= target;
+    }
+  }
+
+  /**
+   * 选择最优分支
+   * 基于条件评估和评分机制选择满足条件的最优分支
+   */
+  private async selectBranch(
+    branches: Array<{ condition: string; nextEventIds: string[] }>
+  ): Promise<{ nextEventIds: string[] } | null> {
+    if (branches.length === 0) {
+      return null;
+    }
+
+    const evaluationResults: BranchEvaluationResult[] = [];
+
+    // 评估所有分支
+    for (let i = 0; i < branches.length; i++) {
+      const branch = branches[i];
+      const parsedCondition = this.parseBranchCondition(branch.condition);
+
+      let conditionMet = false;
+      let score = 0;
+
+      if (parsedCondition) {
+        conditionMet = await this.evaluateBranchCondition(parsedCondition);
+        // 满足条件的分支获得基础分
+        if (conditionMet) {
+          score = 100;
+          // 根据条件类型调整分数（可以根据游戏设计调整）
+          switch (parsedCondition.type) {
+            case 'attribute':
+              score += 10; // 属性条件优先级较高
+              break;
+            case 'item':
+              score += 5; // 物品条件
+              break;
+            case 'quest':
+              score += 15; // 任务条件优先级最高
+              break;
+            case 'flag':
+              score += 8; // 标志条件
+              break;
+          }
+        }
+      } else {
+        // 无法解析条件的分支，给予默认分数（作为后备选项）
+        score = 1;
+        conditionMet = true;
+      }
+
+      evaluationResults.push({
+        branchIndex: i,
+        conditionMet,
+        score,
+        nextEventIds: branch.nextEventIds,
+      });
+
+      gameLog.debug('agent', '分支评估结果', {
+        branchIndex: i,
+        condition: branch.condition,
+        conditionMet,
+        score,
+      });
+    }
+
+    // 按分数降序排序
+    evaluationResults.sort((a, b) => b.score - a.score);
+
+    // 选择得分最高的满足条件的分支
+    const selectedBranch = evaluationResults.find(result => result.conditionMet);
+
+    if (selectedBranch) {
+      gameLog.info('agent', '选择分支', {
+        branchIndex: selectedBranch.branchIndex,
+        score: selectedBranch.score,
+        nextEventIds: selectedBranch.nextEventIds,
+      });
+      return { nextEventIds: selectedBranch.nextEventIds };
+    }
+
+    // 如果没有满足条件的分支，返回第一个分支作为后备
+    gameLog.warn('agent', '没有满足条件的分支，使用第一个分支作为后备');
+    return { nextEventIds: branches[0].nextEventIds };
   }
 }
 

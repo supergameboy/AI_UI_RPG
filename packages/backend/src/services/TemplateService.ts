@@ -1,6 +1,7 @@
 import { TemplateRepository, getTemplateRepository } from '../models/TemplateRepository';
 import { gameLog } from './GameLogService';
 import type { StoryTemplate } from '@ai-rpg/shared';
+import { ValidationError, NotFoundError, GameError } from '@ai-rpg/shared';
 
 /**
  * 有效的游戏模式列表
@@ -1260,7 +1261,7 @@ export class TemplateService {
 
     // 验证 gameMode
     if (gameMode !== undefined && !this.isValidGameMode(gameMode)) {
-      throw new Error(`无效的游戏模式: ${gameMode}。有效模式: ${VALID_GAME_MODES.join(', ')}`);
+      throw new ValidationError(`无效的游戏模式: ${gameMode}。有效模式: ${VALID_GAME_MODES.join(', ')}`, { gameMode, validModes: VALID_GAME_MODES });
     }
 
     const result = this.repository.findWithPagination({
@@ -1280,7 +1281,7 @@ export class TemplateService {
    */
   public async getTemplateById(id: string): Promise<StoryTemplate | null> {
     if (!id || typeof id !== 'string') {
-      throw new Error('模板 ID 不能为空');
+      throw new ValidationError('模板 ID 不能为空', { id });
     }
 
     return this.repository.getById(id);
@@ -1302,23 +1303,23 @@ export class TemplateService {
    */
   public async updateTemplate(id: string, template: UpdateTemplateInput): Promise<StoryTemplate | null> {
     if (!id || typeof id !== 'string') {
-      throw new Error('模板 ID 不能为空');
+      throw new ValidationError('模板 ID 不能为空', { id });
     }
 
     // 检查模板是否存在
     const existingTemplate = this.repository.getById(id);
     if (!existingTemplate) {
-      throw new Error(`模板不存在: ${id}`);
+      throw new NotFoundError('模板', id);
     }
 
     // 如果提供了 gameMode，验证其有效性
     if (template.gameMode !== undefined && !this.isValidGameMode(template.gameMode)) {
-      throw new Error(`无效的游戏模式: ${template.gameMode}。有效模式: ${VALID_GAME_MODES.join(', ')}`);
+      throw new ValidationError(`无效的游戏模式: ${template.gameMode}。有效模式: ${VALID_GAME_MODES.join(', ')}`, { gameMode: template.gameMode, validModes: VALID_GAME_MODES });
     }
 
     // 如果提供了 name，验证其不为空
     if (template.name !== undefined && !template.name.trim()) {
-      throw new Error('模板名称不能为空');
+      throw new ValidationError('模板名称不能为空', { name: template.name });
     }
 
     return this.repository.update(id, template);
@@ -1330,19 +1331,19 @@ export class TemplateService {
    */
   public async deleteTemplate(id: string): Promise<boolean> {
     if (!id || typeof id !== 'string') {
-      throw new Error('模板 ID 不能为空');
+      throw new ValidationError('模板 ID 不能为空', { id });
     }
 
     // 检查模板是否存在
     const existingTemplate = this.repository.getById(id);
     if (!existingTemplate) {
-      throw new Error(`模板不存在: ${id}`);
+      throw new NotFoundError('模板', id);
     }
 
     // 检查是否为内置模板
     const record = this.repository.findById(id);
     if (record && record.is_builtin === 1) {
-      throw new Error('无法删除内置模板');
+      throw new GameError('无法删除内置模板', { templateId: id });
     }
 
     return this.repository.delete(id);
@@ -1377,16 +1378,16 @@ export class TemplateService {
   private validateTemplate(template: CreateTemplateInput): void {
     // 验证名称
     if (!template.name || typeof template.name !== 'string' || !template.name.trim()) {
-      throw new Error('模板名称是必填项');
+      throw new ValidationError('模板名称是必填项', { name: template.name });
     }
 
     // 验证游戏模式
     if (!template.gameMode) {
-      throw new Error('游戏模式是必填项');
+      throw new ValidationError('游戏模式是必填项', {});
     }
 
     if (!this.isValidGameMode(template.gameMode)) {
-      throw new Error(`无效的游戏模式: ${template.gameMode}。有效模式: ${VALID_GAME_MODES.join(', ')}`);
+      throw new ValidationError(`无效的游戏模式: ${template.gameMode}。有效模式: ${VALID_GAME_MODES.join(', ')}`, { gameMode: template.gameMode, validModes: VALID_GAME_MODES });
     }
   }
 

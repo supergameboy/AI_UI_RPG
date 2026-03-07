@@ -16,6 +16,7 @@ import type {
   UseItemResponse,
   ExpandCapacityResponse,
 } from '@ai-rpg/shared';
+import { NotFoundError, ValidationError, GameError } from '@ai-rpg/shared';
 import { getItemRepository, ItemRepository } from '../models/ItemRepository';
 import type { InventoryItemEntity } from '../models/ItemRepository';
 import { gameLog } from './GameLogService';
@@ -160,11 +161,11 @@ export class InventoryService {
     }
 
     if (!entity) {
-      throw new Error(`Item not found: ${itemId}`);
+      throw new NotFoundError('物品', itemId);
     }
 
     if (entity.quantity < quantity) {
-      throw new Error(`Not enough items. Have: ${entity.quantity}, Need: ${quantity}`);
+      throw new GameError(`物品数量不足。当前: ${entity.quantity}, 需要: ${quantity}`, { itemId, current: entity.quantity, required: quantity });
     }
 
     const removedQuantity = Math.min(quantity, entity.quantity);
@@ -207,7 +208,7 @@ export class InventoryService {
     }
 
     if (!entity) {
-      throw new Error(`Item not found: ${itemId}`);
+      throw new NotFoundError('物品', itemId);
     }
 
     const slot = this.itemRepository.entityToSlot(entity);
@@ -215,7 +216,7 @@ export class InventoryService {
 
     // 检查是否可使用
     if (item.type !== 'consumable') {
-      throw new Error(`Item type ${item.type} cannot be used directly`);
+      throw new GameError(`物品类型 ${item.type} 无法直接使用`, { itemType: item.type });
     }
 
     // 应用效果
@@ -259,18 +260,18 @@ export class InventoryService {
   ): { sourceSlot: InventorySlot; targetSlot: InventorySlot } {
     const sourceEntity = this.itemRepository.findById(String(slotIndex));
     if (!sourceEntity) {
-      throw new Error(`Slot ${slotIndex} is empty`);
+      throw new NotFoundError('槽位', String(slotIndex));
     }
 
     const sourceSlot = this.itemRepository.entityToSlot(sourceEntity);
     const item = sourceSlot.item!;
 
     if (!item.stackable) {
-      throw new Error('Item is not stackable');
+      throw new GameError('该物品不可堆叠', { itemId: item.id });
     }
 
     if (quantity >= sourceEntity.quantity) {
-      throw new Error('Split quantity must be less than stack quantity');
+      throw new ValidationError('拆分数量必须小于堆叠数量', { quantity, stackQuantity: sourceEntity.quantity });
     }
 
     // 检查背包空间
@@ -278,7 +279,7 @@ export class InventoryService {
     const usedSlots = this.itemRepository.findByCharacter(saveId, characterId).length;
 
     if (usedSlots >= capacity) {
-      throw new Error('No free slot for split stack');
+      throw new GameError('背包已满，无法拆分堆叠', { usedSlots, capacity });
     }
 
     // 更新源槽位
@@ -313,18 +314,18 @@ export class InventoryService {
     const targetEntity = this.itemRepository.findById(String(targetSlotIndex));
 
     if (!sourceEntity || !targetEntity) {
-      throw new Error('One or both slots are empty');
+      throw new NotFoundError('槽位', '一个或两个槽位为空');
     }
 
     if (sourceEntity.item_id !== targetEntity.item_id) {
-      throw new Error('Cannot merge different items');
+      throw new GameError('无法合并不同类型的物品', { sourceItemId: sourceEntity.item_id, targetItemId: targetEntity.item_id });
     }
 
     const sourceSlot = this.itemRepository.entityToSlot(sourceEntity);
     const item = sourceSlot.item!;
 
     if (!item.stackable) {
-      throw new Error('Item is not stackable');
+      throw new GameError('该物品不可堆叠', { itemId: item.id });
     }
 
     // 计算合并数量
@@ -373,7 +374,7 @@ export class InventoryService {
     }
 
     if (!entity) {
-      throw new Error(`Item not found: ${itemId}`);
+      throw new NotFoundError('物品', itemId);
     }
 
     const slot = this.itemRepository.entityToSlot(entity);
@@ -381,19 +382,19 @@ export class InventoryService {
 
     // 检查是否是装备类型
     if (!this.isEquipable(item)) {
-      throw new Error(`Item type ${item.type} cannot be equipped`);
+      throw new GameError(`物品类型 ${item.type} 无法装备`, { itemType: item.type });
     }
 
     // 确定装备槽位
     const equipSlot = targetSlot || this.getEquipmentSlot(item);
     if (!equipSlot) {
-      throw new Error('Cannot determine equipment slot for this item');
+      throw new GameError('无法确定该物品的装备槽位', { itemId: item.id });
     }
 
     // 检查需求
     const reqCheck = this.checkEquipRequirements(item, playerStats);
     if (!reqCheck.met) {
-      throw new Error(`Requirements not met: ${reqCheck.missing.join(', ')}`);
+      throw new GameError(`装备需求不满足: ${reqCheck.missing.join(', ')}`, { missing: reqCheck.missing });
     }
 
     // 处理已装备的物品
@@ -409,7 +410,7 @@ export class InventoryService {
       const usedSlots = this.itemRepository.findByCharacter(saveId, characterId).length;
 
       if (usedSlots >= capacity) {
-        throw new Error('No free slot to unequip current item');
+        throw new GameError('背包已满，无法卸下当前装备', { usedSlots, capacity });
       }
 
       // 卸下原装备
@@ -456,7 +457,7 @@ export class InventoryService {
     const entity = this.itemRepository.findByEquipmentSlot(saveId, characterId, slot);
 
     if (!entity) {
-      throw new Error(`No item equipped in slot ${slot}`);
+      throw new NotFoundError('装备槽位', slot);
     }
 
     const equippedSlot = this.itemRepository.entityToSlot(entity);
@@ -467,7 +468,7 @@ export class InventoryService {
     const usedSlots = this.itemRepository.findByCharacter(saveId, characterId).length;
 
     if (usedSlots >= capacity) {
-      throw new Error('Inventory is full, cannot unequip');
+      throw new GameError('背包已满，无法卸下装备', { usedSlots, capacity });
     }
 
     // 卸下装备
@@ -592,7 +593,7 @@ export class InventoryService {
     // 检查货币余额
     const currentBalance = this.getCurrency(saveId, characterId, currency);
     if (currentBalance < totalPrice) {
-      throw new Error(`Not enough ${currency}. Have: ${currentBalance}, Need: ${totalPrice}`);
+      throw new GameError(`${currency} 不足。当前: ${currentBalance}, 需要: ${totalPrice}`, { currency, current: currentBalance, required: totalPrice });
     }
 
     // 检查背包空间
@@ -601,7 +602,7 @@ export class InventoryService {
 
     if (!item.stackable || !this.itemRepository.findByItemId(saveId, characterId, item.id)) {
       if (usedSlots >= capacity) {
-        throw new Error('Inventory is full');
+        throw new GameError('背包已满', { usedSlots, capacity });
       }
     }
 
@@ -634,7 +635,7 @@ export class InventoryService {
     // 查找物品
     const entity = this.itemRepository.findByItemId(saveId, characterId, itemId);
     if (!entity) {
-      throw new Error(`Item not found in inventory: ${itemId}`);
+      throw new NotFoundError('背包中的物品', itemId);
     }
 
     const slot = this.itemRepository.entityToSlot(entity);
@@ -642,13 +643,13 @@ export class InventoryService {
 
     // 任务物品不能出售
     if (item.type === 'quest') {
-      throw new Error('Quest items cannot be sold');
+      throw new GameError('任务物品无法出售', { itemId: item.id });
     }
 
     // 检查数量
     const sellQuantity = Math.min(quantity, entity.quantity);
     if (sellQuantity <= 0) {
-      throw new Error('No items to sell');
+      throw new ValidationError('出售数量必须大于 0', { quantity });
     }
 
     // 计算售价
@@ -737,7 +738,7 @@ export class InventoryService {
     cost?: number
   ): ExpandCapacityResponse {
     if (amount <= 0) {
-      throw new Error('Invalid expansion amount');
+      throw new ValidationError('扩展数量必须大于 0', { amount });
     }
 
     const actualCost = cost || amount * this.capacityConfig.expandCost;
@@ -746,7 +747,7 @@ export class InventoryService {
     // 检查货币
     const currentBalance = this.getCurrency(saveId, characterId, currency);
     if (currentBalance < actualCost) {
-      throw new Error(`Not enough gold. Have: ${currentBalance}, Need: ${actualCost}`);
+      throw new GameError(`金币不足。当前: ${currentBalance}, 需要: ${actualCost}`, { current: currentBalance, required: actualCost });
     }
 
     // 检查最大容量
@@ -754,7 +755,7 @@ export class InventoryService {
     const newCapacity = Math.min(currentCapacity + amount, this.capacityConfig.max);
 
     if (newCapacity === currentCapacity) {
-      throw new Error('Already at maximum capacity');
+      throw new GameError('已达到最大容量', { currentCapacity, maxCapacity: this.capacityConfig.max });
     }
 
     // 扣除货币

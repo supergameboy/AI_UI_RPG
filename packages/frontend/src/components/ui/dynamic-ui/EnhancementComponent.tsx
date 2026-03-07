@@ -33,9 +33,11 @@ export const EnhancementComponent: React.FC<DynamicUIComponentProps> = ({
   }, [attrs]);
 
   // 解析材料需求
+  // 支持带连字符的材料 ID，如 enhance-stone
   const materials = useMemo(() => {
     const result: Array<{ name: string; required: number; owned: number }> = [];
-    const regex = /\[([^\]]+)\]\(material:(\w+)\s+required=(\d+)\s+owned=(\d+)\)/g;
+    // 使用 [\w-]+ 替代 \w+ 以支持连字符
+    const regex = /\[([^\]]+)\]\(material:([\w-]+)\s+required=(\d+)\s+owned=(\d+)\)/g;
     let match;
 
     while ((match = regex.exec(content)) !== null) {

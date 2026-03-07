@@ -4,6 +4,28 @@ import type { MapLocation, LocationConnection } from '@ai-rpg/shared';
 import styles from './MapPanel.module.css';
 
 /**
+ * 简单的日志工具
+ */
+const gameLog = {
+  debug: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  info: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.log(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  warn: (category: string, message: string, data?: unknown) => {
+    console.warn(`[${category}] ${message}`, data ?? '');
+  },
+  error: (category: string, message: string, data?: unknown) => {
+    console.error(`[${category}] ${message}`, data ?? '');
+  },
+};
+
+/**
  * 地点类型名称映射
  */
 const LOCATION_TYPE_NAMES: Record<string, string> = {
@@ -47,8 +69,10 @@ export const MapPanel: React.FC = () => {
   const mapData = useGameStore((state) => state.mapData);
   const character = useGameStore((state) => state.character);
   const currentLocation = useGameStore((state) => state.currentLocation);
+  const sendGameAction = useGameStore((state) => state.sendGameAction);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [isTraveling, setIsTraveling] = useState(false);
 
   // 从 mapData 获取位置和连接数据
   const locations: MapLocation[] = mapData?.locations || [];
@@ -119,12 +143,78 @@ export const MapPanel: React.FC = () => {
   };
 
   // 前往地点
-  const handleTravel = (locationId: string) => {
-    if (!currentLocationId) return;
+  const handleTravel = async (locationId: string) => {
+    if (!currentLocationId) {
+      gameLog.warn('frontend', '无法移动：当前位置未知');
+      return;
+    }
+
+    if (isTraveling) {
+      gameLog.warn('frontend', '正在移动中，请稍候');
+      return;
+    }
+
     const connection = getConnection(currentLocationId, locationId);
-    if (connection) {
-      console.log('前往地点:', locationId, '预计时间:', connection.travelTime, '分钟');
-      // TODO: 实现移动逻辑
+    if (!connection) {
+      gameLog.warn('frontend', '无法移动：没有连接到目标地点', {
+        currentLocationId,
+        targetLocationId: locationId,
+      });
+      return;
+    }
+
+    // 检查连接是否已发现
+    if (!connection.discovered) {
+      gameLog.warn('frontend', '无法移动：路径尚未发现', {
+        connectionId: connection.id,
+      });
+      return;
+    }
+
+    // 获取目标地点信息
+    const targetLocation = locations.find((loc) => loc.id === locationId);
+    if (!targetLocation) {
+      gameLog.error('frontend', '无法移动：目标地点不存在', { locationId });
+      return;
+    }
+
+    gameLog.info('frontend', '开始移动', {
+      from: currentLocationId,
+      to: locationId,
+      connectionId: connection.id,
+      travelTime: connection.travelTime,
+    });
+
+    setIsTraveling(true);
+
+    try {
+      // 发送移动请求
+      await sendGameAction({
+        type: 'travel',
+        payload: {
+          fromLocationId: currentLocationId,
+          toLocationId: locationId,
+          connectionId: connection.id,
+          travelTime: connection.travelTime,
+        },
+      });
+
+      gameLog.info('frontend', '移动请求已发送', {
+        targetLocation: targetLocation.name,
+        travelTime: connection.travelTime,
+      });
+
+      // 清除选中状态
+      setSelectedLocationId(null);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      gameLog.error('frontend', '移动失败', {
+        error: errorMessage,
+        from: currentLocationId,
+        to: locationId,
+      });
+    } finally {
+      setIsTraveling(false);
     }
   };
 
@@ -429,8 +519,9 @@ export const MapPanel: React.FC = () => {
               <button
                 className={styles.travelBtn}
                 onClick={() => handleTravel(selectedLocation.id)}
+                disabled={isTraveling}
               >
-                🚀 前往此地
+                {isTraveling ? '⏳ 移动中...' : '🚀 前往此地'}
               </button>
             </div>
           )}

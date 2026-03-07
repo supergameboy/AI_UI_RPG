@@ -3,6 +3,28 @@ import { useDeveloperStore } from '../../stores';
 import { Icon } from '../common';
 import styles from './DeveloperPanel.module.css';
 
+/**
+ * 简单的日志工具
+ */
+const gameLog = {
+  debug: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  info: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.log(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  warn: (category: string, message: string, data?: unknown) => {
+    console.warn(`[${category}] ${message}`, data ?? '');
+  },
+  error: (category: string, message: string, data?: unknown) => {
+    console.error(`[${category}] ${message}`, data ?? '');
+  },
+};
+
 export const RequestMonitor: React.FC = () => {
   const { llmRequests, wsConnection, clearLLMRequests } = useDeveloperStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -23,7 +45,7 @@ export const RequestMonitor: React.FC = () => {
       await fetch('http://localhost:6756/api/logs/llm', { method: 'DELETE' });
       clearLLMRequests();
     } catch (error) {
-      console.error('Failed to clear LLM requests:', error);
+      gameLog.error('frontend', 'Failed to clear LLM requests', { error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -38,96 +60,102 @@ export const RequestMonitor: React.FC = () => {
           清空
         </button>
       </div>
-      <div className={styles.listContainer}>
-        <div className={styles.listHeader}>
-          <span>请求列表</span>
-          <span className={styles.count}>{llmRequests.length}</span>
-        </div>
-        <div className={styles.list}>
-          {llmRequests.length === 0 ? (
-            <div className={styles.empty}>暂无请求记录</div>
-          ) : (
-            llmRequests
-              .slice()
-              .reverse()
-              .map((request) => (
-                <div
-                  key={request.id}
-                  className={`${styles.listItem} ${selectedId === request.id ? styles.selected : ''}`}
-                  onClick={() => setSelectedId(request.id)}
-                >
-                  <div className={styles.itemHeader}>
-                    <span className={styles.itemTime}>{formatTime(request.timestamp)}</span>
-                    <span
-                      className={`${styles.itemStatus} ${
-                        request.status === 'success'
-                          ? styles.success
-                          : request.status === 'error'
-                          ? styles.error
-                          : styles.pending
-                      }`}
-                    >
-                      {request.status === 'success' ? '成功' : request.status === 'error' ? '失败' : '进行中'}
-                    </span>
-                  </div>
-                  <div className={styles.itemBody}>
-                    <span className={styles.itemAgent}>{request.agentType}</span>
-                    <span className={styles.itemProvider}>{request.provider}</span>
-                  </div>
-                  <div className={styles.itemFooter}>
-                    <span>{formatDuration(request.duration)}</span>
-                    <span>{request.promptTokens + request.completionTokens} tokens</span>
-                  </div>
-                </div>
-              ))
-          )}
-        </div>
-      </div>
-
-      {selectedRequest && (
-        <div className={styles.detailContainer}>
-          <div className={styles.detailHeader}>
-            <span>请求详情</span>
-            <button className={styles.closeButton} onClick={() => setSelectedId(null)}>
-              <Icon name="close" size={14} />
-            </button>
+      <div className={styles.horizontalLayout}>
+        <div className={styles.listContainer}>
+          <div className={styles.listHeader}>
+            <span>请求列表</span>
+            <span className={styles.count}>{llmRequests.length}</span>
           </div>
-          <div className={styles.detailContent}>
-            <div className={styles.detailSection}>
-              <div className={styles.detailLabel}>基本信息</div>
-              <div className={styles.detailGrid}>
-                <div>智能体: {selectedRequest.agentType}</div>
-                <div>提供商: {selectedRequest.provider}</div>
-                <div>模型: {selectedRequest.model}</div>
-                <div>耗时: {formatDuration(selectedRequest.duration)}</div>
-                <div>输入Token: {selectedRequest.promptTokens}</div>
-                <div>输出Token: {selectedRequest.completionTokens}</div>
-              </div>
+          <div className={styles.list}>
+            {llmRequests.length === 0 ? (
+              <div className={styles.empty}>暂无请求记录</div>
+            ) : (
+              llmRequests
+                .slice()
+                .reverse()
+                .map((request) => (
+                  <div
+                    key={request.id}
+                    className={`${styles.listItem} ${selectedId === request.id ? styles.selected : ''}`}
+                    onClick={() => setSelectedId(request.id)}
+                  >
+                    <div className={styles.itemHeader}>
+                      <span className={styles.itemTime}>{formatTime(request.timestamp)}</span>
+                      <span
+                        className={`${styles.itemStatus} ${
+                          request.status === 'success'
+                            ? styles.success
+                            : request.status === 'error'
+                            ? styles.error
+                            : styles.pending
+                        }`}
+                      >
+                        {request.status === 'success' ? '成功' : request.status === 'error' ? '失败' : '进行中'}
+                      </span>
+                    </div>
+                    <div className={styles.itemBody}>
+                      <span className={styles.itemAgent}>{request.agentType}</span>
+                      <span className={styles.itemProvider}>{request.provider}</span>
+                    </div>
+                    <div className={styles.itemFooter}>
+                      <span>{formatDuration(request.duration)}</span>
+                      <span>{request.promptTokens + request.completionTokens} tokens</span>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </div>
+
+        {selectedRequest ? (
+          <div className={styles.detailContainer}>
+            <div className={styles.detailHeader}>
+              <span>请求详情</span>
+              <button className={styles.closeButton} onClick={() => setSelectedId(null)}>
+                <Icon name="close" size={14} />
+              </button>
             </div>
-
-            {selectedRequest.prompt && (
+            <div className={styles.detailContent}>
               <div className={styles.detailSection}>
-                <div className={styles.detailLabel}>Prompt</div>
-                <pre className={styles.codeBlock}>{selectedRequest.prompt}</pre>
+                <div className={styles.detailLabel}>基本信息</div>
+                <div className={styles.detailGrid}>
+                  <div>智能体: {selectedRequest.agentType}</div>
+                  <div>提供商: {selectedRequest.provider}</div>
+                  <div>模型: {selectedRequest.model}</div>
+                  <div>耗时: {formatDuration(selectedRequest.duration)}</div>
+                  <div>输入Token: {selectedRequest.promptTokens}</div>
+                  <div>输出Token: {selectedRequest.completionTokens}</div>
+                </div>
               </div>
-            )}
 
-            {selectedRequest.response && (
-              <div className={styles.detailSection}>
-                <div className={styles.detailLabel}>Response</div>
-                <pre className={styles.codeBlock}>{selectedRequest.response}</pre>
-              </div>
-            )}
+              {selectedRequest.prompt && (
+                <div className={styles.detailSection}>
+                  <div className={styles.detailLabel}>Prompt</div>
+                  <pre className={styles.codeBlock}>{selectedRequest.prompt}</pre>
+                </div>
+              )}
 
-            {selectedRequest.error && (
-              <div className={styles.detailSection}>
-                <div className={styles.detailLabel}>错误信息</div>
-                <pre className={`${styles.codeBlock} ${styles.errorText}`}>{selectedRequest.error}</pre>
-              </div>
-            )}
+              {selectedRequest.response && (
+                <div className={styles.detailSection}>
+                  <div className={styles.detailLabel}>Response</div>
+                  <pre className={styles.codeBlock}>{selectedRequest.response}</pre>
+                </div>
+              )}
+
+              {selectedRequest.error && (
+                <div className={styles.detailSection}>
+                  <div className={styles.detailLabel}>错误信息</div>
+                  <pre className={`${styles.codeBlock} ${styles.errorText}`}>{selectedRequest.error}</pre>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className={styles.detailPlaceholder}>
+            <span>选择一个请求查看详情</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

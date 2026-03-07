@@ -434,15 +434,16 @@ export class SkillService {
         };
       }
 
-      // 简化的效果计算
-      const effects: SkillEffectResult['effects'] = skill.effects.map(e => ({
-        type: e.type,
-        value: e.value,
-        actualValue: Math.floor(e.value * (1 + (skill.level - 1) * 0.1)),
-        isCritical: false,
-        isBlocked: false,
-        isResisted: false,
-      }));
+      // 获取角色属性（从 context 中获取或使用默认值）
+      const characterStats = this.extractCharacterStats(params.context);
+      
+      // 获取目标属性（如果有目标）
+      const targetStats = params.targetId 
+        ? this.extractTargetStats(params.context, params.targetId)
+        : undefined;
+
+      // 完整的效果计算
+      const effects = this.calculateSkillEffects(skill, characterStats, targetStats);
 
       // 应用冷却
       if (skill.cooldown > 0) {
@@ -475,6 +476,244 @@ export class SkillService {
         error: error instanceof Error ? error.message : '使用技能失败',
       };
     }
+  }
+
+  /**
+   * 从上下文中提取角色属性
+   */
+  private extractCharacterStats(context?: SkillUseParams['context']): {
+    level: number;
+    attack: number;
+    intelligence: number;
+    wisdom: number;
+    critRate: number;
+    critDamage: number;
+    healingBonus: number;
+  } {
+    const additionalData = context?.additionalData;
+    
+    if (additionalData && 'characterStats' in additionalData) {
+      const stats = additionalData.characterStats as Record<string, unknown>;
+      return {
+        level: (stats.level as number) || 1,
+        attack: (stats.attack as number) || 10,
+        intelligence: (stats.intelligence as number) || 10,
+        wisdom: (stats.wisdom as number) || 10,
+        critRate: (stats.critRate as number) || 5,
+        critDamage: (stats.critDamage as number) || 150,
+        healingBonus: (stats.healingBonus as number) || 0,
+      };
+    }
+    
+    // 默认属性
+    return {
+      level: 1,
+      attack: 10,
+      intelligence: 10,
+      wisdom: 10,
+      critRate: 5,
+      critDamage: 150,
+      healingBonus: 0,
+    };
+  }
+
+  /**
+   * 从上下文中提取目标属性
+   */
+  private extractTargetStats(
+    context: SkillUseParams['context'],
+    _targetId: string
+  ): {
+    defense: number;
+    magicResist: number;
+    dodgeRate: number;
+    blockRate: number;
+    damageReduction: number;
+  } | undefined {
+    const additionalData = context?.additionalData;
+    
+    if (additionalData && 'targetStats' in additionalData) {
+      const stats = additionalData.targetStats as Record<string, unknown>;
+      return {
+        defense: (stats.defense as number) || 0,
+        magicResist: (stats.magicResist as number) || 0,
+        dodgeRate: (stats.dodgeRate as number) || 0,
+        blockRate: (stats.blockRate as number) || 0,
+        damageReduction: (stats.damageReduction as number) || 0,
+      };
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * 计算技能效果
+   * 考虑属性加成、暴击、抗性等因素
+   */
+  private calculateSkillEffects(
+    skill: ExtendedSkill,
+    characterStats: ReturnType<typeof this.extractCharacterStats>,
+    targetStats?: ReturnType<typeof this.extractTargetStats>
+  ): SkillEffectResult['effects'] {
+    return skill.effects.map(effect => {
+      // 基础效果值
+      let baseValue = effect.value;
+      
+      // 根据效果类型应用不同的属性加成
+      const effectType = effect.type.toLowerCase();
+      let attributeBonus = 0;
+      
+      if (this.isPhysicalEffect(effectType)) {
+        // 物理效果：受攻击力加成
+        attributeBonus = characterStats.attack * 0.5;
+      } else if (this.isMagicalEffect(effectType)) {
+        // 魔法效果：受智力和智慧加成
+        attributeBonus = (characterStats.intelligence + characterStats.wisdom) * 0.3;
+      } else if (this.isHealingEffect(effectType)) {
+        // 治疗效果：受智力和治疗加成
+        attributeBonus = characterStats.intelligence * 0.5 + characterStats.healingBonus;
+      }
+      
+      // 技能等级加成
+      const levelBonus = 1 + (skill.level - 1) * 0.1;
+      
+      // 计算最终基础值
+      let actualValue = Math.floor((baseValue + attributeBonus) * levelBonus);
+      
+      // 暴击判定（仅对伤害效果）
+      let isCritical = false;
+      if (this.isDamageEffect(effectType)) {
+        isCritical = this.rollCritical(characterStats.critRate);
+        if (isCritical) {
+          actualValue = Math.floor(actualValue * (characterStats.critDamage / 100));
+        }
+      }
+      
+      // 目标防御/抗性计算
+      let isBlocked = false;
+      let isResisted = false;
+      
+      if (targetStats && this.isDamageEffect(effectType)) {
+        if (this.isPhysicalEffect(effectType)) {
+          // 物理伤害：检查闪避和格挡
+          if (this.rollDodge(targetStats.dodgeRate)) {
+            actualValue = 0;
+          } else if (this.rollBlock(targetStats.blockRate)) {
+            actualValue = Math.floor(actualValue * 0.5);
+            isBlocked = true;
+          } else {
+            // 应用防御减伤
+            const defenseReduction = this.calculateDefenseReduction(targetStats.defense);
+            actualValue = Math.floor(actualValue * (1 - defenseReduction));
+          }
+        } else if (this.isMagicalEffect(effectType)) {
+          // 魔法伤害：应用魔法抗性
+          const resistReduction = this.calculateResistReduction(targetStats.magicResist);
+          actualValue = Math.floor(actualValue * (1 - resistReduction));
+          isResisted = resistReduction > 0.1;
+        }
+        
+        // 应用通用伤害减免
+        if (targetStats.damageReduction > 0) {
+          actualValue = Math.floor(actualValue * (1 - targetStats.damageReduction / 100));
+        }
+      }
+      
+      // 确保最小值为 1（伤害效果）或 0（其他效果）
+      if (this.isDamageEffect(effectType)) {
+        actualValue = Math.max(1, actualValue);
+      } else {
+        actualValue = Math.max(0, actualValue);
+      }
+      
+      return {
+        type: effect.type,
+        value: effect.value,
+        actualValue,
+        isCritical,
+        isBlocked,
+        isResisted,
+      };
+    });
+  }
+
+  /**
+   * 判断是否为物理效果
+   */
+  private isPhysicalEffect(effectType: string): boolean {
+    const physicalTypes = [
+      'physical_damage', 'slash', 'pierce', 'blunt', 'melee_damage',
+      'attack', 'physical_attack', 'weapon_damage'
+    ];
+    return physicalTypes.some(t => effectType.includes(t));
+  }
+
+  /**
+   * 判断是否为魔法效果
+   */
+  private isMagicalEffect(effectType: string): boolean {
+    const magicalTypes = [
+      'magical_damage', 'magic_damage', 'spell_damage', 'elemental_damage',
+      'fire', 'ice', 'lightning', 'holy', 'shadow', 'arcane'
+    ];
+    return magicalTypes.some(t => effectType.includes(t));
+  }
+
+  /**
+   * 判断是否为治疗效果
+   */
+  private isHealingEffect(effectType: string): boolean {
+    const healingTypes = ['heal', 'healing', 'restore', 'recover_hp', 'regeneration'];
+    return healingTypes.some(t => effectType.includes(t));
+  }
+
+  /**
+   * 判断是否为伤害效果
+   */
+  private isDamageEffect(effectType: string): boolean {
+    const damageTypes = ['damage', 'attack', 'hit', 'strike'];
+    return damageTypes.some(t => effectType.includes(t)) || 
+           this.isPhysicalEffect(effectType) || 
+           this.isMagicalEffect(effectType);
+  }
+
+  /**
+   * 暴击判定
+   */
+  private rollCritical(critRate: number): boolean {
+    return Math.random() * 100 < critRate;
+  }
+
+  /**
+   * 闪避判定
+   */
+  private rollDodge(dodgeRate: number): boolean {
+    return Math.random() * 100 < dodgeRate;
+  }
+
+  /**
+   * 格挡判定
+   */
+  private rollBlock(blockRate: number): boolean {
+    return Math.random() * 100 < blockRate;
+  }
+
+  /**
+   * 计算防御减伤比例
+   */
+  private calculateDefenseReduction(defense: number): number {
+    // 使用递减公式：减伤 = defense / (defense + 100)
+    // 最大减伤 75%
+    return Math.min(0.75, defense / (defense + 100));
+  }
+
+  /**
+   * 计算抗性减伤比例
+   */
+  private calculateResistReduction(resistance: number): number {
+    // 抗性直接转换为百分比减伤
+    // 最大减伤 50%
+    return Math.min(0.5, resistance / 200);
   }
 
   /**

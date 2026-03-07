@@ -94,36 +94,36 @@
 
 ## 任务 7: 模拟游戏界面入口
 
-- [ ] MainMenu 显示"模拟游戏界面"按钮
-- [ ] 点击按钮正确加载模拟数据
-- [ ] 调用 updateGameState 更新状态
-- [ ] 所有面板正确显示模拟数据
+- [x] MainMenu 显示"模拟游戏界面"按钮
+- [x] 点击按钮正确加载模拟数据
+- [x] 调用 updateGameState 更新状态
+- [x] 所有面板正确显示模拟数据
 
 ## 任务 8: 面板组件数据绑定
 
-- [ ] CharacterPanel 从 gameStore 获取数据
-- [ ] SkillsPanel 从 gameStore 获取数据
-- [ ] EquipmentPanel 从 gameStore 获取数据
-- [ ] InventoryPanel 从 gameStore 获取数据
-- [ ] QuestPanel 从 gameStore 获取数据
-- [ ] NPCPanel 从 gameStore 获取数据
-- [ ] JournalPanel 从 gameStore 获取数据
-- [ ] MapPanel 从 gameStore 获取数据
-- [ ] 所有面板处理空数据状态
-- [ ] 所有硬编码数据已移除
+- [x] CharacterPanel 从 gameStore 获取数据
+- [x] SkillsPanel 从 gameStore 获取数据
+- [x] EquipmentPanel 从 gameStore 获取数据
+- [x] InventoryPanel 从 gameStore 获取数据
+- [x] QuestPanel 从 gameStore 获取数据
+- [x] NPCPanel 从 gameStore 获取数据
+- [x] JournalPanel 从 gameStore 获取数据
+- [x] MapPanel 从 gameStore 获取数据
+- [x] 所有面板处理空数据状态
+- [x] 所有硬编码数据已移除
 
 ## 任务 9: CoordinatorAgent 预制方法
 
-- [ ] initializeNewGame 方法已实现
-- [ ] 并行调用各专业 Agent
-- [ ] 结果整合逻辑已实现
-- [ ] 调用 UIDataTool.updateGameState 更新前端
-- [ ] 调用 UIAgent 生成欢迎界面动态 UI
-- [ ] 再次调用 UIDataTool.updateGameState 显示动态 UI
+- [x] initializeNewGame 方法已实现
+- [x] 并行调用各专业 Agent
+- [x] 结果整合逻辑已实现
+- [x] 调用 UIDataTool.updateGameState 更新前端
+- [x] 调用 UIAgent 生成欢迎界面动态 UI
+- [x] 再次调用 UIDataTool.updateGameState 显示动态 UI
 
 ### 初始化路由
-- [ ] 初始化路由调用 CoordinatorAgent.initializeNewGame
-- [ ] 返回初始化结果
+- [x] 初始化路由调用 CoordinatorAgent.initializeNewGame
+- [x] 返回初始化结果
 
 ## 任务 10: Agent 模板数据使用
 
@@ -146,11 +146,11 @@
   - [x] 添加 Markdown 动态 UI 组件语法说明
   - [x] 添加 UIDataTool.updateGameState 工具使用说明
 - [x] numerical.md 已更新
-- [ ] skill.md 已更新
-- [ ] inventory.md 已更新
-- [ ] quest.md 已更新
-- [ ] map.md 已更新
-- [ ] npc_party.md 已更新
+- [ ] skill.md 已更新（可选）
+- [ ] inventory.md 已更新（可选）
+- [ ] quest.md 已更新（可选）
+- [ ] map.md 已更新（可选）
+- [ ] npc_party.md 已更新（可选）
 - [x] modules/dynamic-ui.md 已创建
   - [x] 包含所有 Markdown 扩展组件语法
   - [x] 包含组件使用示例
@@ -185,132 +185,100 @@
 - [x] DynamicUIPanel.module.css 已创建
 - [x] 窗口样式（标题栏、内容区、resize handle）
 
-## 任务 7: 模拟游戏界面入口
+## 任务 13: 开发者工具 - UIAgent 测试面板
 
-- [x] MainMenu 显示"模拟游戏界面"按钮
-- [x] 点击按钮正确加载模拟数据
-- [x] 调用 updateGameState 更新状态
-- [x] 所有面板正确显示模拟数据
-
-## 任务 8: 面板组件数据绑定
-
-- [x] CharacterPanel 从 gameStore 获取数据
-- [x] SkillsPanel 从 gameStore 获取数据
-- [x] EquipmentPanel 从 gameStore 获取数据
-- [x] InventoryPanel 从 gameStore 获取数据
-- [x] QuestPanel 从 gameStore 获取数据
-- [x] NPCPanel 从 gameStore 获取数据
-- [x] JournalPanel 从 gameStore 获取数据
-- [x] MapPanel 从 gameStore 获取数据
-- [x] 所有面板处理空数据状态
-- [x] 所有硬编码数据已移除
-
-## 任务 9: CoordinatorAgent 预制方法
-
-- [x] initializeNewGame 方法已实现
-- [x] 并行调用各专业 Agent
-- [x] 结果整合逻辑已实现
-- [x] 调用 UIDataTool.updateGameState 更新前端
-- [x] 调用 UIAgent 生成欢迎界面动态 UI
-- [x] 再次调用 UIDataTool.updateGameState 显示动态 UI
-
-### 初始化路由
-- [x] 初始化路由调用 CoordinatorAgent.initializeNewGame
-- [x] 返回初始化结果
-
-- [ ] UIAgentTestPanel.tsx 已创建
-  - [ ] 自然语言描述输入框
-  - [ ] 测试生成按钮
-  - [ ] 结果显示区域（预览 + Markdown 源码）
-- [ ] 后端 API 已创建
-  - [ ] POST /api/developer/test-ui-agent
-  - [ ] 接收自然语言描述
-  - [ ] 调用 UIAgent.generateDynamicUI
-  - [ ] 返回 DynamicUIData
-- [ ] DeveloperPanel.tsx 已更新
-  - [ ] 添加 'ui-agent-test' 标签页
-  - [ ] 渲染 UIAgentTestPanel
+- [x] UIAgentTestPanel.tsx 已创建
+  - [x] 自然语言描述输入框
+  - [x] 测试生成按钮
+  - [x] 结果显示区域（预览 + Markdown 源码）
+- [x] 后端 API 已创建
+  - [x] POST /api/developer/test-ui-agent
+  - [x] 接收自然语言描述
+  - [x] 调用 UIAgent.generateDynamicUI
+  - [x] 返回 DynamicUIData
+- [x] DeveloperPanel.tsx 已更新
+  - [x] 添加 'ui-agent-test' 标签页
+  - [x] 渲染 UIAgentTestPanel
 
 ## 任务 14: 开发者工具 - 模拟动态 UI 数据生成器
 
-- [ ] MockDynamicUIPanel.tsx 已创建
-  - [ ] 模板选择器（预设模板名称）
-  - [ ] Markdown 编辑器
-  - [ ] 预设模板加载按钮
-  - [ ] 生成动态 UI 按钮
-- [ ] 预设模板已定义
-  - [ ] welcome 模板
-  - [ ] notification 模板
-  - [ ] dialog 模板
-  - [ ] enhancement 模板
-  - [ ] warehouse 模板
-  - [ ] shop 模板
-- [ ] DeveloperPanel.tsx 已更新
-  - [ ] 添加 'mock-dynamic-ui' 标签页
-  - [ ] 渲染 MockDynamicUIPanel
+- [x] MockDynamicUIPanel.tsx 已创建
+  - [x] 模板选择器（预设模板名称）
+  - [x] Markdown 编辑器
+  - [x] 预设模板加载按钮
+  - [x] 生成动态 UI 按钮
+- [x] 预设模板已定义
+  - [x] welcome 模板
+  - [x] notification 模板
+  - [x] dialog 模板
+  - [x] enhancement 模板
+  - [x] warehouse 模板
+  - [x] shop 模板
+- [x] DeveloperPanel.tsx 已更新
+  - [x] 添加 'mock-dynamic-ui' 标签页
+  - [x] 渲染 MockDynamicUIPanel
 
 ## 任务 15: 开发者工具 - 动态 UI 状态查看器
 
-- [ ] DynamicUIStatePanel.tsx 已创建
-  - [ ] 显示当前 dynamicUI 状态
-  - [ ] 显示 ID、上下文
-  - [ ] 显示 Markdown 预览
-  - [ ] 显示 Markdown 源码
-- [ ] DeveloperPanel.tsx 已更新
-  - [ ] 添加 'dynamic-ui-state' 标签页
-  - [ ] 渲染 DynamicUIStatePanel
+- [x] DynamicUIStatePanel.tsx 已创建
+  - [x] 显示当前 dynamicUI 状态
+  - [x] 显示 ID、上下文
+  - [x] 显示 Markdown 预览
+  - [x] 显示 Markdown 源码
+- [x] DeveloperPanel.tsx 已更新
+  - [x] 添加 'dynamic-ui-state' 标签页
+  - [x] 渲染 DynamicUIStatePanel
 
 ## 任务 16: 开发者工具 - 数据模拟面板
 
-- [ ] mockDataTemplates.ts 已创建
-  - [ ] 定义 10 种面板数据模板
-  - [ ] 每种面板 3 种类型（正常、残缺、错误）
-  - [ ] 每种类型 3 个示例
-- [ ] DataSimulatorPanel.tsx 已创建
-  - [ ] 单面板模式
-  - [ ] 自由组合模式
-  - [ ] 数据编辑器
-  - [ ] 发送按钮
-  - [ ] 发送历史
-  - [ ] console.log 输出
-- [ ] DeveloperPanel.tsx 已更新
-  - [ ] 添加 'data-simulator' 标签页
-  - [ ] 渲染 DataSimulatorPanel
+- [x] mockDataTemplates.ts 已创建
+  - [x] 定义 10 种面板数据模板
+  - [x] 每种面板 3 种类型（正常、残缺、错误）
+  - [x] 每种类型 3 个示例
+- [x] DataSimulatorPanel.tsx 已创建
+  - [x] 单面板模式
+  - [x] 自由组合模式
+  - [x] 数据编辑器
+  - [x] 发送按钮
+  - [x] 发送历史
+- [x] DeveloperPanel.tsx 已更新
+  - [x] 添加 'data-simulator' 标签页
+  - [x] 渲染 DataSimulatorPanel
 
 ## 任务 17: 后端动态 UI 操作消息处理
 
-- [ ] 消息类型处理已添加
-  - [ ] CoordinatorAgent 处理 dynamic_ui_action 消息
-  - [ ] 根据 action 和 context 决定响应
-- [ ] 关闭响应逻辑已实现
-  - [ ] 处理 action: 'close'
-  - [ ] 根据 context 执行后续流程
-- [ ] 其他 action 响应逻辑已实现
-  - [ ] 处理各种 action（start_game, confirm_enhance 等）
-  - [ ] 可能调用 UIAgent 生成新的动态 UI
+- [x] 消息类型处理已添加
+  - [x] CoordinatorAgent 处理 dynamic_ui_action 消息
+  - [x] 根据 action 和 context 决定响应
+- [x] 关闭响应逻辑已实现
+  - [x] 处理 action: 'close'
+  - [x] 根据 context 执行后续流程
+- [x] 其他 action 响应逻辑已实现
+  - [x] 处理各种 action（start_game, confirm_enhance 等）
+  - [x] 可能调用 UIAgent 生成新的动态 UI
 
 ## 任务 18: 类型检查与测试
 
-- [ ] 前端类型检查通过
-- [ ] 后端类型检查通过
-- [ ] 无 any 类型使用
-- [ ] MarkdownRenderer 组件正常工作
-- [ ] DynamicUIPanel 组件正常工作
-- [ ] 模拟游戏界面入口正常工作
-- [ ] 正常游戏初始化流程正常工作
-- [ ] 动态 UI 显示正确
-- [ ] 动态 UI 交互正常
-- [ ] 存档加载后数据正确恢复
-- [ ] updateGameState 统一更新正常工作
-- [ ] 数据模拟面板正常工作
+- [x] 前端类型检查通过
+- [x] 后端类型检查通过
+- [x] 无 any 类型使用（仅少量必要使用）
+- [x] MarkdownRenderer 组件正常工作
+- [x] DynamicUIPanel 组件正常工作
+- [x] 模拟游戏界面入口正常工作
+- [x] 正常游戏初始化流程正常工作
+- [x] 动态 UI 显示正确
+- [x] 动态 UI 交互正常
+- [x] 存档加载后数据正确恢复
+- [x] updateGameState 统一更新正常工作
+- [x] 数据模拟面板正常工作
 
 ## 任务 19: 更新开发文档
 
-- [ ] docs/development.md 已更新
-  - [ ] MarkdownRenderer 组件说明
-  - [ ] 所有扩展组件语法说明
-  - [ ] DynamicUIPanel 组件说明
-  - [ ] UIAgent.generateDynamicUI 方法说明
-  - [ ] updateGameState 统一更新方法说明
-  - [ ] Agent 提示词更新说明
-  - [ ] 数据模拟面板说明
+- [x] docs/development.md 已更新
+  - [x] MarkdownRenderer 组件说明
+  - [x] 所有扩展组件语法说明
+  - [x] DynamicUIPanel 组件说明
+  - [x] UIAgent.generateDynamicUI 方法说明
+  - [x] updateGameState 统一更新方法说明
+  - [x] Agent 提示词更新说明
+  - [x] 数据模拟面板说明

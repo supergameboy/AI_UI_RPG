@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DatabaseService } from '../services/DatabaseService';
+import { gameLog } from '../services/GameLogService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1204,13 +1205,13 @@ export class DatabaseInitializer {
   }
 
   public initialize(): void {
-    console.log('Initializing database...');
+    gameLog.info('database', 'Initializing database...');
     
     this.createTables();
     this.runMigrations();
     this.seedData();
     
-    console.log('Database initialization complete.');
+    gameLog.info('database', 'Database initialization complete');
   }
 
   private createTables(): void {
@@ -1220,7 +1221,7 @@ export class DatabaseInitializer {
     
     db.exec(schema);
     
-    console.log('Tables created successfully.');
+    gameLog.info('database', 'Tables created successfully');
   }
 
   private runMigrations(): void {
@@ -1229,18 +1230,18 @@ export class DatabaseInitializer {
     try {
       const result = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('templates') WHERE name = 'ui_layout'").get();
       if (!result) {
-        console.log('Running migration: Adding ui_layout column to templates...');
+        gameLog.info('database', 'Running migration: Adding ui_layout column to templates');
         db.exec('ALTER TABLE templates ADD COLUMN ui_layout TEXT DEFAULT "{}"');
-        console.log('Migration completed: ui_layout column added');
+        gameLog.info('database', 'Migration completed: ui_layout column added');
       }
     } catch (error) {
-      console.log('Migration check skipped (table may not exist yet)');
+      gameLog.debug('database', 'Migration check skipped (table may not exist yet)');
     }
 
     try {
       const skillsCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('skills') WHERE name = 'created_at'").get();
       if (!skillsCheck) {
-        console.log('Running migration: Rebuilding skills table with full schema...');
+        gameLog.info('database', 'Running migration: Rebuilding skills table with full schema');
         db.exec(`
           DROP TABLE IF EXISTS skills;
           CREATE TABLE IF NOT EXISTS skills (
@@ -1270,16 +1271,16 @@ export class DatabaseInitializer {
             FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
           );
         `);
-        console.log('Migration completed: skills table rebuilt');
+        gameLog.info('database', 'Migration completed: skills table rebuilt');
       }
     } catch (error) {
-      console.log('Skills migration check skipped (table may not exist yet)');
+      gameLog.debug('database', 'Skills migration check skipped (table may not exist yet)');
     }
 
     try {
       const cooldownsCheck = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='skill_cooldowns'").get();
       if (!cooldownsCheck) {
-        console.log('Running migration: Creating skill_cooldowns table...');
+        gameLog.info('database', 'Running migration: Creating skill_cooldowns table');
         db.exec(`
           CREATE TABLE IF NOT EXISTS skill_cooldowns (
             id TEXT PRIMARY KEY,
@@ -1294,16 +1295,16 @@ export class DatabaseInitializer {
             UNIQUE(character_id, skill_id)
           );
         `);
-        console.log('Migration completed: skill_cooldowns table created');
+        gameLog.info('database', 'Migration completed: skill_cooldowns table created');
       }
     } catch (error) {
-      console.log('Skill cooldowns migration check skipped');
+      gameLog.debug('database', 'Skill cooldowns migration check skipped');
     }
 
     try {
       const templatesCheck = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='skill_templates'").get();
       if (!templatesCheck) {
-        console.log('Running migration: Creating skill_templates table...');
+        gameLog.info('database', 'Running migration: Creating skill_templates table');
         db.exec(`
           CREATE TABLE IF NOT EXISTS skill_templates (
             id TEXT PRIMARY KEY,
@@ -1321,10 +1322,10 @@ export class DatabaseInitializer {
             updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
           );
         `);
-        console.log('Migration completed: skill_templates table created');
+        gameLog.info('database', 'Migration completed: skill_templates table created');
       }
     } catch (error) {
-      console.log('Skill templates migration check skipped');
+      gameLog.debug('database', 'Skill templates migration check skipped');
     }
 
     // ==================== 任务表迁移 ====================
@@ -1338,7 +1339,7 @@ export class DatabaseInitializer {
         
         // 如果有 save_id 但没有 character_id，需要重建表
         if (saveIdCheck && !characterIdCheck) {
-          console.log('Running migration: Rebuilding quests table with new schema...');
+          gameLog.info('database', 'Running migration: Rebuilding quests table with new schema');
           db.exec(`
             DROP TABLE IF EXISTS quests;
             CREATE TABLE IF NOT EXISTS quests (
@@ -1362,26 +1363,26 @@ export class DatabaseInitializer {
             CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
             CREATE INDEX IF NOT EXISTS idx_quests_type ON quests(type);
           `);
-          console.log('Migration completed: quests table rebuilt with new schema');
+          gameLog.info('database', 'Migration completed: quests table rebuilt with new schema');
         } else {
           // 检查是否缺少其他列
           const prerequisitesCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('quests') WHERE name = 'prerequisites'").get();
           if (!prerequisitesCheck) {
-            console.log('Running migration: Adding prerequisites column to quests...');
+            gameLog.info('database', 'Running migration: Adding prerequisites column to quests');
             db.exec('ALTER TABLE quests ADD COLUMN prerequisites TEXT DEFAULT "[]"');
-            console.log('Migration completed: prerequisites column added');
+            gameLog.info('database', 'Migration completed: prerequisites column added');
           }
 
           const logCheck = db.prepare<{ name: string }>("SELECT name FROM pragma_table_info('quests') WHERE name = 'log'").get();
           if (!logCheck) {
-            console.log('Running migration: Adding log column to quests...');
+            gameLog.info('database', 'Running migration: Adding log column to quests');
             db.exec('ALTER TABLE quests ADD COLUMN log TEXT DEFAULT "[]"');
-            console.log('Migration completed: log column added');
+            gameLog.info('database', 'Migration completed: log column added');
           }
         }
       }
     } catch (error) {
-      console.log('Quests migration check skipped:', error);
+      gameLog.debug('database', 'Quests migration check skipped', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -1424,7 +1425,7 @@ export class DatabaseInitializer {
       );
     }
 
-    console.log(`Seeded ${SEED_TEMPLATES.length} templates.`);
+    gameLog.info('database', `Seeded ${SEED_TEMPLATES.length} templates`);
   }
 
   private seedSettings(): void {
@@ -1438,7 +1439,7 @@ export class DatabaseInitializer {
       stmt.run(setting.id, setting.category, setting.key, setting.value, setting.description);
     }
 
-    console.log(`Seeded ${SEED_SETTINGS.length} settings.`);
+    gameLog.info('database', `Seeded ${SEED_SETTINGS.length} settings`);
   }
 
   public isInitialized(): boolean {

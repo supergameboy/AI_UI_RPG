@@ -16,7 +16,10 @@ const QUEST_TYPES = [
   { value: 'hidden', label: '隐藏任务', color: '#a855f7' },
 ];
 
-const OBJECTIVE_TYPES = [
+type ObjectiveType = 'kill' | 'collect' | 'talk' | 'explore' | 'custom';
+type RewardType = 'experience' | 'currency' | 'item' | 'skill' | 'reputation' | 'custom';
+
+const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
   { value: 'kill', label: '击杀' },
   { value: 'collect', label: '收集' },
   { value: 'talk', label: '对话' },
@@ -24,7 +27,7 @@ const OBJECTIVE_TYPES = [
   { value: 'custom', label: '自定义' },
 ];
 
-const REWARD_TYPES = [
+const REWARD_TYPES: { value: RewardType; label: string }[] = [
   { value: 'experience', label: '经验值' },
   { value: 'currency', label: '货币' },
   { value: 'item', label: '物品' },
@@ -53,8 +56,8 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiPreview, setAiPreview] = useState<QuestDefinition | null>(null);
-  const [newObjective, setNewObjective] = useState({ description: '', type: 'custom' as const, target: '', required: 1 });
-  const [newReward, setNewReward] = useState({ type: 'experience' as const, value: 0 });
+  const [newObjective, setNewObjective] = useState({ description: '', type: 'custom' as ObjectiveType, target: '', required: 1 });
+  const [newReward, setNewReward] = useState({ type: 'experience' as RewardType, value: 0 });
 
   const handleAdd = useCallback(() => {
     const newQuest = createEmptyQuest();
@@ -236,7 +239,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
               <select
                 value={newObjective.type}
-                onChange={(e) => setNewObjective({ ...newObjective, type: e.target.value as any })}
+                onChange={(e) => setNewObjective({ ...newObjective, type: e.target.value as ObjectiveType })}
                 style={{ ...inputStyle, width: 'auto' }}
               >
                 {OBJECTIVE_TYPES.map((t) => (
@@ -277,7 +280,7 @@ export const QuestEditor: React.FC<QuestEditorProps> = ({
             <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
               <select
                 value={newReward.type}
-                onChange={(e) => setNewReward({ ...newReward, type: e.target.value as any })}
+                onChange={(e) => setNewReward({ ...newReward, type: e.target.value as RewardType })}
                 style={{ ...inputStyle, width: 'auto' }}
               >
                 {REWARD_TYPES.map((t) => (

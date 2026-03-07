@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Icon, ConfirmDialog } from '../common';
+import type { IconName } from '../common/Icon';
 import { useTemplateStore } from '../../stores/templateStore';
 import { templateService } from '../../services/templateService';
 import type { StoryTemplate, RaceDefinition, ClassDefinition, BackgroundDefinition, AttributeDefinition, NumericalComplexity, SpecialRules, WorldSetting } from '@ai-rpg/shared';
@@ -28,7 +29,7 @@ export type EditorModule = 'basic' | 'world' | 'race' | 'class' | 'background' |
 interface NavItem {
   id: EditorModule;
   label: string;
-  icon: string;
+  icon: IconName;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -511,7 +512,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onBack }) => {
                   className={`${styles.navItem} ${activeModule === item.id ? styles.active : ''}`}
                   onClick={() => handleNavClick(item.id)}
                 >
-                  <Icon name={item.icon as any} size={20} />
+                  <Icon name={item.icon} size={20} />
                   <span>{item.label}</span>
                 </button>
               </li>

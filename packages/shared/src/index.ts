@@ -26,3 +26,5 @@ export * from './types/story';
 export * from './types/agent-output';
 export * from './types/initialization';
 export * from './types/gameState';
+export * from './types/reputation';
+export * from './constants/gameConfig';

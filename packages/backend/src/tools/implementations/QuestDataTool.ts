@@ -85,7 +85,7 @@ export class QuestDataTool extends ToolBase {
           break;
 
         case 'completeQuest':
-          result = service.completeQuest(
+          result = await service.completeQuest(
             params.characterId as string,
             params.questId as string
           );
@@ -121,9 +121,11 @@ export class QuestDataTool extends ToolBase {
           break;
 
         case 'grantRewards':
-          service.grantRewards(
+          await service.grantRewards(
             params.characterId as string,
-            params.rewards as QuestRewards
+            params.rewards as QuestRewards,
+            params.questId as string | undefined,
+            params.questName as string | undefined
           );
           result = { success: true };
           this.logWriteOperation(method, params, context);

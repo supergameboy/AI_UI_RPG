@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import type { DynamicUIComponentProps, NotifyType } from './types';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 import styles from './SystemNotifyComponent.module.css';
 
 /**
@@ -86,7 +87,9 @@ export const SystemNotifyComponent: React.FC<DynamicUIComponentProps> = ({
       </div>
       <div className={styles.content}>
         <div className={styles.title}>{displayTitle}</div>
-        <div className={styles.message}>{content.trim()}</div>
+        <div className={styles.message}>
+          <MarkdownRenderer content={content.trim()} onAction={onAction} />
+        </div>
       </div>
       {dismissible && (
         <button

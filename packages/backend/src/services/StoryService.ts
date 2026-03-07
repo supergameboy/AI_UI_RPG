@@ -25,10 +25,18 @@ import type {
   StoryPathResponse,
   StoryNodeType,
   PlotPointType,
+  InventorySlot,
+  AttributeModification,
+  Item,
+  BaseAttributeName,
+  DerivedAttributeName,
 } from '@ai-rpg/shared';
 import { DatabaseService } from './DatabaseService';
 import { gameLog } from './GameLogService';
 import { getLLMService } from './llm/LLMService';
+import { getNumericalService } from './NumericalService';
+import { getInventoryService } from './InventoryService';
+import { getQuestService } from './QuestService';
 
 // ==================== 数据库实体类型 ====================
 
@@ -239,6 +247,38 @@ export class StoryService {
 
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_choice_history_save ON choice_history(save_id)
+    `);
+
+    // 故事标志表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS story_flags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        save_id TEXT NOT NULL,
+        flag_name TEXT NOT NULL,
+        flag_value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(save_id, flag_name)
+      )
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_story_flags_save ON story_flags(save_id)
+    `);
+
+    // 故事关系表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS story_relationships (
+        id TEXT PRIMARY KEY,
+        save_id TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        value INTEGER NOT NULL,
+        description TEXT,
+        timestamp INTEGER NOT NULL
+      )
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_story_relationships_save ON story_relationships(save_id)
     `);
   }
 
@@ -547,7 +587,7 @@ export class StoryService {
   /**
    * 记录选择
    */
-  public recordChoice(request: RecordChoiceRequest): RecordChoiceResponse {
+  public async recordChoice(request: RecordChoiceRequest): Promise<RecordChoiceResponse> {
     try {
       const node = this.getNode(request.nodeId);
       if (!node) {
@@ -603,7 +643,7 @@ export class StoryService {
       });
 
       // 应用效果
-      this.applyEffects(choice.effects, request.saveId);
+      await this.applyEffects(choice.effects, request.saveId);
 
       gameLog.debug('backend', '记录选择', {
         nodeId: request.nodeId,
@@ -1225,20 +1265,591 @@ export class StoryService {
 
   /**
    * 检查条件
+   * 支持属性、物品、任务、标志等条件类型的检查
    */
-  private checkConditions(_conditions: StoryCondition[], _saveId: string): boolean {
-    // TODO: 实现条件检查逻辑
-    // 这里需要与其他服务（如角色属性、物品、任务等）集成
+  private checkConditions(conditions: StoryCondition[], saveId: string): boolean {
+    // 所有条件必须满足（AND 逻辑）
+    for (const condition of conditions) {
+      if (!this.checkSingleCondition(condition, saveId)) {
+        gameLog.debug('backend', '条件检查失败', {
+          saveId,
+          condition,
+        });
+        return false;
+      }
+    }
     return true;
+  }
+
+  /**
+   * 检查单个条件
+   */
+  private checkSingleCondition(condition: StoryCondition, saveId: string): boolean {
+    switch (condition.type) {
+      case 'attribute':
+        return this.checkAttributeCondition(condition, saveId);
+      case 'item':
+        return this.checkItemCondition(condition, saveId);
+      case 'quest':
+        return this.checkQuestCondition(condition, saveId);
+      case 'flag':
+        return this.checkFlagCondition(condition, saveId);
+      case 'relationship':
+        return this.checkRelationshipCondition(condition, saveId);
+      case 'custom':
+        return this.checkCustomCondition(condition, saveId);
+      default:
+        gameLog.warn('backend', '未知条件类型', { condition });
+        return false;
+    }
+  }
+
+  /**
+   * 检查属性条件
+   */
+  private checkAttributeCondition(condition: StoryCondition, saveId: string): boolean {
+    try {
+      const { getNumericalService } = require('./NumericalService');
+      const numericalService = getNumericalService();
+      const characterId = this.getCharacterIdBySaveId(saveId);
+
+      if (!characterId) {
+        gameLog.warn('backend', '无法获取角色ID', { saveId });
+        return false;
+      }
+
+      const statsResult = numericalService.getCharacterStats(characterId);
+      if (!statsResult.success || !statsResult.data) {
+        return false;
+      }
+
+      const stats = statsResult.data;
+      const targetValue = condition.value as number;
+
+      // 支持基础属性和衍生属性
+      let actualValue: number | undefined;
+
+      // 检查基础属性
+      if (condition.target in stats.baseAttributes) {
+        actualValue = stats.baseAttributes[condition.target as keyof typeof stats.baseAttributes];
+      }
+      // 检查衍生属性
+      else if (condition.target in stats.derivedAttributes) {
+        actualValue = stats.derivedAttributes[condition.target as keyof typeof stats.derivedAttributes];
+      }
+      // 检查等级和经验
+      else if (condition.target === 'level') {
+        actualValue = stats.level;
+      } else if (condition.target === 'experience') {
+        actualValue = stats.experience;
+      }
+
+      if (actualValue === undefined) {
+        gameLog.warn('backend', '未知的属性类型', { target: condition.target });
+        return false;
+      }
+
+      return this.compareValues(actualValue, targetValue, condition.operator);
+    } catch (error) {
+      gameLog.error('backend', '检查属性条件失败', { error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+
+  /**
+   * 检查物品条件
+   */
+  private checkItemCondition(condition: StoryCondition, saveId: string): boolean {
+    try {
+      const { getInventoryService } = require('./InventoryService');
+      const inventoryService = getInventoryService();
+      const characterId = this.getCharacterIdBySaveId(saveId);
+
+      if (!characterId) {
+        return false;
+      }
+
+      const inventory = inventoryService.getInventory(saveId, characterId);
+      const targetItemId = condition.target;
+      const requiredQuantity = typeof condition.value === 'number' ? condition.value : 1;
+
+      // 查找物品
+      const itemSlot = inventory.slots.find(
+        (slot: InventorySlot) => slot.item && (slot.item.id === targetItemId || slot.item.name === targetItemId)
+      );
+
+      if (!itemSlot || !itemSlot.item) {
+        return condition.operator === 'neq'; // 如果要求不等于，没有物品则满足
+      }
+
+      const actualQuantity = itemSlot.quantity;
+
+      // 根据操作符比较
+      switch (condition.operator) {
+        case 'eq':
+          return actualQuantity === requiredQuantity;
+        case 'gt':
+          return actualQuantity > requiredQuantity;
+        case 'gte':
+          return actualQuantity >= requiredQuantity;
+        case 'lt':
+          return actualQuantity < requiredQuantity;
+        case 'lte':
+          return actualQuantity <= requiredQuantity;
+        case 'neq':
+          return actualQuantity !== requiredQuantity;
+        default:
+          return actualQuantity >= requiredQuantity;
+      }
+    } catch (error) {
+      gameLog.error('backend', '检查物品条件失败', { error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+
+  /**
+   * 检查任务条件
+   */
+  private checkQuestCondition(condition: StoryCondition, saveId: string): boolean {
+    try {
+      const { getQuestService } = require('./QuestService');
+      const questService = getQuestService();
+      const characterId = this.getCharacterIdBySaveId(saveId);
+
+      if (!characterId) {
+        return false;
+      }
+
+      const questId = condition.target;
+      const requiredStatus = condition.value as string;
+
+      const result = questService.getQuest(characterId, questId);
+
+      if (!result.success || !result.quest) {
+        // 任务不存在时，如果要求状态是 'not_started' 或 'locked'，则满足
+        return requiredStatus === 'not_started' || requiredStatus === 'locked';
+      }
+
+      const actualStatus = result.quest.status;
+
+      switch (condition.operator) {
+        case 'eq':
+          return actualStatus === requiredStatus;
+        case 'neq':
+          return actualStatus !== requiredStatus;
+        default:
+          return actualStatus === requiredStatus;
+      }
+    } catch (error) {
+      gameLog.error('backend', '检查任务条件失败', { error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+
+  /**
+   * 检查标志条件
+   */
+  private checkFlagCondition(condition: StoryCondition, saveId: string): boolean {
+    try {
+      const { getSaveRepository } = require('../models/SaveRepository');
+      const saveRepository = getSaveRepository();
+
+      const save = saveRepository.findById(saveId);
+      if (!save) {
+        return false;
+      }
+
+      // 解析 game_state JSON
+      let gameState: Record<string, unknown> = {};
+      try {
+        gameState = JSON.parse(save.game_state || '{}');
+      } catch {
+        gameState = {};
+      }
+
+      // 支持嵌套路径，如 "flags.completedTutorial"
+      const flagPath = condition.target.split('.');
+      let currentValue: unknown = gameState;
+
+      for (const key of flagPath) {
+        if (currentValue && typeof currentValue === 'object' && key in currentValue) {
+          currentValue = (currentValue as Record<string, unknown>)[key];
+        } else {
+          currentValue = undefined;
+          break;
+        }
+      }
+
+      const targetValue = condition.value;
+
+      // 根据操作符比较
+      switch (condition.operator) {
+        case 'eq':
+          return currentValue === targetValue;
+        case 'neq':
+          return currentValue !== targetValue;
+        default:
+          // 对于布尔值标志，默认检查是否为真
+          if (typeof targetValue === 'boolean') {
+            return currentValue === targetValue;
+          }
+          return currentValue === targetValue;
+      }
+    } catch (error) {
+      gameLog.error('backend', '检查标志条件失败', { error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+
+  /**
+   * 检查关系条件（预留接口）
+   */
+  private checkRelationshipCondition(condition: StoryCondition, saveId: string): boolean {
+    // TODO: 实现关系检查，需要 NPC 关系系统
+    gameLog.warn('backend', '关系条件检查暂未实现', { saveId, condition });
+    return true;
+  }
+
+  /**
+   * 检查自定义条件
+   */
+  private checkCustomCondition(condition: StoryCondition, saveId: string): boolean {
+    // 自定义条件需要根据具体业务逻辑实现
+    gameLog.debug('backend', '自定义条件检查', { saveId, condition });
+    // 默认返回 true，允许自定义逻辑通过
+    return true;
+  }
+
+  /**
+   * 根据存档ID获取角色ID
+   */
+  private getCharacterIdBySaveId(saveId: string): string | null {
+    try {
+      const stmt = this.db.prepare<{ character_id: string | null }>(
+        'SELECT character_id FROM saves WHERE id = ?'
+      );
+      const result = stmt.get(saveId);
+      return result?.character_id ?? null;
+    } catch (error) {
+      gameLog.error('backend', '获取角色ID失败', { error: error instanceof Error ? error.message : String(error) });
+      return null;
+    }
+  }
+
+  /**
+   * 比较数值
+   */
+  private compareValues(actual: number, target: number, operator: string): boolean {
+    switch (operator) {
+      case 'eq':
+        return actual === target;
+      case 'gt':
+        return actual > target;
+      case 'gte':
+        return actual >= target;
+      case 'lt':
+        return actual < target;
+      case 'lte':
+        return actual <= target;
+      case 'neq':
+        return actual !== target;
+      default:
+        return actual >= target;
+    }
   }
 
   /**
    * 应用效果
    */
-  private applyEffects(effects: StoryEffect[], saveId: string): void {
-    // TODO: 实现效果应用逻辑
-    // 这里需要与其他服务集成来实际应用效果
-    gameLog.debug('backend', '应用故事效果', { saveId, effects });
+  private async applyEffects(effects: StoryEffect[], saveId: string): Promise<void> {
+    const characterId = saveId; // 在当前架构中，saveId 即为 characterId
+
+    for (const effect of effects) {
+      try {
+        switch (effect.type) {
+          case 'attribute': {
+            this.applyAttributeEffect(effect, characterId);
+            break;
+          }
+          case 'item': {
+            this.applyItemEffect(effect, saveId, characterId);
+            break;
+          }
+          case 'quest': {
+            await this.applyQuestEffect(effect, characterId);
+            break;
+          }
+          case 'flag': {
+            this.applyFlagEffect(effect, saveId);
+            break;
+          }
+          case 'relationship': {
+            this.applyRelationshipEffect(effect, saveId);
+            break;
+          }
+          case 'custom': {
+            gameLog.info('backend', '应用自定义效果', {
+              saveId,
+              target: effect.target,
+              value: effect.value,
+              description: effect.description,
+            });
+            break;
+          }
+          default: {
+            gameLog.warn('backend', '未知效果类型', { effect });
+          }
+        }
+      } catch (error) {
+        gameLog.error('backend', '应用效果失败', {
+          effect,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
+  /**
+   * 应用属性效果
+   */
+  private applyAttributeEffect(effect: StoryEffect, characterId: string): void {
+    const numericalService = getNumericalService();
+    
+    // 解析效果值，支持数值增减
+    const value = typeof effect.value === 'number' ? effect.value : 0;
+    
+    // 将 effect.target 转换为合法的属性名
+    const attributeName = effect.target as BaseAttributeName | DerivedAttributeName;
+    
+    const modification: AttributeModification = {
+      targetId: characterId,
+      attribute: attributeName,
+      value: Math.abs(value),
+      type: value >= 0 ? 'add' : 'subtract',
+      source: 'story_effect',
+    };
+
+    const result = numericalService.modifyAttribute(modification);
+    
+    if (result.success) {
+      gameLog.info('backend', '属性效果已应用', {
+        characterId,
+        attribute: effect.target,
+        change: result.data?.change,
+        previousValue: result.data?.previousValue,
+        newValue: result.data?.newValue,
+        description: effect.description,
+      });
+    } else {
+      gameLog.warn('backend', '属性效果应用失败', {
+        characterId,
+        attribute: effect.target,
+        error: result.error,
+      });
+    }
+  }
+
+  /**
+   * 应用物品效果
+   */
+  private applyItemEffect(effect: StoryEffect, saveId: string, characterId: string): void {
+    const inventoryService = getInventoryService();
+    
+    // effect.target 为物品ID，effect.value 为数量（正数为获取，负数为失去）
+    const quantity = typeof effect.value === 'number' ? Math.abs(effect.value) : 1;
+    const isAdding = typeof effect.value === 'number' ? effect.value >= 0 : true;
+
+    if (isAdding) {
+      // 添加物品 - 创建一个基础物品对象
+      const item: Item = {
+        id: effect.target,
+        name: effect.description || effect.target,
+        description: effect.description || `物品: ${effect.target}`,
+        type: 'misc',
+        rarity: 'common',
+        stats: {},
+        effects: [],
+        requirements: {},
+        value: { buy: 0, sell: 0, currency: 'gold' },
+        stackable: true,
+        maxStack: 99,
+      };
+
+      const result = inventoryService.addItem(saveId, characterId, item, quantity);
+      
+      if (result.success) {
+        gameLog.info('backend', '物品效果已应用（获取）', {
+          characterId,
+          itemId: effect.target,
+          quantity,
+          description: effect.description,
+        });
+      } else {
+        gameLog.warn('backend', '物品效果应用失败（获取）', {
+          characterId,
+          itemId: effect.target,
+          error: '添加物品失败',
+        });
+      }
+    } else {
+      // 移除物品
+      try {
+        const result = inventoryService.removeItem(saveId, characterId, effect.target, quantity);
+        gameLog.info('backend', '物品效果已应用（失去）', {
+          characterId,
+          itemId: effect.target,
+          quantity: result.quantity,
+          description: effect.description,
+        });
+      } catch (error) {
+        gameLog.warn('backend', '物品效果应用失败（失去）', {
+          characterId,
+          itemId: effect.target,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
+  /**
+   * 应用任务效果
+   */
+  private async applyQuestEffect(effect: StoryEffect, characterId: string): Promise<void> {
+    const questService = getQuestService();
+    
+    // effect.target 为任务ID
+    // effect.value 可以是 'accept', 'complete', 'abandon' 或进度数值
+    const action = typeof effect.value === 'string' ? effect.value : 'accept';
+
+    switch (action) {
+      case 'accept': {
+        const result = questService.acceptQuest(characterId, effect.target);
+        if (result.success) {
+          gameLog.info('backend', '任务效果已应用（接取）', {
+            characterId,
+            questId: effect.target,
+            questName: result.quest?.name,
+            description: effect.description,
+          });
+        } else {
+          gameLog.warn('backend', '任务效果应用失败（接取）', {
+            characterId,
+            questId: effect.target,
+            error: result.message,
+          });
+        }
+        break;
+      }
+      case 'complete': {
+        const result = await questService.completeQuest(characterId, effect.target);
+        if (result.success) {
+          gameLog.info('backend', '任务效果已应用（完成）', {
+            characterId,
+            questId: effect.target,
+            rewards: result.rewards,
+            description: effect.description,
+          });
+        } else {
+          gameLog.warn('backend', '任务效果应用失败（完成）', {
+            characterId,
+            questId: effect.target,
+            error: result.message,
+          });
+        }
+        break;
+      }
+      case 'abandon': {
+        const result = questService.abandonQuest(characterId, effect.target);
+        if (result.success) {
+          gameLog.info('backend', '任务效果已应用（放弃）', {
+            characterId,
+            questId: effect.target,
+            description: effect.description,
+          });
+        } else {
+          gameLog.warn('backend', '任务效果应用失败（放弃）', {
+            characterId,
+            questId: effect.target,
+            error: result.message,
+          });
+        }
+        break;
+      }
+      default: {
+        // 尝试作为进度更新 - 使用 incrementProgress 方法
+        const progress = typeof effect.value === 'number' ? effect.value : parseInt(action, 10);
+        if (!isNaN(progress)) {
+          // 使用 updateProgressByType 方法自动匹配目标
+          const results = questService.updateProgressByType(characterId, 'custom', effect.target, progress);
+          if (results.length > 0 && results.some(r => r.success)) {
+            gameLog.info('backend', '任务效果已应用（进度更新）', {
+              characterId,
+              questId: effect.target,
+              progress,
+              description: effect.description,
+            });
+          } else {
+            gameLog.warn('backend', '任务效果应用失败（进度更新）', {
+              characterId,
+              questId: effect.target,
+              error: '未找到匹配的任务目标',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 应用标志效果
+   */
+  private applyFlagEffect(effect: StoryEffect, saveId: string): void {
+    // 将标志存储到数据库中
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO story_flags (save_id, flag_name, flag_value, updated_at)
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    const now = Math.floor(Date.now() / 1000);
+    const flagValue = typeof effect.value === 'boolean' 
+      ? (effect.value ? 1 : 0) 
+      : String(effect.value);
+    
+    stmt.run(saveId, effect.target, flagValue, now);
+    
+    gameLog.info('backend', '标志效果已应用', {
+      saveId,
+      flagName: effect.target,
+      flagValue: effect.value,
+      description: effect.description,
+    });
+  }
+
+  /**
+   * 应用关系效果
+   */
+  private applyRelationshipEffect(effect: StoryEffect, saveId: string): void {
+    // effect.target 为 NPC ID 或关系名称
+    // effect.value 为关系值变化（正数增加好感，负数减少好感）
+    const value = typeof effect.value === 'number' ? effect.value : 0;
+    
+    // 将关系变化存储到数据库
+    const stmt = this.db.prepare(`
+      INSERT INTO story_relationships (id, save_id, target_id, value, description, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    
+    const id = this.generateId('rel');
+    const now = Date.now();
+    
+    stmt.run(id, saveId, effect.target, value, effect.description || '', now);
+    
+    gameLog.info('backend', '关系效果已应用', {
+      saveId,
+      targetId: effect.target,
+      value,
+      description: effect.description,
+    });
   }
 
   /**

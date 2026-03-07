@@ -97,13 +97,7 @@ export const OptionCard: React.FC<OptionCardProps> = ({
           <div className={styles.feature}>
             <span className={styles.featureLabel}>特性:</span>
             <span className={styles.featureText}>
-              {typeof option.feature === 'string' 
-                ? option.feature 
-                : option.feature 
-                  ? (typeof option.feature === 'object' 
-                      ? ((option.feature as any).name || (option.feature as any).description || JSON.stringify(option.feature))
-                      : String(option.feature))
-                  : '无特性'}
+              {option.feature || '无特性'}
             </span>
           </div>
           {option.skillProficiencies && option.skillProficiencies.length > 0 && (

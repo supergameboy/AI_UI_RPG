@@ -54,7 +54,6 @@ export interface Agent {
   bindings: AgentBinding[];
   config: AgentConfig;
   memory: AgentMemorySystem;
-  systemPrompt: string;
   status: 'idle' | 'processing' | 'waiting' | 'error';
 }
 

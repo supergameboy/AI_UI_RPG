@@ -257,6 +257,33 @@ const migrations: Migration[] = [
       db.run('DROP TABLE IF EXISTS character_ui_state');
     },
   },
+  {
+    version: 10,
+    name: 'create_character_reputations_table',
+    up: (db: Database) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS character_reputations (
+          id TEXT PRIMARY KEY,
+          character_id TEXT NOT NULL,
+          reputation_id TEXT NOT NULL,
+          value INTEGER DEFAULT 0,
+          rank TEXT DEFAULT 'neutral' CHECK(rank IN ('hated', 'hostile', 'unfriendly', 'neutral', 'friendly', 'honored', 'revered', 'exalted')),
+          history TEXT DEFAULT '[]',
+          last_modified INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE(character_id, reputation_id)
+        )
+      `);
+      db.run('CREATE INDEX IF NOT EXISTS idx_character_reputations_character ON character_reputations(character_id)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_character_reputations_rank ON character_reputations(rank)');
+    },
+    down: (db: Database) => {
+      db.run('DROP INDEX IF EXISTS idx_character_reputations_rank');
+      db.run('DROP INDEX IF EXISTS idx_character_reputations_character');
+      db.run('DROP TABLE IF EXISTS character_reputations');
+    },
+  },
 ];
 
 export class MigrationRunner {

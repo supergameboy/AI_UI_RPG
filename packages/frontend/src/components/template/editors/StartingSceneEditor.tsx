@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import type { StartingScene, NPCDefinition, ItemDefinition, QuestDefinition, StoryTemplate } from '@ai-rpg/shared';
 import { Button, Icon } from '../../common';
+import type { IconName } from '../../common/Icon';
 import { NPCEditor } from './NPCEditor';
 import { ItemEditor } from './ItemEditor';
 import { QuestEditor } from './QuestEditor';
@@ -15,7 +16,7 @@ interface StartingSceneEditorProps {
 
 type TabType = 'npcs' | 'items' | 'quests';
 
-const TABS: { id: TabType; label: string; icon: string }[] = [
+const TABS: { id: TabType; label: string; icon: IconName }[] = [
   { id: 'npcs', label: 'NPC', icon: 'character' },
   { id: 'items', label: '物品', icon: 'inventory' },
   { id: 'quests', label: '任务', icon: 'quests' },
@@ -208,7 +209,7 @@ export const StartingSceneEditor: React.FC<StartingSceneEditorProps> = ({
             style={tabStyle(activeTab === tab.id)}
             onClick={() => setActiveTab(tab.id)}
           >
-            <Icon name={tab.icon as any} size={16} />
+            <Icon name={tab.icon} size={16} />
             <span>{tab.label}</span>
             <span style={{
               background: activeTab === tab.id ? 'rgba(255,255,255,0.2)' : 'var(--color-primary-light)',

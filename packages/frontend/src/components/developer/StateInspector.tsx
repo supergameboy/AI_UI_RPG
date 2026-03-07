@@ -124,6 +124,8 @@ export const StateInspector: React.FC = () => {
   }, []);
 
   // 根据状态类型加载数据
+  // loadGlobalContext, loadAgentContexts, loadToolStates, loadConflicts 使用 ref 模式
+  // 避免每次 store 变化时重新创建函数导致的无限循环
   useEffect(() => {
     if (activeStateType === 'globalContext') {
       loadGlobalContext();
@@ -135,16 +137,19 @@ export const StateInspector: React.FC = () => {
       loadToolStates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStateType]); // 只依赖 activeStateType，其他都是稳定的 ref
+    // loadXxx 函数内部使用 gameStoreRef 获取最新状态，不需要作为依赖
+  }, [activeStateType]);
 
   // 加载快照列表（用于对比功能）
+  // loadSnapshots 使用 ref 模式，内部通过 gameStoreRef 获取最新 saveId
   useEffect(() => {
     const saveId = gameStoreRef.current.currentSaveId;
     if (saveId) {
       loadSnapshots();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameStore.currentSaveId]); // 只依赖 currentSaveId
+    // loadSnapshots 内部使用 gameStoreRef，不需要作为依赖
+  }, [gameStore.currentSaveId]);
 
   // 对比两个快照
   const compareSnapshots = async () => {

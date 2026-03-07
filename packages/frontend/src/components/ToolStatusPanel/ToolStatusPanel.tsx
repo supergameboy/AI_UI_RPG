@@ -76,10 +76,12 @@ export const ToolStatusPanel: React.FC<ToolStatusPanelProps> = ({
     storeRef.current.setRefreshInterval(defaultRefreshInterval);
   }, [defaultRefreshInterval]);
 
-  // 初始加载 - 只运行一次
+  // 初始加载 - 只在组件挂载时执行一次
+  // fetchTools 通过 storeRef 调用，确保始终使用最新的函数引用
   useEffect(() => {
     storeRef.current.fetchTools();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 空依赖数组：组件挂载时执行一次初始化加载
   }, []);
 
   // 自动刷新

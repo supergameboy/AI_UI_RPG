@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import type { NPCDefinition } from '@ai-rpg/shared';
 import { Button, Icon, ConfirmDialog } from '../../common';
 
+type NPCServiceType = 'shop' | 'inn' | 'blacksmith' | 'healer' | 'training';
+
 interface NPCEditorProps {
   npcs: NPCDefinition[];
   readOnly: boolean;
@@ -18,7 +20,7 @@ const NPC_ROLES = [
   { value: 'custom', label: '自定义' },
 ];
 
-const NPC_SERVICES = [
+const NPC_SERVICES: { value: NPCServiceType; label: string }[] = [
   { value: 'shop', label: '商店' },
   { value: 'inn', label: '旅馆' },
   { value: 'blacksmith', label: '铁匠铺' },
@@ -99,12 +101,12 @@ export const NPCEditor: React.FC<NPCEditorProps> = ({
   }, [aiPreview, npcs, onUpdate]);
 
   const toggleService = useCallback(
-    (service: string) => {
+    (service: NPCServiceType) => {
       if (!editingNpc) return;
       const services = editingNpc.services || [];
-      const newServices = services.includes(service as any)
+      const newServices = services.includes(service)
         ? services.filter((s) => s !== service)
-        : [...services, service as any];
+        : [...services, service];
       setEditingNpc({ ...editingNpc, services: newServices });
     },
     [editingNpc]
@@ -204,10 +206,10 @@ export const NPCEditor: React.FC<NPCEditorProps> = ({
                   onClick={() => toggleService(s.value)}
                   style={{
                     padding: 'var(--spacing-xs) var(--spacing-sm)',
-                    background: (editingNpc.services || []).includes(s.value as any)
+                    background: (editingNpc.services || []).includes(s.value)
                       ? 'var(--color-primary)'
                       : 'var(--color-background)',
-                    color: (editingNpc.services || []).includes(s.value as any)
+                    color: (editingNpc.services || []).includes(s.value)
                       ? 'white'
                       : 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',

@@ -52,19 +52,32 @@
 
 /* 颜色 */
 .primary {
-  background: var(--gradient-primary);
+  background: var(--gradient-primary, linear-gradient(90deg, #007bff 0%, #6eb5ff 100%));
 }
 
 .success {
-  background: var(--color-success);
+  background: var(--color-success, #28a745);
 }
 
 .warning {
-  background: var(--color-warning);
+  background: var(--color-warning, #ffc107);
 }
 
 .error {
-  background: var(--color-error);
+  background: var(--color-error, #dc3545);
+}
+
+/* 模板中使用的颜色名称 */
+.red {
+  background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+}
+
+.blue {
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+}
+
+.green {
+  background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
 }
 
 .health {

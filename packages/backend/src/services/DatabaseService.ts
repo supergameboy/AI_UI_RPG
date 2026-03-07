@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { gameLog } from './GameLogService';
 import { MigrationRunner } from './DatabaseMigration';
+import { DatabaseError, InternalError } from '@ai-rpg/shared';
 
 export interface DatabaseConfig {
   dbPath: string;
@@ -35,7 +36,7 @@ export class DatabaseService {
 
   public static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
-      throw new Error('DatabaseService not initialized. Call create() first.');
+      throw new InternalError('DatabaseService not initialized. Call create() first.');
     }
     return DatabaseService.instance;
   }
@@ -60,7 +61,7 @@ export class DatabaseService {
     }
 
     if (!this.SQL) {
-      throw new Error('SQL.js not initialized');
+      throw new DatabaseError('SQL.js not initialized');
     }
 
     const fullPath = path.join(this.config.dbPath, this.config.dbName);
@@ -152,7 +153,7 @@ export class DatabaseService {
 
   public getMigrationRunner(): MigrationRunner {
     if (!this.migrationRunner) {
-      throw new Error('Database not connected');
+      throw new DatabaseError('Database not connected');
     }
     return this.migrationRunner;
   }

@@ -1,0 +1,156 @@
+.container {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin: var(--spacing-sm) 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 450px;
+  max-height: 400px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-background-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.messageList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-height: 150px;
+  max-height: 300px;
+}
+
+/* 消息样式 */
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-md);
+  background: var(--color-background-tertiary);
+}
+
+.messageHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.speakerIcon {
+  font-size: var(--font-size-sm);
+}
+
+.speakerName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.timestamp {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}
+
+.messageContent {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* 消息类型样式 */
+.npc {
+  border-left: 3px solid var(--color-success);
+}
+
+.npc .speakerName {
+  color: var(--color-success);
+}
+
+.player {
+  border-left: 3px solid var(--color-primary);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.player .speakerName {
+  color: var(--color-primary);
+}
+
+.system {
+  border-left: 3px solid var(--color-warning);
+  background: rgba(234, 179, 8, 0.05);
+}
+
+.system .speakerName {
+  color: var(--color-warning);
+}
+
+.system .messageContent {
+  font-style: italic;
+}
+
+/* 空状态 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-text-tertiary);
+  padding: var(--spacing-lg);
+}
+
+.emptyIcon {
+  font-size: 32px;
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.5;
+}
+
+.emptyText {
+  font-size: var(--font-size-sm);
+}
+
+/* 滚动条样式 */
+.messageList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messageList::-webkit-scrollbar-track {
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-full);
+}
+
+.messageList::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.messageList::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}

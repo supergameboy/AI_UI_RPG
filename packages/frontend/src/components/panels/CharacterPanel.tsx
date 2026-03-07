@@ -2,6 +2,7 @@ import React from 'react';
 import { useGameStore } from '../../stores/gameStore';
 import { ProgressBar } from '../common';
 import styles from './CharacterPanel.module.css';
+import { EXPERIENCE_PER_LEVEL_BASE } from '@ai-rpg/shared';
 
 /**
  * 属性名称映射
@@ -34,8 +35,8 @@ const ATTRIBUTE_ICONS: Record<string, string> = {
 export const CharacterPanel: React.FC = () => {
   const character = useGameStore((state) => state.character);
 
-  // 计算经验值进度（假设每级需要 level * 100 经验）
-  const expForNextLevel = character.experienceToLevel ?? character.level * 100;
+  // 计算经验值进度（假设每级需要 level * EXPERIENCE_PER_LEVEL_BASE 经验）
+  const expForNextLevel = character.experienceToLevel ?? character.level * EXPERIENCE_PER_LEVEL_BASE;
   const currentExp = character.experience ?? 0;
   const expProgress = (currentExp / expForNextLevel) * 100;
 

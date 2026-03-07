@@ -7,9 +7,26 @@ import type {
   StatusEffect,
   AgentBinding,
   ToolType,
+  CombatInitParams as SharedCombatInitParams,
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { gameLog } from '../services/GameLogService';
+import {
+  mergePlayerCombatStats,
+  BASE_FLEE_CHANCE,
+  FLEE_STAT_MODIFIER,
+  EASY_AI_DEFEND_CHANCE,
+  CRITICAL_RATE_MODIFIER,
+  EVADE_RATE_MODIFIER,
+  MAGIC_CRITICAL_RATE_MODIFIER,
+  CRITICAL_DAMAGE_MULTIPLIER,
+  MAGIC_CRITICAL_DAMAGE_MULTIPLIER,
+  DEFEND_DAMAGE_REDUCTION,
+  DEFEND_MAGIC_DAMAGE_REDUCTION,
+  MAGIC_DAMAGE_MULTIPLIER,
+  LOW_HP_THRESHOLD,
+} from '../constants';
 
 // ==================== 战斗类型定义 ====================
 
@@ -186,31 +203,6 @@ interface DamageResult {
   modifiers: string[];
 }
 
-/**
- * 战斗初始化参数
- */
-export interface CombatInitParams {
-  playerId: string;
-  allies?: Array<{
-    id: string;
-    name: string;
-    type: 'ally';
-    stats: CombatUnit['stats'];
-    skills?: string[];
-  }>;
-  enemies: Array<{
-    id: string;
-    name: string;
-    type: 'enemy';
-    level: number;
-    stats: CombatUnit['stats'];
-    skills?: string[];
-    aiPattern?: string;
-  }>;
-  difficulty?: CombatDifficulty;
-  environment?: CombatInstance['environment'];
-}
-
 // ==================== CombatAgent 实现 ====================
 
 /**
@@ -235,40 +227,8 @@ export class CombatAgent extends AgentBase {
     { agentType: AT.SKILL, enabled: true },
     { agentType: AT.NPC_PARTY, enabled: true },
     { agentType: AT.UI, enabled: true },
+    { agentType: AT.INVENTORY, enabled: true },
   ];
-
-  readonly systemPrompt = `你是战斗管理智能体，负责管理游戏中的所有战斗系统。
-
-核心职责：
-1. 战斗流程管理：初始化战斗、管理回合顺序、处理战斗状态转换
-2. 回合制战斗：处理玩家和敌人的回合行动
-3. 战斗AI决策：根据难度和情况为敌人做出智能决策
-4. 战斗结果处理：计算战斗结果、奖励分配、经验计算
-
-战斗状态：
-- PREPARING: 准备中，战斗即将开始
-- IN_PROGRESS: 战斗进行中
-- PLAYER_TURN: 玩家回合
-- ENEMY_TURN: 敌人回合
-- ENDED: 战斗已结束
-
-行动类型：
-- ATTACK: 普通攻击
-- SKILL: 使用技能
-- ITEM: 使用物品
-- DEFEND: 防御姿态
-- FLEE: 尝试逃跑
-
-AI难度：
-- EASY: 简单AI，随机行动，偶尔做出次优选择
-- NORMAL: 普通AI，平衡策略，考虑基本战术
-- HARD: 困难AI，最优策略，针对玩家弱点
-
-战斗原则：
-- 保持战斗平衡性
-- 合理的回合顺序（基于速度）
-- 准确的伤害计算
-- 公平的AI决策`;
 
   // 活跃战斗实例
   private combats: Map<string, CombatInstance> = new Map();
@@ -373,7 +333,7 @@ AI难度：
           };
       }
     } catch (error) {
-      console.error('[CombatAgent] Error processing message:', error);
+      gameLog.error('agent', 'Error processing message:', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error in CombatAgent',
@@ -387,7 +347,7 @@ AI难度：
    * 初始化战斗
    */
   private handleInitiateCombat(data: Record<string, unknown>): AgentResponse {
-    const params = data as unknown as CombatInitParams;
+    const params = data as unknown as SharedCombatInitParams;
 
     if (!params.playerId || !params.enemies || params.enemies.length === 0) {
       return {
@@ -422,23 +382,18 @@ AI难度：
       environment: params.environment,
     };
 
-    // 添加玩家单位
+    // 添加玩家单位 - 使用配置常量或从 params 获取
+    const playerStats = mergePlayerCombatStats(
+      params.player ? { ...params.player, id: params.playerId } : undefined
+    );
+    
     const playerUnit: CombatUnit = {
       id: params.playerId,
-      name: 'Player',
+      name: playerStats.name,
       type: 'player',
-      level: 1,
-      stats: {
-        maxHp: 100,
-        currentHp: 100,
-        maxMp: 50,
-        currentMp: 50,
-        attack: 10,
-        defense: 5,
-        speed: 10,
-        luck: 5,
-      },
-      skills: [],
+      level: playerStats.level,
+      stats: playerStats.stats,
+      skills: playerStats.skills,
       statusEffects: [],
       isDefending: false,
       isAlive: true,
@@ -743,7 +698,7 @@ AI难度：
         action = await this.executeSkill(combat, actor, inputData.targetId, inputData.skillId);
         break;
       case ActionType.ITEM:
-        action = this.executeItem(combat, actor, inputData.targetId, inputData.itemId);
+        action = await this.executeItem(combat, actor, inputData.targetId, inputData.itemId);
         break;
       case ActionType.DEFEND:
         action = this.executeDefend(actor);
@@ -1045,8 +1000,8 @@ AI难度：
     const aliveEnemies = enemies.filter(e => e.isAlive);
     const random = Math.random();
 
-    // 30% 概率防御
-    if (random < 0.3) {
+    // 使用常量定义的防御概率
+    if (random < EASY_AI_DEFEND_CHANCE) {
       return {
         action: ActionType.DEFEND,
         priority: 1,
@@ -1082,8 +1037,8 @@ AI难度：
   ): AIDecisionResult {
     const aliveEnemies = enemies.filter(e => e.isAlive);
 
-    // 低血量时考虑防御
-    if (actor.stats.currentHp < actor.stats.maxHp * 0.3) {
+    // 使用常量定义的低血量阈值
+    if (actor.stats.currentHp < actor.stats.maxHp * LOW_HP_THRESHOLD) {
       // 有治疗技能时优先治疗自己
       if (actor.skills.length > 0) {
         return {
@@ -1180,7 +1135,7 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
         };
       }
     } catch (error) {
-      console.error('[CombatAgent] LLM decision error:', error);
+      gameLog.error('agent', 'LLM decision error:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     // 降级到普通AI
@@ -1320,15 +1275,16 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
   /**
    * 执行物品使用
    */
-  private executeItem(
-    _combat: CombatInstance,
+  private async executeItem(
+    combat: CombatInstance,
     actor: CombatUnit,
     targetId?: string,
     itemId?: string
-  ): CombatAction {
+  ): Promise<CombatAction> {
     const actionId = this.generateActionId();
 
     if (!itemId) {
+      gameLog.warn('combat', 'executeItem: no item specified', { actorId: actor.id });
       return {
         id: actionId,
         actorId: actor.id,
@@ -1339,15 +1295,156 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
       };
     }
 
-    // TODO: 调用INVENTORY agent处理物品使用
+    gameLog.debug('combat', 'executeItem: starting item use', {
+      actorId: actor.id,
+      itemId,
+      targetId,
+    });
+
+    // 调用 InventoryAgent 使用物品
+    const itemResponse = await this.sendMessage(
+      AT.INVENTORY,
+      'use_item',
+      {
+        itemId,
+        targetId: targetId || actor.id,
+        context: { combatId: combat.id },
+      },
+      { requiresResponse: true }
+    );
+
+    const itemData = itemResponse.payload.data as Record<string, unknown> | undefined;
+    const itemSuccess = itemResponse.type !== 'error' && itemData?.success !== false;
+
+    if (!itemSuccess) {
+      const errorMessage = (itemData?.error as string) || 'Failed to use item';
+      gameLog.warn('combat', 'executeItem: item use failed', {
+        actorId: actor.id,
+        itemId,
+        error: errorMessage,
+      });
+      return {
+        id: actionId,
+        actorId: actor.id,
+        type: ActionType.ITEM,
+        targetId: targetId || actor.id,
+        itemId,
+        success: false,
+        message: errorMessage,
+        timestamp: Date.now(),
+      };
+    }
+
+    // 获取物品效果
+    const item = itemData?.item as { id: string; name: string; effects?: Array<{ type: string; value: number; duration?: number }> } | undefined;
+    const effects = itemData?.effects as Array<{ type: string; value: number; duration?: number }> | undefined;
+
+    // 应用物品效果到战斗单位
+    let totalHealing = 0;
+    const statusEffects: StatusEffect[] = [];
+
+    if (effects && effects.length > 0) {
+      const actualTargetId = targetId || actor.id;
+      const target = combat.units.get(actualTargetId);
+
+      if (target) {
+        for (const effect of effects) {
+          switch (effect.type) {
+            case 'heal':
+            case 'healing':
+            case 'hp':
+              // 治疗效果
+              const healAmount = Math.min(effect.value, target.stats.maxHp - target.stats.currentHp);
+              target.stats.currentHp = Math.min(target.stats.maxHp, target.stats.currentHp + effect.value);
+              totalHealing += healAmount;
+              gameLog.debug('combat', 'executeItem: applied healing effect', {
+                targetId: actualTargetId,
+                healAmount,
+                effectType: effect.type,
+              });
+              break;
+
+            case 'mp':
+            case 'mana':
+              // 法力恢复
+              const mpAmount = Math.min(effect.value, target.stats.maxMp - target.stats.currentMp);
+              target.stats.currentMp = Math.min(target.stats.maxMp, target.stats.currentMp + effect.value);
+              gameLog.debug('combat', 'executeItem: applied MP effect', {
+                targetId: actualTargetId,
+                mpAmount,
+              });
+              break;
+
+            case 'buff':
+            case 'attack_up':
+            case 'defense_up':
+            case 'speed_up':
+              // 增益效果 - 转换为状态效果
+              const statusEffect: StatusEffect = {
+                id: `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: effect.type,
+                type: 'buff',
+                duration: effect.duration || 3,
+                remainingTurns: effect.duration || 3,
+                effects: [{
+                  attribute: effect.type.replace('_up', ''),
+                  modifier: effect.value,
+                  type: 'flat',
+                }],
+              };
+              target.statusEffects.push(statusEffect);
+              statusEffects.push(statusEffect);
+              gameLog.debug('combat', 'executeItem: applied buff effect', {
+                targetId: actualTargetId,
+                statusEffect: statusEffect.name,
+              });
+              break;
+
+            case 'cure':
+            case 'remove_debuff':
+              // 移除负面状态
+              const debuffCount = target.statusEffects.length;
+              target.statusEffects = target.statusEffects.filter(e => e.type !== 'debuff');
+              const removedCount = debuffCount - target.statusEffects.length;
+              gameLog.debug('combat', 'executeItem: removed debuffs', {
+                targetId: actualTargetId,
+                removedCount,
+              });
+              break;
+
+            default:
+              gameLog.debug('combat', 'executeItem: unknown effect type', {
+                effectType: effect.type,
+                effectValue: effect.value,
+              });
+          }
+        }
+      }
+    }
+
+    const itemName = item?.name || itemId;
+    const message = totalHealing > 0
+      ? `${actor.name} used ${itemName} and restored ${totalHealing} HP`
+      : `${actor.name} used ${itemName}`;
+
+    gameLog.info('combat', 'executeItem: item used successfully', {
+      actorId: actor.id,
+      itemId,
+      itemName,
+      totalHealing,
+      statusEffectCount: statusEffects.length,
+    });
+
     return {
       id: actionId,
       actorId: actor.id,
       type: ActionType.ITEM,
       targetId: targetId || actor.id,
       itemId,
+      healing: totalHealing,
+      effects: statusEffects,
       success: true,
-      message: `Used item ${itemId}`,
+      message,
       timestamp: Date.now(),
     };
   }
@@ -1372,8 +1469,8 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
    * 执行逃跑
    */
   private executeFlee(_combat: CombatInstance, actor: CombatUnit): CombatAction {
-    // 逃跑成功率基于速度和运气
-    const fleeChance = 0.3 + (actor.stats.speed + actor.stats.luck) * 0.02;
+    // 使用常量定义的逃跑概率和属性影响系数
+    const fleeChance = BASE_FLEE_CHANCE + (actor.stats.speed + actor.stats.luck) * FLEE_STAT_MODIFIER;
     const success = Math.random() < fleeChance;
 
     return {
@@ -1395,14 +1492,15 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
     const baseDamage = attacker.stats.attack;
     let finalDamage = baseDamage;
 
-    const isCritical = Math.random() < attacker.stats.luck * 0.01;
-    const isEvaded = Math.random() < defender.stats.speed * 0.005;
+    // 使用常量定义的暴击率、闪避率系数
+    const isCritical = Math.random() < attacker.stats.luck * CRITICAL_RATE_MODIFIER;
+    const isEvaded = Math.random() < defender.stats.speed * EVADE_RATE_MODIFIER;
     const isBlocked = defender.isDefending;
 
     const modifiers: string[] = [];
 
     if (isCritical) {
-      finalDamage *= 1.5;
+      finalDamage *= CRITICAL_DAMAGE_MULTIPLIER;
       modifiers.push('Critical Hit');
     }
 
@@ -1411,7 +1509,7 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
     }
 
     if (isBlocked) {
-      finalDamage *= 0.5;
+      finalDamage *= DEFEND_DAMAGE_REDUCTION;
       modifiers.push('Blocked');
     }
 
@@ -1469,22 +1567,24 @@ ${aliveEnemies.map(e => `- ${e.name}: HP ${e.stats.currentHp}/${e.stats.maxHp}`)
    * 计算魔法伤害
    */
   private calculateMagicalDamage(attacker: CombatUnit, defender: CombatUnit): DamageResult {
-    const baseDamage = attacker.stats.attack * 1.2; // 魔法伤害略高
+    // 使用常量定义的魔法伤害倍率
+    const baseDamage = attacker.stats.attack * MAGIC_DAMAGE_MULTIPLIER;
     let finalDamage = baseDamage;
 
-    const isCritical = Math.random() < attacker.stats.luck * 0.008;
+    // 使用常量定义的魔法暴击率系数
+    const isCritical = Math.random() < attacker.stats.luck * MAGIC_CRITICAL_RATE_MODIFIER;
     const isEvaded = false; // 魔法不可闪避
     const isBlocked = defender.isDefending;
 
     const modifiers: string[] = [];
 
     if (isCritical) {
-      finalDamage *= 1.3;
+      finalDamage *= MAGIC_CRITICAL_DAMAGE_MULTIPLIER;
       modifiers.push('Critical Hit');
     }
 
     if (isBlocked) {
-      finalDamage *= 0.7;
+      finalDamage *= DEFEND_MAGIC_DAMAGE_REDUCTION;
       modifiers.push('Partially Blocked');
     }
 

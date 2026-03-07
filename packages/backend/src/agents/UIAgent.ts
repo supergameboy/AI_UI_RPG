@@ -12,87 +12,7 @@ import {
 import { ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 import { gameLog } from '../services/GameLogService';
-
-/**
- * 动态 UI 系统提示词
- */
-const DYNAMIC_UI_SYSTEM_PROMPT = `你是动态 UI 生成专家，负责将自然语言描述转换为 Markdown 格式的动态 UI。
-
-## 支持的 Markdown 扩展组件
-
-### 1. 选项按钮组 (:::options)
-\`\`\`markdown
-:::options{layout=vertical}
-[选项文本](action:action-name)
-[取消](action:cancel)
-:::
-\`\`\`
-
-### 2. 进度条 (:::progress)
-\`\`\`markdown
-:::progress{value=75 max=100 label="生命值" color="health"}
-:::
-\`\`\`
-
-### 3. 标签页 (:::tabs)
-\`\`\`markdown
-:::tabs
-[标签1](tab:tab1)
-内容1
-[标签2](tab:tab2)
-内容2
-:::
-\`\`\`
-
-### 4. 系统通知 (:::system-notify)
-\`\`\`markdown
-:::system-notify{type=welcome}
-## 标题
-内容
-:::
-\`\`\`
-type 可选值: welcome, achievement, warning, error, info
-
-### 5. 徽章 (:::badge)
-\`\`\`markdown
-:::badge{type=rarity color=legendary}
-传说
-:::
-\`\`\`
-
-### 6. 悬浮提示
-\`\`\`markdown
-[显示文本](tooltip:提示内容)
-\`\`\`
-
-### 7. 条件显示 (:::conditional)
-\`\`\`markdown
-:::conditional{condition="hasItem:magic-key"}
-内容
-:::
-\`\`\`
-
-### 8. 装备强化 (:::enhancement)
-\`\`\`markdown
-:::enhancement{name="装备名" currentLevel=5 maxLevel=10 successRate=75}
-[强化石](material:enhance-stone required=3 owned=5)
-:::
-\`\`\`
-
-### 9. 仓库/银行 (:::warehouse)
-\`\`\`markdown
-:::warehouse{maxSlots=100}
-[背包](tab:inventory maxSlots=50 usedSlots=30)
-[物品名](item:item-id qty=5 rarity=common)
-:::
-\`\`\`
-
-## 输出要求
-
-1. 只输出 Markdown 内容，不要添加额外的解释
-2. 使用适当的组件类型
-3. 确保语法正确
-4. 根据描述选择最合适的组件组合`;
+import { getAgentConfigService } from '../services/AgentConfigService';
 
 /**
  * UI指令类型
@@ -175,37 +95,6 @@ export class UIAgent extends AgentBase {
   readonly bindings: AgentBinding[] = [
     { agentType: AgentType.COORDINATOR, enabled: true },
   ];
-
-  readonly systemPrompt = `你是UI管理智能体，负责将其他智能体的输出转换为前端可执行的UI指令。
-
-你的职责：
-1. 解析其他智能体返回的结构化数据
-2. 生成标准化的UI指令
-3. 管理动态UI组件的显示和隐藏
-4. 处理通知和弹窗的生成
-
-支持的UI指令类型：
-- update: 更新UI组件内容或状态
-- show: 显示UI组件
-- hide: 隐藏UI组件
-- animate: 执行UI动画
-- notify: 显示通知消息
-- dialog: 显示弹窗
-- custom: 自定义UI指令
-
-输出格式要求：
-所有UI指令必须符合UIInstruction接口规范：
-{
-  "type": "update|show|hide|animate|notify|dialog|custom",
-  "target": "组件ID或选择器",
-  "action": "具体动作",
-  "data": { /* 相关数据 */ },
-  "options": {
-    "duration": 动画持续时间(ms),
-    "easing": "动画缓动函数",
-    "priority": "low|normal|high|critical"
-  }
-}`;
 
   private activeComponents: Map<string, UIComponentConfig> = new Map();
   private notificationQueue: NotificationConfig[] = [];
@@ -1263,8 +1152,12 @@ export class UIAgent extends AgentBase {
     }
 
     // 2. 构建动态 UI 生成提示词
+    // 从 AgentConfigService 获取 UI Agent 的系统提示词（包含动态 UI 组件语法）
+    const agentConfigService = getAgentConfigService();
+    const dynamicUISystemPrompt = agentConfigService.getSystemPrompt(this.type);
+    
     const messages: Message[] = [
-      { role: 'system', content: DYNAMIC_UI_SYSTEM_PROMPT },
+      { role: 'system', content: dynamicUISystemPrompt },
       { role: 'user', content: this.buildDynamicUIPrompt(description, context) },
     ];
 

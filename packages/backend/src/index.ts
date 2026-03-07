@@ -9,7 +9,7 @@ import { initializeAgentService, getAgentService } from './services/AgentService
 import { initializePromptService } from './services/PromptService';
 import { getWebSocketService } from './services/WebSocketService';
 import { getDeveloperLogService } from './services/DeveloperLogService';
-import { initializeGameLogService, getGameLogService } from './services/GameLogService';
+import { initializeGameLogService, getGameLogService, gameLog } from './services/GameLogService';
 import { getTemplateService } from './services/TemplateService';
 import { initializeAIGenerateService } from './services/AIGenerateService';
 import { initializeCharacterGenerationService } from './services/CharacterGenerationService';
@@ -168,7 +168,7 @@ app.post('/api/saves', (req, res) => {
   try {
     const { snapshot, ...saveData } = req.body;
 
-    console.log('[API] Creating save with data:', saveData);
+    gameLog.debug('api', 'Creating save', { saveData });
 
     const save = saveRepository.create(saveData);
 
@@ -192,7 +192,7 @@ app.post('/api/saves', (req, res) => {
 
     res.status(201).json(save);
   } catch (error) {
-    console.error('[API] Error creating save:', error);
+    gameLog.error('api', 'Error creating save', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       error: error instanceof Error ? error.message : String(error),
     });
@@ -591,23 +591,23 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 async function initializeApp() {
-  console.log('Initializing application...');
+  gameLog.info('system', 'Initializing application...');
 
   // 初始化 Tools
   try {
-    initializeTools();
-    console.log('Tools initialized');
+    await initializeTools();
+    gameLog.info('system', 'Tools initialized');
   } catch (error) {
-    console.error('Failed to initialize tools:', error);
+    gameLog.error('system', 'Failed to initialize tools', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initDatabaseService();
     DatabaseService.getInstance().connect();
     databaseInitializer.initialize();
-    console.log('Database initialized successfully');
+    gameLog.info('system', 'Database initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    gameLog.error('system', 'Failed to initialize database', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
@@ -616,12 +616,12 @@ async function initializeApp() {
       defaultModel: 'deepseek-chat',
       providers: {},
     });
-    console.log('LLM Service initialized');
+    gameLog.info('llm', 'LLM Service initialized');
     
     initializeSettingsService();
     const settingsService = getSettingsService();
     const settings = settingsService.getSettings();
-    console.log('[Startup] Loading saved LLM configuration...');
+    gameLog.info('system', 'Loading saved LLM configuration');
     
     const llmService = getLLMService();
     const { ai } = settings;
@@ -636,104 +636,104 @@ async function initializeApp() {
             defaultModel: config.defaultModel,
             models: [],
           });
-          console.log(`[Startup] Registered LLM provider from saved config: ${provider}`);
+          gameLog.info('llm', 'Registered LLM provider from saved config', { provider });
         } catch (err) {
-          console.error(`[Startup] Failed to register provider ${provider}:`, err);
+          gameLog.error('llm', 'Failed to register provider', { provider, error: err instanceof Error ? err.message : String(err) });
         }
       }
     }
     
     if (ai.defaultProvider && llmService.getAvailableProviders().includes(ai.defaultProvider)) {
       llmService.setDefaultProvider(ai.defaultProvider);
-      console.log(`[Startup] Set default provider to: ${ai.defaultProvider}`);
+      gameLog.info('llm', 'Set default provider', { provider: ai.defaultProvider });
     }
     
     initializeAIGenerateService(getLLMService());
-    console.log('AI Generate Service initialized');
+    gameLog.info('system', 'AI Generate Service initialized');
     
     const { getAIGenerateService } = await import('./services/AIGenerateService');
     initializeCharacterGenerationService(getLLMService(), getAIGenerateService()!);
-    console.log('Character Generation Service initialized');
+    gameLog.info('system', 'Character Generation Service initialized');
   } catch (error) {
-    console.error('Failed to initialize LLM service:', error);
+    gameLog.error('llm', 'Failed to initialize LLM service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializePromptService();
-    console.log('Prompt Service initialized');
+    gameLog.info('system', 'Prompt Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Prompt service:', error);
+    gameLog.error('system', 'Failed to initialize Prompt service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeAgentService();
-    console.log('Agent Service initialized');
+    gameLog.info('system', 'Agent Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Agent service:', error);
+    gameLog.error('system', 'Failed to initialize Agent service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeSkillService();
-    console.log('Skill Service initialized');
+    gameLog.info('system', 'Skill Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Skill service:', error);
+    gameLog.error('system', 'Failed to initialize Skill service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeNumericalService();
-    console.log('Numerical Service initialized');
+    gameLog.info('system', 'Numerical Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Numerical service:', error);
+    gameLog.error('system', 'Failed to initialize Numerical service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeQuestService();
-    console.log('Quest Service initialized');
+    gameLog.info('system', 'Quest Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Quest service:', error);
+    gameLog.error('system', 'Failed to initialize Quest service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeMapService();
-    console.log('Map Service initialized');
+    gameLog.info('system', 'Map Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Map service:', error);
+    gameLog.error('system', 'Failed to initialize Map service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeNPCService();
-    console.log('NPC Service initialized');
+    gameLog.info('system', 'NPC Service initialized');
   } catch (error) {
-    console.error('Failed to initialize NPC service:', error);
+    gameLog.error('system', 'Failed to initialize NPC service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   try {
     await initializeCombatService();
-    console.log('Combat Service initialized');
+    gameLog.info('system', 'Combat Service initialized');
   } catch (error) {
-    console.error('Failed to initialize Combat service:', error);
+    gameLog.error('system', 'Failed to initialize Combat service', { error: error instanceof Error ? error.message : String(error) });
   }
 
   getWebSocketService().initialize(server);
-  console.log('WebSocket Service initialized');
+  gameLog.info('system', 'WebSocket Service initialized');
   
   getDeveloperLogService();
-  console.log('Developer Log Service initialized');
+  gameLog.info('system', 'Developer Log Service initialized');
   
   initializeGameLogService();
-  console.log('Game Log Service initialized');
+  gameLog.info('system', 'Game Log Service initialized');
 
   try {
     const templateService = getTemplateService();
     await templateService.initializePresetTemplates();
-    console.log('Preset templates initialized');
+    gameLog.info('system', 'Preset templates initialized');
   } catch (error) {
-    console.error('Failed to initialize preset templates:', error);
+    gameLog.error('system', 'Failed to initialize preset templates', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 
 initializeApp().then(() => {
   server.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    gameLog.info('system', 'Server started', { url: `http://localhost:${PORT}` });
   });
 });

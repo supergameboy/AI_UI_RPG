@@ -16,6 +16,28 @@ import styles from './DataSimulatorPanel.module.css';
 type Mode = 'single' | 'combined';
 
 /**
+ * 简单的日志工具
+ */
+const gameLog = {
+  debug: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  info: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.log(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  warn: (category: string, message: string, data?: unknown) => {
+    console.warn(`[${category}] ${message}`, data ?? '');
+  },
+  error: (category: string, message: string, data?: unknown) => {
+    console.error(`[${category}] ${message}`, data ?? '');
+  },
+};
+
+/**
  * 数据模拟面板
  * 用于开发者快速测试各种数据状态
  */
@@ -68,7 +90,7 @@ export const DataSimulatorPanel: React.FC = () => {
         const editedData = JSON.parse(editData) as Partial<SharedGameState>;
         data = { ...data, ...editedData };
       } catch (e) {
-        console.error('Invalid JSON in editor:', e);
+        gameLog.error('frontend', 'Invalid JSON in editor', { error: e instanceof Error ? e.message : String(e) });
         alert('JSON 格式错误，请检查编辑器内容');
         return;
       }

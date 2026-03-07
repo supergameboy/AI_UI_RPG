@@ -62,6 +62,52 @@ interface ConflictResolution {
 }
 
 /**
+ * 初始化新游戏载荷（简化版本，用于验证必需字段）
+ */
+interface InitializeNewGamePayload {
+  saveId: string;
+  characterId: string;
+  character: unknown;
+  template?: unknown;
+}
+
+/**
+ * 动态UI操作载荷
+ */
+interface DynamicUIActionPayload {
+  action: string;
+  dynamicUIId: string;
+  context?: Record<string, unknown>;
+  data?: unknown;
+}
+
+/**
+ * 类型守卫：检查是否为初始化新游戏载荷
+ * 只验证必需字段是否存在，具体字段验证由 initializeNewGame 内部处理
+ */
+function isInitializeNewGamePayload(data: unknown): data is InitializeNewGamePayload {
+  if (typeof data !== 'object' || data === null) return false;
+  const payload = data as Record<string, unknown>;
+  return (
+    typeof payload.saveId === 'string' &&
+    typeof payload.characterId === 'string' &&
+    payload.character !== undefined
+  );
+}
+
+/**
+ * 类型守卫：检查是否为动态UI操作载荷
+ */
+function isDynamicUIActionPayload(data: unknown): data is DynamicUIActionPayload {
+  if (typeof data !== 'object' || data === null) return false;
+  const payload = data as Record<string, unknown>;
+  return (
+    typeof payload.action === 'string' &&
+    typeof payload.dynamicUIId === 'string'
+  );
+}
+
+/**
  * 统筹智能体
  * 负责接收玩家输入、分析意图、分配任务、整合结果
  */
@@ -86,53 +132,59 @@ export class CoordinatorAgent extends AgentBase {
     { agentType: AgentTypeEnum.EVENT, enabled: true },
   ];
 
-  readonly systemPrompt: string = `你是AI-RPG游戏的核心统筹智能体，负责协调所有其他智能体的工作。
-
-你的职责：
-1. 分析玩家输入的真实意图
-2. 决定需要调用哪些智能体来处理请求
-3. 检测和解决智能体之间的冲突
-4. 整合所有智能体的结果，生成最终响应
-
-你需要了解的智能体类型：
-- STORY_CONTEXT: 故事上下文管理，维护故事主线和剧情
-- QUEST: 任务管理，生成和追踪任务进度
-- MAP: 地图管理，处理位置和移动
-- NPC_PARTY: NPC和队伍管理
-- NUMERICAL: 数值计算，属性和战斗数值
-- INVENTORY: 背包系统，物品和装备管理
-- SKILL: 技能管理
-- UI: UI指令生成
-- COMBAT: 战斗流程管理
-- DIALOGUE: 对话生成
-- EVENT: 事件管理
-
-在分析玩家意图时，你需要：
-1. 识别主要意图（如：移动、战斗、对话、使用物品、查看状态等）
-2. 识别次要意图和上下文需求
-3. 确定需要调用的智能体及其调用顺序
-4. 设置优先级
-
-在整合结果时，你需要：
-1. 检查各智能体返回的数据是否一致
-2. 解决任何冲突
-3. 生成连贯的叙事响应
-4. 确保UI指令正确传递`;
-
   /**
    * 处理消息的主入口
    */
   async processMessage(message: AgentMessage): Promise<AgentResponse> {
     const startTime = Date.now();
-    console.log(`[CoordinatorAgent] Processing message: ${message.payload.action}`);
+    gameLog.info('agent', 'CoordinatorAgent.processMessage: Processing message', {
+      action: message.payload.action,
+      messageId: message.id,
+    });
 
     try {
       // 特殊 action 处理
       switch (message.payload.action) {
-        case 'initialize_new_game':
-          return this.initializeNewGame(message.payload.data as unknown as InitializationContext);
-        case 'dynamic_ui_action':
-          return this.handleDynamicUIAction(message.payload.data as Record<string, unknown>);
+        case 'initialize_new_game': {
+          const data = message.payload.data;
+          if (isInitializeNewGamePayload(data)) {
+            // 将 payload 转换为 InitializationContext
+            // 注意：这里需要确保 data 包含完整的 Character 和 GameTemplate
+            const initContext: InitializationContext = {
+              saveId: data.saveId,
+              characterId: data.characterId,
+              character: data.character as InitializationContext['character'],
+              template: data.template as InitializationContext['template'],
+            };
+            return this.initializeNewGame(initContext);
+          }
+          gameLog.error('agent', 'CoordinatorAgent.processMessage: Invalid initialize_new_game payload', {
+            hasSaveId: typeof data?.saveId === 'string',
+            hasCharacterId: typeof data?.characterId === 'string',
+            hasCharacter: data?.character !== undefined,
+          });
+          return {
+            success: false,
+            error: 'Invalid initialize_new_game payload: missing required fields',
+          };
+        }
+        case 'dynamic_ui_action': {
+          const data = message.payload.data;
+          if (isDynamicUIActionPayload(data)) {
+            return this.handleDynamicUIAction(data as Record<string, unknown>);
+          }
+          // 对于动态UI操作，尝试将数据作为 Record<string, unknown> 处理
+          if (typeof data === 'object' && data !== null && 'action' in data) {
+            return this.handleDynamicUIAction(data as Record<string, unknown>);
+          }
+          gameLog.error('agent', 'CoordinatorAgent.processMessage: Invalid dynamic_ui_action payload', {
+            dataType: typeof data,
+          });
+          return {
+            success: false,
+            error: 'Invalid dynamic_ui_action payload',
+          };
+        }
         default:
           break;
       }
@@ -156,7 +208,9 @@ export class CoordinatorAgent extends AgentBase {
       let resolvedResults = agentResults;
       if (conflictResult.hasConflict && conflictResult.resolution) {
         resolvedResults = this.resolveConflicts(agentResults, conflictResult);
-        console.log(`[CoordinatorAgent] Resolved conflicts: ${conflictResult.conflicts.length}`);
+        gameLog.info('agent', 'CoordinatorAgent.processMessage: Resolved conflicts', {
+          conflictCount: conflictResult.conflicts.length,
+        });
       }
 
       // 5. 整合结果
@@ -177,7 +231,10 @@ export class CoordinatorAgent extends AgentBase {
 
       return integratedResponse;
     } catch (error) {
-      console.error('[CoordinatorAgent] Error processing message:', error);
+      gameLog.error('agent', 'CoordinatorAgent.processMessage: Error processing message', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        action: message.payload.action,
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error in CoordinatorAgent',
@@ -428,7 +485,9 @@ export class CoordinatorAgent extends AgentBase {
         context: typeof parsed.context === 'object' ? parsed.context : {},
       };
     } catch (error) {
-      console.error('[CoordinatorAgent] Error analyzing intent:', error);
+      gameLog.error('agent', 'CoordinatorAgent.analyzeIntent: Error analyzing intent', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return this.getDefaultIntentAnalysis(message);
     }
   }
@@ -525,7 +584,10 @@ export class CoordinatorAgent extends AgentBase {
           processingTime,
         };
       } catch (error) {
-        console.error(`[CoordinatorAgent] Error calling agent ${agentType}:`, error);
+        gameLog.error('agent', 'CoordinatorAgent.callAgents: Error calling agent', {
+          agentType,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
         return {
           agentType,
           response: {
@@ -544,7 +606,9 @@ export class CoordinatorAgent extends AgentBase {
       if (result.status === 'fulfilled') {
         results.push(result.value);
       } else {
-        console.error('[CoordinatorAgent] Agent call rejected:', result.reason);
+        gameLog.error('agent', 'CoordinatorAgent.callAgents: Agent call rejected', {
+          reason: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
       }
     }
 
@@ -924,7 +988,10 @@ ${failedResults.length > 0 ?
         requiresFollowUp: successfulResults.some(r => r.response.requiresFollowUp),
       };
     } catch (error) {
-      console.error('[CoordinatorAgent] Error integrating results:', error);
+      gameLog.error('agent', 'CoordinatorAgent.integrateResults: Error integrating results', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        agentCount: successfulResults.length,
+      });
       
       // 回退：简单合并
       const mergedData = this.mergeResults(successfulResults);

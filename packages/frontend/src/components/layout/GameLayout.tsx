@@ -5,6 +5,7 @@ import { LeftSidebar } from './LeftSidebar';
 import { PanelContainer } from './PanelContainer';
 import { StoryDisplay, QuickOptions, ChatInput } from '../game';
 import { TemplateSelect } from '../template';
+import { DynamicUIPanel } from '../ui';
 import { useGameStore } from '../../stores';
 import styles from './GameLayout.module.css';
 
@@ -84,6 +85,8 @@ export const GameLayout: React.FC = () => {
       </main>
       
       <Footer />
+      
+      <DynamicUIPanel title="动态界面" />
     </div>
   );
 };

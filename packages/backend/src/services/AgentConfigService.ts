@@ -1,8 +1,11 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import type { AgentConfig, PromptContext } from '@ai-rpg/shared';
 import { AgentType, AGENT_DESCRIPTIONS, AGENT_CAPABILITIES, DEFAULT_AGENT_CONFIG } from '@ai-rpg/shared';
 import { AgentConfigRepository } from '../models/AgentConfigRepository';
 import type { AgentConfigEntity } from '../models/AgentConfigRepository';
 import { getPromptService } from './PromptService';
+import { gameLog } from './GameLogService';
 
 export interface AgentConfigWithMetadata extends AgentConfig {
   type: AgentType;
@@ -26,7 +29,7 @@ export class AgentConfigService {
       return;
     }
 
-    console.log('[AgentConfigService] Initializing...');
+    gameLog.info('backend', '[AgentConfigService] Initializing...');
 
     const existingConfigs = this.repository.findAllEnabled();
     
@@ -43,7 +46,7 @@ export class AgentConfigService {
     }
 
     this.initialized = true;
-    console.log(`[AgentConfigService] Initialized with ${this.configCache.size} agent configs`);
+    gameLog.info('backend', `[AgentConfigService] Initialized with ${this.configCache.size} agent configs`);
   }
 
   getConfig(agentType: AgentType): AgentConfigWithMetadata | undefined {
@@ -145,17 +148,19 @@ export class AgentConfigService {
   }
 
   private async createDefaultConfig(agentType: AgentType): Promise<void> {
+    const systemPrompt = await this.loadPromptFromFile(agentType);
+    
     const entity = this.repository.fromAgentConfig(
       agentType,
       DEFAULT_AGENT_CONFIG,
-      this.getDefaultSystemPrompt(agentType)
+      systemPrompt
     );
 
     const created = this.repository.create(entity);
     const config = this.createConfigWithMetadata(created);
     this.configCache.set(agentType, config);
 
-    console.log(`[AgentConfigService] Created default config for: ${agentType}`);
+    gameLog.info('backend', `[AgentConfigService] Created default config for: ${agentType}`);
   }
 
   private createConfigWithMetadata(entity: AgentConfigEntity): AgentConfigWithMetadata {
@@ -174,120 +179,123 @@ export class AgentConfigService {
     };
   }
 
-  private getDefaultSystemPrompt(agentType: AgentType): string {
+  /**
+   * Agent 类型到 MD 文件名的映射
+   */
+  private static readonly AGENT_TYPE_FILE_MAP: Record<AgentType, string> = {
+    [AgentType.COORDINATOR]: 'coordinator',
+    [AgentType.DIALOGUE]: 'dialogue',
+    [AgentType.COMBAT]: 'combat',
+    [AgentType.UI]: 'ui',
+    [AgentType.INVENTORY]: 'inventory',
+    [AgentType.QUEST]: 'quest',
+    [AgentType.MAP]: 'map',
+    [AgentType.NPC_PARTY]: 'npc_party',
+    [AgentType.NUMERICAL]: 'numerical',
+    [AgentType.SKILL]: 'skill',
+    [AgentType.EVENT]: 'event',
+    [AgentType.STORY_CONTEXT]: 'story_context',
+  };
+
+  /**
+   * 从 MD 文件加载提示词
+   * @param agentType Agent 类型
+   * @returns 提示词内容
+   */
+  private async loadPromptFromFile(agentType: AgentType): Promise<string> {
     const promptService = getPromptService();
+    
+    // 优先从 PromptService 获取（已包含从 MD 文件加载的逻辑）
     const template = promptService.getTemplate(agentType);
     
-    if (template) {
+    if (template?.content) {
+      gameLog.debug('backend', `[AgentConfigService] Loaded prompt from PromptService for: ${agentType}`);
       return template.content;
     }
 
-    const prompts: Partial<Record<AgentType, string>> = {
-      [AgentType.COORDINATOR]: `你是游戏的主控制器和协调者。你的职责是：
-1. 分析玩家输入，理解其真实意图
-2. 决定需要调用哪些智能体来处理
-3. 协调智能体之间的工作
-4. 解决智能体输出之间的冲突
-5. 整合最终结果
+    // 如果 PromptService 中没有，尝试直接读取 MD 文件
+    const fileName = AgentConfigService.AGENT_TYPE_FILE_MAP[agentType];
+    if (!fileName) {
+      gameLog.warn('backend', `[AgentConfigService] No file mapping for agent type: ${agentType}`);
+      return this.getFallbackPrompt(agentType);
+    }
 
-你通过JSON格式与其他智能体通信。所有输出必须遵循标准协议。`,
+    const filePath = path.join(__dirname, '../prompts', `${fileName}.md`);
+    
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        gameLog.info('backend', `[AgentConfigService] Loaded prompt from file: ${fileName}.md`);
+        return content;
+      }
+    } catch (error) {
+      gameLog.error('backend', `[AgentConfigService] Failed to read prompt file: ${filePath}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
-      [AgentType.STORY_CONTEXT]: `你是故事上下文管理智能体。你的职责是：
-1. 维护故事的主线剧情
-2. 记录玩家的重大选择
-3. 管理故事的分支和收敛
-4. 确保故事的一致性
-5. 生成剧情摘要`,
-
-      [AgentType.QUEST]: `你是任务管理智能体。你的职责是：
-1. 生成主线/支线任务
-2. 追踪任务进度
-3. 处理任务完成和失败
-4. 生成任务奖励
-5. 管理任务链`,
-
-      [AgentType.MAP]: `你是地图管理智能体。你的职责是：
-1. 管理游戏世界地图
-2. 生成新区域和地点
-3. 处理玩家移动
-4. 管理地点事件
-5. 维护地点之间的连接关系`,
-
-      [AgentType.NPC_PARTY]: `你是NPC和队伍管理智能体。你的职责是：
-1. 管理所有NPC的信息
-2. 控制NPC的行为和对话
-3. 管理玩家队伍成员
-4. 处理NPC关系和好感度
-5. 生成NPC互动事件`,
-
-      [AgentType.NUMERICAL]: `你是数值管理智能体。你的职责是：
-1. 管理角色属性计算
-2. 处理战斗数值
-3. 管理经验值和等级
-4. 计算伤害和治疗效果
-5. 平衡游戏数值`,
-
-      [AgentType.INVENTORY]: `你是背包系统管理智能体。你的职责是：
-1. 管理玩家背包
-2. 处理物品获取和消耗
-3. 管理装备系统
-4. 处理物品交易
-5. 生成物品描述`,
-
-      [AgentType.SKILL]: `你是技能管理智能体。你的职责是：
-1. 管理角色技能
-2. 处理技能学习和升级
-3. 计算技能效果
-4. 管理技能冷却
-5. 生成技能描述`,
-
-      [AgentType.UI]: `你是UI管理智能体。你的职责是：
-1. 解析其他智能体的输出
-2. 生成标准化UI指令
-3. 管理动态UI组件
-4. 处理UI交互事件
-5. 格式化文本显示`,
-
-      [AgentType.COMBAT]: `你是战斗管理智能体。你的职责是：
-1. 管理战斗流程
-2. 处理回合逻辑
-3. 执行战斗AI决策
-4. 计算战斗结果
-5. 生成战斗描述`,
-
-      [AgentType.DIALOGUE]: `你是对话管理智能体。你的职责是：
-1. 生成NPC对话内容
-2. 创建对话选项
-3. 管理对话历史
-4. 处理对话上下文
-5. 维护对话一致性`,
-
-      [AgentType.EVENT]: `你是事件管理智能体。你的职责是：
-1. 生成随机事件
-2. 检查触发条件
-3. 管理事件链
-4. 处理事件结果
-5. 记录事件历史`,
-    };
-
-    return prompts[agentType] || '你是一个游戏智能体。';
+    // 使用回退提示词
+    gameLog.warn('backend', `[AgentConfigService] Prompt file not found, using fallback for: ${agentType}`);
+    return this.getFallbackPrompt(agentType);
   }
 
+  /**
+   * 获取回退提示词（简化版本，仅在 MD 文件不存在时使用）
+   */
+  private getFallbackPrompt(agentType: AgentType): string {
+    const fallbacks: Partial<Record<AgentType, string>> = {
+      [AgentType.COORDINATOR]: '你是游戏的主控制器和协调者，负责分析玩家输入并协调其他智能体工作。',
+      [AgentType.DIALOGUE]: '你是对话管理智能体，负责生成NPC对话内容和管理对话历史。',
+      [AgentType.COMBAT]: '你是战斗管理智能体，负责管理战斗流程和计算战斗结果。',
+      [AgentType.UI]: '你是UI管理智能体，负责解析其他智能体输出并生成标准化UI指令。',
+      [AgentType.INVENTORY]: '你是背包系统管理智能体，负责管理玩家背包和物品。',
+      [AgentType.QUEST]: '你是任务管理智能体，负责生成和追踪任务进度。',
+      [AgentType.MAP]: '你是地图管理智能体，负责管理游戏世界地图和地点。',
+      [AgentType.NPC_PARTY]: '你是NPC和队伍管理智能体，负责管理所有NPC信息和行为。',
+      [AgentType.NUMERICAL]: '你是数值管理智能体，负责管理角色属性和数值计算。',
+      [AgentType.SKILL]: '你是技能管理智能体，负责管理角色技能和技能效果。',
+      [AgentType.EVENT]: '你是事件管理智能体，负责生成随机事件和管理事件链。',
+      [AgentType.STORY_CONTEXT]: '你是故事上下文管理智能体，负责维护故事主线剧情。',
+    };
+
+    return fallbacks[agentType] || `你是 ${agentType} 智能体。`;
+  }
+
+  /**
+   * 获取系统提示词
+   * 优先级：
+   * 1. 数据库中存储的自定义提示词（config.systemPrompt）
+   * 2. 如果有 context，使用 PromptService.buildSystemPrompt 构建完整提示词
+   * 3. 从 PromptService 获取模板
+   * 4. 使用回退提示词
+   */
   getSystemPrompt(agentType: AgentType, context?: PromptContext): string {
     const config = this.configCache.get(agentType);
     
+    // 1. 优先使用数据库中存储的自定义提示词
     if (config?.systemPrompt) {
+      gameLog.debug('backend', `[AgentConfigService] Using stored system prompt for: ${agentType}`);
       return config.systemPrompt;
     }
 
     const promptService = getPromptService();
     
+    // 2. 如果有上下文，构建完整提示词（包含变量注入）
     if (context) {
+      gameLog.debug('backend', `[AgentConfigService] Building system prompt with context for: ${agentType}`);
       return promptService.buildSystemPrompt(agentType, context);
     }
 
+    // 3. 从 PromptService 获取模板
     const template = promptService.getTemplate(agentType);
-    return template?.content || this.getDefaultSystemPrompt(agentType);
+    if (template?.content) {
+      gameLog.debug('backend', `[AgentConfigService] Using template from PromptService for: ${agentType}`);
+      return template.content;
+    }
+
+    // 4. 使用回退提示词
+    gameLog.warn('backend', `[AgentConfigService] No prompt found, using fallback for: ${agentType}`);
+    return this.getFallbackPrompt(agentType);
   }
 }
 

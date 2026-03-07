@@ -73,12 +73,13 @@ export class DeveloperLogService {
     action: string,
     status: 'sent' | 'received' | 'error',
     payload?: unknown,
-    error?: string
+    error?: string,
+    messageType?: string
   ): AgentMessageLog {
     return this.addAgentMessage({
       from,
       to,
-      type: 'agent_message',
+      type: messageType || 'request',
       action,
       status,
       payload,

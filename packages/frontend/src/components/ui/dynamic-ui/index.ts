@@ -14,6 +14,16 @@ export type {
   WarehouseTab,
   WarehouseItem,
   WarehouseSection,
+  // 新增组件类型
+  SkillNodeStatus,
+  SkillNode,
+  SkillTreeLayout,
+  QuestStatus,
+  QuestObjective,
+  Quest,
+  MinimapMarker,
+  CharacterStats,
+  DialogueMessage,
 } from './types';
 
 // 工具函数导出
@@ -21,9 +31,15 @@ export {
   parseAttrs,
   parseOptions,
   parseTabs,
-  parseTooltips,
-  preprocessMarkdown,
+  parseDynamicUIComponents,
   evaluateCondition,
+  parseElseBranch,
+  // 新增组件解析函数
+  parseSkillNodes,
+  parseQuests,
+  parseMinimapMarkers,
+  parseDialogueMessages,
+  parseCharacterStats,
 } from './utils';
 
 // 组件导出
@@ -36,3 +52,9 @@ export { TooltipComponent } from './TooltipComponent';
 export { ConditionalComponent } from './ConditionalComponent';
 export { EnhancementComponent } from './EnhancementComponent';
 export { WarehouseComponent } from './WarehouseComponent';
+// 新增组件导出
+export { SkillTreeComponent } from './SkillTreeComponent';
+export { QuestTrackerComponent } from './QuestTrackerComponent';
+export { MinimapComponent } from './MinimapComponent';
+export { CharacterStatusComponent } from './CharacterStatusComponent';
+export { DialogueHistoryComponent } from './DialogueHistoryComponent';

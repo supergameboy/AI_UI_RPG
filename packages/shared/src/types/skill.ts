@@ -50,9 +50,26 @@ export interface SkillEffect {
 
 /**
  * 技能需求
+ * 支持多种前置条件检查
  */
 export interface SkillRequirement {
-  type: 'level' | 'attribute' | 'skill' | 'item';
+  /**
+   * 需求类型
+   * - level: 等级要求
+   * - attribute: 属性要求（格式："属性名:数值"，如 "strength:15"）
+   * - skill: 前置技能（技能ID）
+   * - item: 物品需求（物品ID或名称）
+   * - class: 职业限制（职业名称或数组）
+   */
+  type: 'level' | 'attribute' | 'skill' | 'item' | 'class';
+  /**
+   * 需求值
+   * - level: 数字等级
+   * - attribute: "属性名:数值" 格式字符串
+   * - skill: 技能ID字符串
+   * - item: 物品ID或名称
+   * - class: 职业名称字符串或职业数组（JSON格式）
+   */
   value: number | string;
 }
 

@@ -30,6 +30,7 @@ import {
   getOutputModule,
   getAllOutputModules,
 } from './output';
+import { gameLog } from '../../services/GameLogService';
 
 /**
  * 变量模式匹配正则
@@ -70,7 +71,7 @@ class ModuleRegistryImpl implements ModuleRegistry {
 
   register(module: PromptModule): void {
     if (this.modules.has(module.name)) {
-      console.warn(`[ModuleRegistry] Module '${module.name}' already exists, overwriting`);
+      gameLog.warn('system', `Module '${module.name}' already exists, overwriting`);
     }
     this.modules.set(module.name, module);
   }
@@ -328,7 +329,7 @@ export function combineAndCompile(
   for (const name of moduleNames) {
     const module = registry.get(name);
     if (!module) {
-      console.warn(`[combineAndCompile] Module '${name}' not found, skipping`);
+      gameLog.warn('system', `Module '${name}' not found, skipping`);
       continue;
     }
 

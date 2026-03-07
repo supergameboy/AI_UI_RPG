@@ -64,18 +64,22 @@ export const DecisionLogViewer: React.FC = () => {
   const [searchRequestId, setSearchRequestId] = useState('');
   const [page, setPage] = useState(0);
 
-  // 初始化加载 - 只运行一次
+  // 初始化加载 - 只在组件挂载时执行一次
+  // fetchLogs 和 fetchStats 通过 storeRef 调用，确保使用最新引用
   useEffect(() => {
     storeRef.current.fetchLogs({ limit: PAGE_SIZE, offset: 0 });
     storeRef.current.fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 空依赖数组：组件挂载时执行一次初始化加载
   }, []);
 
   // 过滤条件变化时重新加载
+  // loadLogs 使用 storeRef 调用 fetchLogs，确保使用最新引用
   useEffect(() => {
     setPage(0);
     loadLogs(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // loadLogs 内部使用 storeRef，不需要作为依赖
   }, [filter]);
 
   const loadLogs = useCallback((offset: number) => {

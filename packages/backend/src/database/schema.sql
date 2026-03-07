@@ -404,3 +404,29 @@ CREATE INDEX IF NOT EXISTS idx_prompt_test_results_template ON prompt_test_resul
 INSERT OR IGNORE INTO db_version (version, description) VALUES (3, 'Added prompt engineering tables');
 INSERT OR IGNORE INTO db_version (version, description) VALUES (4, 'Updated skills table with full schema, added skill_templates and skill_cooldowns tables');
 INSERT OR IGNORE INTO db_version (version, description) VALUES (5, 'Updated quests table: added chain type, prerequisites, log fields, fixed rewards default value');
+
+-- ============================================
+-- 声望系统表
+-- ============================================
+
+-- 角色声望表
+CREATE TABLE IF NOT EXISTS character_reputations (
+  id TEXT PRIMARY KEY,
+  character_id TEXT NOT NULL,
+  reputation_id TEXT NOT NULL,
+  value INTEGER DEFAULT 0,
+  rank TEXT DEFAULT 'neutral' CHECK(rank IN ('hated', 'hostile', 'unfriendly', 'neutral', 'friendly', 'honored', 'revered', 'exalted')),
+  history TEXT DEFAULT '[]',
+  last_modified INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+  UNIQUE(character_id, reputation_id)
+);
+
+-- 声望表索引
+CREATE INDEX IF NOT EXISTS idx_character_reputations_character ON character_reputations(character_id);
+CREATE INDEX IF NOT EXISTS idx_character_reputations_rank ON character_reputations(rank);
+
+-- 数据库版本更新
+INSERT OR IGNORE INTO db_version (version, description) VALUES (6, 'Added character_reputations table for reputation system');

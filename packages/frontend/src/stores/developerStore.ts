@@ -5,6 +5,10 @@ import { websocketService } from '../services/websocketService';
 
 export type DeveloperTab = 'requests' | 'agents' | 'tools' | 'bindings' | 'decisions' | 'logs' | 'state' | 'prompts' | 'tokens' | 'data-simulator' | 'mock-dynamic-ui' | 'dynamic-ui-state' | 'ui-agent-test';
 
+let unsubscribeMessage: (() => void) | null = null;
+let unsubscribeConnection: (() => void) | null = null;
+let isWebSocketSubscribed = false;
+
 export interface DeveloperState {
   isDeveloperPanelVisible: boolean;
   isMinimized: boolean;
@@ -110,6 +114,10 @@ export const useDeveloperStore = create<DeveloperState>((set, get) => ({
   setSize: (size: { width: number; height: number }) => set({ size }),
 
   addLLMRequest: (request: LLMRequestRecord) => {
+    const existingIds = new Set(get().llmRequests.map(r => r.id));
+    if (existingIds.has(request.id)) {
+      return;
+    }
     const requests = [request, ...get().llmRequests];
     if (requests.length > MAX_REQUESTS) {
       set({ llmRequests: requests.slice(0, MAX_REQUESTS) });
@@ -129,6 +137,10 @@ export const useDeveloperStore = create<DeveloperState>((set, get) => ({
   clearLLMRequests: () => set({ llmRequests: [] }),
 
   addAgentMessage: (message: AgentMessageRecord) => {
+    const existingIds = new Set(get().agentMessages.map(m => m.id));
+    if (existingIds.has(message.id)) {
+      return;
+    }
     const messages = [message, ...get().agentMessages];
     if (messages.length > MAX_MESSAGES) {
       set({ agentMessages: messages.slice(0, MAX_MESSAGES) });
@@ -169,7 +181,20 @@ export const useDeveloperStore = create<DeveloperState>((set, get) => ({
   clearLogs: () => set({ logs: [] }),
   
   connectWebSocket: () => {
-    websocketService.subscribe((message) => {
+    if (isWebSocketSubscribed) {
+      return;
+    }
+    
+    if (unsubscribeMessage) {
+      unsubscribeMessage();
+      unsubscribeMessage = null;
+    }
+    if (unsubscribeConnection) {
+      unsubscribeConnection();
+      unsubscribeConnection = null;
+    }
+    
+    unsubscribeMessage = websocketService.subscribe((message) => {
       if (message.type === 'llm_request') {
         const log = message.payload as LLMRequestLog;
         get().addLLMRequest(convertLLMRequestLog(log));
@@ -185,14 +210,24 @@ export const useDeveloperStore = create<DeveloperState>((set, get) => ({
       }
     });
     
-    websocketService.subscribeToConnection((state) => {
+    unsubscribeConnection = websocketService.subscribeToConnection((state) => {
       get().setWSConnection(state);
     });
     
+    isWebSocketSubscribed = true;
     websocketService.connect();
   },
   
   disconnectWebSocket: () => {
+    if (unsubscribeMessage) {
+      unsubscribeMessage();
+      unsubscribeMessage = null;
+    }
+    if (unsubscribeConnection) {
+      unsubscribeConnection();
+      unsubscribeConnection = null;
+    }
+    isWebSocketSubscribed = false;
     websocketService.disconnect();
   },
   

@@ -14,6 +14,117 @@ import type {
   WorldSetting,
 } from '@ai-rpg/shared';
 
+// ==================== LLM 响应解析中间类型 ====================
+// 这些类型用于描述 LLM 返回的原始 JSON 数据结构
+
+/**
+ * LLM 返回的目标原始数据
+ */
+interface RawObjective {
+  id?: string;
+  description?: string;
+  type?: 'kill' | 'collect' | 'talk' | 'explore' | 'custom';
+  target?: string;
+  required?: number;
+}
+
+/**
+ * LLM 返回的 NPC 原始数据
+ */
+interface RawNPC {
+  id?: string;
+  name?: string;
+  description?: string;
+  role?: 'merchant' | 'quest_giver' | 'enemy' | 'ally' | 'neutral' | 'custom';
+  title?: string;
+  personality?: string;
+  dialogue?: string[];
+  stats?: {
+    level?: number;
+    hp?: number;
+    attack?: number;
+    defense?: number;
+    [key: string]: number | undefined;
+  };
+  services?: ('shop' | 'inn' | 'blacksmith' | 'healer' | 'training')[];
+}
+
+/**
+ * LLM 返回的物品原始数据
+ */
+interface RawItem {
+  id?: string;
+  name?: string;
+  description?: string;
+  type?: 'weapon' | 'armor' | 'accessory' | 'consumable' | 'material' | 'quest' | 'misc';
+  rarity?: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'unique';
+  stats?: Record<string, number>;
+  effects?: {
+    type: string;
+    value: number;
+    duration?: number;
+  }[];
+  value?: {
+    buy: number;
+    sell: number;
+    currency: string;
+  };
+  quantity?: number;
+}
+
+/**
+ * LLM 返回的任务原始数据
+ */
+interface RawQuest {
+  id?: string;
+  name?: string;
+  description?: string;
+  type?: 'main' | 'side' | 'hidden' | 'daily';
+  objectives?: RawObjective[];
+  rewards?: QuestDefinition['rewards'];
+  giver?: string;
+  timeLimit?: number;
+}
+
+/**
+ * LLM 返回的种族原始数据
+ */
+interface RawRace {
+  id?: string;
+  name?: string;
+  description?: string;
+  bonuses?: Record<string, number>;
+  penalties?: Record<string, number>;
+  abilities?: string[];
+  availableClasses?: string[];
+}
+
+/**
+ * LLM 返回的职业原始数据
+ */
+interface RawClass {
+  id?: string;
+  name?: string;
+  description?: string;
+  primaryAttributes?: string[];
+  hitDie?: string;
+  skillProficiencies?: string[];
+  startingEquipment?: string[];
+}
+
+/**
+ * LLM 返回的背景原始数据
+ */
+interface RawBackground {
+  id?: string;
+  name?: string;
+  description?: string;
+  skillProficiencies?: string[];
+  languages?: string[];
+  equipment?: string[];
+  feature?: string | { name?: string; description?: string };
+}
+
 interface GenerateContext {
   template: Partial<StoryTemplate>;
   targetType: 'npc' | 'item' | 'quest' | 'scene' | 'race' | 'class' | 'background' | 'worldSetting';
@@ -696,13 +807,13 @@ ${extraContext}
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return null;
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]) as RawQuest;
       return {
         id: parsed.id || `quest_${Date.now()}`,
         name: parsed.name || '未命名任务',
         description: parsed.description || '',
         type: parsed.type || 'side',
-        objectives: (parsed.objectives || []).map((obj: any, index: number) => ({
+        objectives: (parsed.objectives || []).map((obj: RawObjective, index: number) => ({
           id: obj.id || `obj_${Date.now()}_${index}`,
           description: obj.description || '',
           type: obj.type || 'custom',
@@ -724,11 +835,17 @@ ${extraContext}
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return null;
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]) as {
+        location?: string;
+        description?: string;
+        npcs?: RawNPC[];
+        items?: RawItem[];
+        quests?: RawQuest[];
+      };
       return {
         location: parsed.location || '未知地点',
         description: parsed.description || '',
-        npcs: (parsed.npcs || []).map((npc: any) => ({
+        npcs: (parsed.npcs || []).map((npc: RawNPC) => ({
           id: npc.id || `npc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: npc.name || '未命名NPC',
           description: npc.description || '',
@@ -739,7 +856,7 @@ ${extraContext}
           stats: npc.stats,
           services: npc.services,
         })),
-        items: (parsed.items || []).map((item: any) => ({
+        items: (parsed.items || []).map((item: RawItem) => ({
           id: item.id || `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: item.name || '未命名物品',
           description: item.description || '',
@@ -750,12 +867,12 @@ ${extraContext}
           value: item.value,
           quantity: item.quantity || 1,
         })),
-        quests: (parsed.quests || []).map((quest: any) => ({
+        quests: (parsed.quests || []).map((quest: RawQuest) => ({
           id: quest.id || `quest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: quest.name || '未命名任务',
           description: quest.description || '',
           type: quest.type || 'side',
-          objectives: (quest.objectives || []).map((obj: any, index: number) => ({
+          objectives: (quest.objectives || []).map((obj: RawObjective, index: number) => ({
             id: obj.id || `obj_${Date.now()}_${index}`,
             description: obj.description || '',
             type: obj.type || 'custom',
@@ -844,10 +961,10 @@ ${extraContext}
         return singleRace ? [singleRace] : [];
       }
 
-      const parsed = JSON.parse(jsonArrayMatch[0]);
+      const parsed = JSON.parse(jsonArrayMatch[0]) as RawRace[];
       if (!Array.isArray(parsed)) return [];
 
-      return parsed.map((item: any, index: number) => ({
+      return parsed.map((item: RawRace, index: number) => ({
         id: item.id || `race_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         name: item.name || `种族 ${index + 1}`,
         description: item.description || '',
@@ -870,10 +987,10 @@ ${extraContext}
         return singleClass ? [singleClass] : [];
       }
 
-      const parsed = JSON.parse(jsonArrayMatch[0]);
+      const parsed = JSON.parse(jsonArrayMatch[0]) as RawClass[];
       if (!Array.isArray(parsed)) return [];
 
-      return parsed.map((item: any, index: number) => ({
+      return parsed.map((item: RawClass, index: number) => ({
         id: item.id || `class_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         name: item.name || `职业 ${index + 1}`,
         description: item.description || '',
@@ -896,10 +1013,10 @@ ${extraContext}
         return singleBg ? [singleBg] : [];
       }
 
-      const parsed = JSON.parse(jsonArrayMatch[0]);
+      const parsed = JSON.parse(jsonArrayMatch[0]) as RawBackground[];
       if (!Array.isArray(parsed)) return [];
 
-      return parsed.map((item: any, index: number) => ({
+      return parsed.map((item: RawBackground, index: number) => ({
         id: item.id || `bg_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         name: item.name || `背景 ${index + 1}`,
         description: item.description || '',
@@ -914,7 +1031,7 @@ ${extraContext}
     }
   }
 
-  private normalizeFeature(feature: any): string {
+  private normalizeFeature(feature: RawBackground['feature']): string {
     if (!feature) return '';
     if (typeof feature === 'string') return feature;
     if (typeof feature === 'object') {

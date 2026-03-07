@@ -129,9 +129,8 @@ export const DynamicUIPanel: React.FC<DynamicUIPanelProps> = ({
     sendDynamicUIAction(action.type, { dynamicUIId: dynamicUI?.id }, action.payload);
   }, [sendDynamicUIAction, dynamicUI?.id]);
   
-  // 当 dynamicUI 变化时重新显示
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // 仅在 dynamicUI.id 变化时重置可见性，不需要依赖整个 dynamicUI 对象
+  // 当 dynamicUI.id 变化时重置窗口状态
+  // initialPosition 和 initialSize 是 props，变化时也需要重置窗口位置和大小
   useEffect(() => {
     if (dynamicUI?.id) {
       setIsVisible(true);
@@ -139,7 +138,7 @@ export const DynamicUIPanel: React.FC<DynamicUIPanelProps> = ({
       setPosition(initialPosition);
       setSize(initialSize);
     }
-  }, [dynamicUI?.id]);
+  }, [dynamicUI?.id, initialPosition, initialSize]);
   
   // 如果没有动态 UI 或不可见，不渲染
   if (!dynamicUI || !isVisible) {

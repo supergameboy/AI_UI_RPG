@@ -10,11 +10,11 @@ import { UIDataTool } from './implementations/UIDataTool';
 import { DialogueDataTool } from './implementations/DialogueDataTool';
 import { CombatDataTool } from './implementations/CombatDataTool';
 import { NumericalTool } from './implementations/NumericalTool';
+import { gameLog } from '../services/GameLogService';
 
-export function initializeTools(): void {
+export async function initializeTools(): Promise<void> {
   const registry = getToolRegistry();
 
-  // 注册所有 Tool
   registry.registerTool(new InventoryDataTool());
   registry.registerTool(new SkillDataTool());
   registry.registerTool(new MapDataTool());
@@ -27,5 +27,7 @@ export function initializeTools(): void {
   registry.registerTool(new CombatDataTool());
   registry.registerTool(new NumericalTool());
 
-  console.log(`[ToolRegistry] Registered ${registry.getToolCount()} tools`);
+  await registry.initializeAll();
+
+  gameLog.info('backend', `Registered and initialized ${registry.getToolCount()} tools`);
 }

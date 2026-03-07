@@ -1,0 +1,220 @@
+.container {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin: var(--spacing-sm) 0;
+  max-width: 400px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-background-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.questList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* 任务项 */
+.questItem {
+  background: var(--color-background-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.questItem:hover {
+  border-color: var(--color-primary);
+  transform: translateX(4px);
+}
+
+.questItem:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.questHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.priorityBadge {
+  font-size: var(--font-size-xs);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  flex-shrink: 0;
+}
+
+.main .priorityBadge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.side .priorityBadge {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.daily .priorityBadge {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.questName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusIcon {
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.completed .statusIcon {
+  color: var(--color-success);
+}
+
+.failed .statusIcon {
+  color: var(--color-error);
+}
+
+/* 进度条 */
+.progressBar {
+  height: 3px;
+  background: var(--color-background-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--spacing-xs);
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.completed .progressFill {
+  background: var(--color-success);
+}
+
+/* 目标列表 */
+.objectiveList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.objective {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.objectiveCheckbox {
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.objective.completed .objectiveCheckbox {
+  color: var(--color-success);
+}
+
+.objectiveText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objective.completed .objectiveText {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.objectiveProgress {
+  font-family: var(--font-monospace);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.objective.completed .objectiveProgress {
+  color: var(--color-success);
+}
+
+/* 任务状态 */
+.in_progress {
+  border-left: 3px solid var(--color-primary);
+}
+
+.completed {
+  border-left: 3px solid var(--color-success);
+  opacity: 0.7;
+}
+
+.failed {
+  border-left: 3px solid var(--color-error);
+  opacity: 0.5;
+}
+
+.available {
+  border-left: 3px solid var(--color-warning);
+}
+
+/* 空状态 */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  color: var(--color-text-tertiary);
+}
+
+.emptyIcon {
+  font-size: 32px;
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.5;
+}
+
+.emptyText {
+  font-size: var(--font-size-sm);
+}

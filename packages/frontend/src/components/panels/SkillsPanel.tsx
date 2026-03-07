@@ -48,11 +48,10 @@ export const SkillsPanel: React.FC = () => {
   const [category, setCategory] = useState<SkillCategory | 'all'>('all');
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
 
-  // 过滤技能 - 需要处理 Skill 类型可能没有 category 字段的情况
+  // 过滤技能
   const filteredSkills = useMemo(() => {
     if (category === 'all') return skills;
-    // 由于 Skill 类型可能没有 category，暂时返回全部
-    return skills;
+    return skills.filter((skill) => skill.category === category);
   }, [skills, category]);
 
   // 选中的技能
@@ -69,7 +68,10 @@ export const SkillsPanel: React.FC = () => {
   // 按分类统计技能数量
   const skillCounts = useMemo(() => {
     const counts: Record<string, number> = { all: skills.length };
-    // 由于 Skill 类型可能没有 category，暂时只统计总数
+    for (const skill of skills) {
+      const cat = skill.category || 'custom';
+      counts[cat] = (counts[cat] || 0) + 1;
+    }
     return counts;
   }, [skills]);
 

@@ -32,6 +32,9 @@ export const RaceSelectionStep: React.FC = () => {
   const hasGeneratedRef = useRef(false);
   const isGeneratingRef = useRef(false);
 
+  // 自动生成 AI 种族选项
+  // 使用 ref 防止重复生成（hasGeneratedRef 和 isGeneratingRef）
+  // storeRef 确保 generateAIRaces 调用始终有效
   useEffect(() => {
     if (aiRandomGeneration && aiGeneratedRaces.length === 0 && !hasGeneratedRef.current && !isLoading && !isGeneratingRef.current) {
       hasGeneratedRef.current = true;
@@ -42,6 +45,8 @@ export const RaceSelectionStep: React.FC = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // hasGeneratedRef/isGeneratingRef 是 ref，不会触发重新渲染
+    // storeRef.current.generateAIRaces 是稳定的引用
   }, [aiRandomGeneration, aiGeneratedRaces.length, isLoading]);
 
   const handleRetry = () => {

@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
 import { getCombatService } from '../services/CombatService';
+import { gameLog } from '../services/GameLogService';
 import type {
   ActionType,
   CombatInitParams,
@@ -101,7 +102,7 @@ router.post('/initiate', async (req: Request, res: Response) => {
 
     res.status(201).json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error initiating combat:', error);
+    gameLog.error('combat', 'Error initiating combat', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '初始化战斗失败',
@@ -133,7 +134,7 @@ router.post('/start', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error starting combat:', error);
+    gameLog.error('combat', 'Error starting combat', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '开始战斗失败',
@@ -172,7 +173,7 @@ router.post('/action', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error executing action:', error);
+    gameLog.error('combat', 'Error executing action', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '执行行动失败',
@@ -204,7 +205,7 @@ router.post('/ai-turn', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error executing AI turn:', error);
+    gameLog.error('combat', 'Error executing AI turn', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '执行AI回合失败',
@@ -236,7 +237,7 @@ router.post('/end-turn', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error ending turn:', error);
+    gameLog.error('combat', 'Error ending turn', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '结束回合失败',
@@ -272,7 +273,7 @@ router.post('/end', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error ending combat:', error);
+    gameLog.error('combat', 'Error ending combat', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '结束战斗失败',
@@ -299,7 +300,7 @@ router.get('/:combatId', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error getting combat state:', error);
+    gameLog.error('combat', 'Error getting combat state', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '获取战斗状态失败',
@@ -324,7 +325,7 @@ router.get('/player/:playerId', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error getting player combat:', error);
+    gameLog.error('combat', 'Error getting player combat', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '获取玩家战斗状态失败',
@@ -349,7 +350,7 @@ router.get('/:combatId/units', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error getting combat units:', error);
+    gameLog.error('combat', 'Error getting combat units', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '获取战斗单位失败',
@@ -374,7 +375,7 @@ router.get('/:combatId/turn-order', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error getting turn order:', error);
+    gameLog.error('combat', 'Error getting turn order', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '获取回合顺序失败',
@@ -399,7 +400,7 @@ router.get('/:combatId/current-turn', async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error('[CombatRoutes] Error getting current turn:', error);
+    gameLog.error('combat', 'Error getting current turn', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '获取当前回合信息失败',

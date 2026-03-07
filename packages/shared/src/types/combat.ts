@@ -175,10 +175,26 @@ export interface EnemyInitData {
 }
 
 /**
+ * 玩家初始化数据
+ */
+export interface PlayerInitData {
+  /** 玩家名称 */
+  name?: string;
+  /** 玩家等级 */
+  level?: number;
+  /** 战斗属性 */
+  stats?: Partial<CombatUnitStats>;
+  /** 已学会的技能ID列表 */
+  skills?: string[];
+}
+
+/**
  * 战斗初始化参数
  */
 export interface CombatInitParams {
   playerId: string;
+  /** 玩家初始化数据（可选，未提供时使用默认值） */
+  player?: PlayerInitData;
   allies?: AllyInitData[];
   enemies: EnemyInitData[];
   difficulty?: CombatDifficulty;

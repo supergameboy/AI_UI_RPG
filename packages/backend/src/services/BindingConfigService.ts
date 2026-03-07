@@ -3,7 +3,7 @@ import type {
   BindingConfig,
   AgentType,
 } from '@ai-rpg/shared';
-import { DEFAULT_BINDINGS } from '@ai-rpg/shared';
+import { DEFAULT_BINDINGS, InternalError } from '@ai-rpg/shared';
 import { gameLog } from './GameLogService';
 
 export interface BindingConfigStorage {
@@ -60,7 +60,7 @@ export class BindingConfigService {
 
   getConfig(): BindingConfig {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
     return {
       ...this.config,
@@ -70,21 +70,21 @@ export class BindingConfigService {
 
   getBindings(): Binding[] {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
     return [...this.config.bindings];
   }
 
   getBinding(bindingId: string): Binding | undefined {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
     return this.config.bindings.find((b) => b.id === bindingId);
   }
 
   addBinding(binding: Binding): void {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
 
     const existing = this.config.bindings.find((b) => b.id === binding.id);
@@ -105,7 +105,7 @@ export class BindingConfigService {
 
   updateBinding(bindingId: string, updates: Partial<Binding>): boolean {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
 
     const binding = this.config.bindings.find((b) => b.id === bindingId);
@@ -122,7 +122,7 @@ export class BindingConfigService {
 
   removeBinding(bindingId: string): boolean {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
 
     const index = this.config.bindings.findIndex((b) => b.id === bindingId);
@@ -147,14 +147,14 @@ export class BindingConfigService {
 
   getDefaultAgent(): AgentType {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
     return this.config.defaultAgentId;
   }
 
   setDefaultAgent(agentId: AgentType): void {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
     this.config.defaultAgentId = agentId;
     this.dirty = true;
@@ -175,7 +175,7 @@ export class BindingConfigService {
 
   async save(): Promise<void> {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
 
     if (!this.dirty) {
@@ -219,7 +219,7 @@ export class BindingConfigService {
 
   exportConfig(): string {
     if (!this.config) {
-      throw new Error('BindingConfigService not initialized');
+      throw new InternalError('BindingConfigService not initialized');
     }
     return JSON.stringify(this.config, null, 2);
   }

@@ -5,6 +5,7 @@ import { combatService } from '../services/combatService';
 import { decisionLogService, QueryOptions } from '../services/decisionLogService';
 import { contextService } from '../services/contextService';
 import { initializationService } from '../services/initializationService';
+import { inventoryService } from '../services/inventoryService';
 import type { 
   Character, 
   DialogueOption,
@@ -20,15 +21,10 @@ import type {
   NPC,
   Quest,
   NPCRelationship,
-  Skill,
-  InventoryItem,
-  EquipmentState,
-  GameMap,
-  JournalEntry,
-  DynamicUIData,
   DynamicUIActionMessage,
+  GameState as SharedGameState,
 } from '@ai-rpg/shared';
-import { InitializationStatus, GameTemplate, InitializationData } from '@ai-rpg/shared';
+import { InitializationStatus, GameTemplate, InitializationData, COMBAT_REVIVE_HEALTH_PERCENT } from '@ai-rpg/shared';
 import { websocketService } from '../services/websocketService';
 
 export type GameScreen = 'menu' | 'game' | 'template-select' | 'character-creation' | 'save-load' | 'template-manager';
@@ -47,11 +43,21 @@ export interface GameAction {
  * 用于记录游戏操作日志
  */
 const gameLog = {
+  debug: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[${category}] ${message}`, data ?? '');
+    }
+  },
   info: (category: string, message: string, data?: unknown) => {
-    console.log(`[${category}] ${message}`, data);
+    if (import.meta.env.DEV) {
+      console.log(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  warn: (category: string, message: string, data?: unknown) => {
+    console.warn(`[${category}] ${message}`, data ?? '');
   },
   error: (category: string, message: string, data?: unknown) => {
-    console.error(`[${category}] ${message}`, data);
+    console.error(`[${category}] ${message}`, data ?? '');
   },
 };
 
@@ -84,7 +90,11 @@ export interface CharacterState {
 
 export interface QuestState extends Quest {}
 
-export interface GameState {
+/**
+ * UI 状态接口
+ * 包含前端特有的 UI 状态
+ */
+export interface UIState {
   screen: GameScreen;
   previousScreen: GameScreen;
   showSettings: boolean;
@@ -98,10 +108,8 @@ export interface GameState {
   gameMode: 'text_adventure' | 'turn_based_rpg' | 'visual_novel' | 'dynamic_combat' | null;
   selectedTemplate: GameTemplate | null;
   
-  character: CharacterState;
   currentLocation: string;
   currentScene: string;
-  quests: QuestState[];
   storyProgress: Record<string, unknown>;
   playTime: number;
   sessionStartTime: number | null;
@@ -131,19 +139,16 @@ export interface GameState {
   isInitializing: boolean;
   initializationData: InitializationData | null;
   
-  // NPC 相关
-  npcs: NPC[];
+  // NPC 关系状态
   npcRelationships: Record<string, NPCRelationship>;
   selectedNpcId: string | null;
-  
-  // 新增游戏状态字段
-  skills: Skill[];
-  inventory: InventoryItem[];
-  equipment: EquipmentState;
-  mapData: GameMap | null;
-  journalEntries: JournalEntry[];
-  dynamicUI: DynamicUIData | null;
-  
+}
+
+/**
+ * Store 方法接口
+ * 包含所有 store 方法
+ */
+export interface StoreMethods {
   setScreen: (screen: GameScreen) => void;
   startNewGame: () => void;
   loadGame: (save: Save) => Promise<void>;
@@ -236,6 +241,23 @@ export interface GameState {
    * 通过 WebSocket 发送游戏动作到后端
    */
   sendGameAction: (action: GameAction) => Promise<void>;
+}
+
+/**
+ * 完整的游戏状态接口
+ * 继承 shared.GameState（排除 character 字段），添加 UI 状态和方法
+ * 
+ * 注意：character 字段使用前端特有的 CharacterState 类型（扁平化结构），
+ * 与 shared.Character 类型不同，因此需要排除 shared.GameState 中的 character 字段
+ */
+export interface GameState 
+  extends Omit<SharedGameState, 'character'>, 
+          UIState, 
+          StoreMethods {
+  /** 角色状态（前端扁平化结构） */
+  character: CharacterState;
+  /** 任务列表（使用 QuestState 扩展类型） */
+  quests: QuestState[];
 }
 
 const defaultCharacter: CharacterState = {
@@ -348,7 +370,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         gameState = JSON.parse(save.game_state || '{}');
         storyProgress = JSON.parse(save.story_progress || '{}');
       } catch {
-        console.warn('Failed to parse save data');
+        gameLog.warn('store', 'Failed to parse save data');
       }
       
       const loadedState = gameState as Record<string, unknown>;
@@ -466,7 +488,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       await get().fetchSaves();
     } catch (error) {
-      console.error('Failed to save game:', error);
+      gameLog.error('store', 'Failed to save game', { error: error instanceof Error ? error.message : String(error) });
       get().setNotification({ message: '存档失败', type: 'error' });
       throw error;
     }
@@ -500,7 +522,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       await get().saveGame(`自动存档 ${new Date().toLocaleString('zh-CN')}`);
       set({ lastAutoSaveTime: now });
     } catch (error) {
-      console.error('Auto save failed:', error);
+      gameLog.error('store', 'Auto save failed', { error: error instanceof Error ? error.message : String(error) });
     }
   },
   
@@ -513,7 +535,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ currentSaveId: null });
       }
     } catch (error) {
-      console.error('Failed to delete save:', error);
+      gameLog.error('store', 'Failed to delete save', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   },
@@ -532,7 +554,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }));
       set({ saves });
     } catch (error) {
-      console.error('Failed to fetch saves:', error);
+      gameLog.error('store', 'Failed to fetch saves', { error: error instanceof Error ? error.message : String(error) });
     }
   },
   
@@ -547,7 +569,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   onCharacterCreated: async (character: Character) => {
     const template = get().selectedTemplate as GameTemplate;
     if (!template) {
-      console.error('No template selected');
+      gameLog.error('store', 'No template selected');
       return;
     }
     
@@ -600,7 +622,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         get().generateInitialScene();
       }, 100);
     } catch (error) {
-      console.error('Failed to initialize game:', error);
+      gameLog.error('store', 'Failed to initialize game', { error: error instanceof Error ? error.message : String(error) });
       // 即使初始化失败，也尝试生成初始场景
       setTimeout(() => {
         get().generateInitialScene();
@@ -715,7 +737,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         // 检测战斗触发
         if (response.combatTrigger) {
           const { enemies, allies, reason } = response.combatTrigger;
-          console.log('[GameStore] Combat triggered:', reason);
+          gameLog.info('store', 'Combat triggered', { reason });
           // 延迟触发战斗，让玩家有时间看到对话内容
           setTimeout(() => {
             get().initiateCombat(enemies, allies);
@@ -723,7 +745,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
     } catch (error) {
-      console.error('Failed to send player input:', error);
+      gameLog.error('store', 'Failed to send player input', { error: error instanceof Error ? error.message : String(error) });
       get().setNotification({ 
         message: '发送失败，请重试', 
         type: 'error' 
@@ -758,7 +780,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
       }
     } catch (error) {
-      console.error('Failed to generate initial scene:', error);
+      gameLog.error('store', 'Failed to generate initial scene', { error: error instanceof Error ? error.message : String(error) });
       get().addMessage('narrator', '你的冒险即将开始...');
       set({
         dialogueOptions: [
@@ -829,7 +851,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         setTimeout(() => get().executeAITurn(), 500);
       }
     } catch (error) {
-      console.error('Failed to initiate combat:', error);
+      gameLog.error('store', 'Failed to initiate combat', { error: error instanceof Error ? error.message : String(error) });
       set({ isLoading: false });
       get().setNotification({ message: '战斗初始化失败', type: 'error' });
     }
@@ -858,7 +880,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         setTimeout(() => get().executeAITurn(), 500);
       }
     } catch (error) {
-      console.error('Failed to start combat:', error);
+      gameLog.error('store', 'Failed to start combat', { error: error instanceof Error ? error.message : String(error) });
       set({ isLoading: false });
       get().setNotification({ message: '战斗启动失败', type: 'error' });
     }
@@ -912,7 +934,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         setTimeout(() => get().executeAITurn(), 500);
       }
     } catch (error) {
-      console.error('Failed to execute combat action:', error);
+      gameLog.error('store', 'Failed to execute combat action', { error: error instanceof Error ? error.message : String(error) });
       set({ isLoading: false });
       get().setNotification({ message: '行动执行失败', type: 'error' });
     }
@@ -953,7 +975,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         setTimeout(() => get().executeAITurn(), 500);
       }
     } catch (error) {
-      console.error('Failed to execute AI turn:', error);
+      gameLog.error('store', 'Failed to execute AI turn', { error: error instanceof Error ? error.message : String(error) });
       set({ isLoading: false });
       get().setNotification({ message: 'AI回合执行失败', type: 'error' });
     }
@@ -998,8 +1020,29 @@ export const useGameStore = create<GameState>((set, get) => ({
         
         if (rewards.items && rewards.items.length > 0) {
           rewardMessages.push(`获得物品: ${rewards.items.join(', ')}`);
-          // TODO: 将物品添加到背包
-          // 需要调用 inventoryService 或相关方法
+          
+          // 将物品添加到背包
+          const currentSaveId = get().currentSaveId;
+          const characterId = get().character.id;
+          
+          if (currentSaveId && characterId) {
+            try {
+              // 批量添加物品奖励
+              await inventoryService.addItems(
+                currentSaveId,
+                characterId,
+                rewards.items.map(itemName => ({ itemName, quantity: 1 }))
+              );
+              gameLog.info('store', '战斗奖励物品已添加到背包', { items: rewards.items });
+            } catch (error) {
+              gameLog.error('store', '添加战斗奖励物品失败', { 
+                error: error instanceof Error ? error.message : String(error),
+                items: rewards.items 
+              });
+            }
+          } else {
+            gameLog.warn('store', '无法添加战斗奖励物品：缺少存档ID或角色ID');
+          }
         }
         
         if (rewards.skillPoints && rewards.skillPoints > 0) {
@@ -1022,7 +1065,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set((s) => ({
           character: {
             ...s.character,
-            health: Math.floor(s.character.maxHealth * 0.3), // 恢复30%生命值
+            health: Math.floor(s.character.maxHealth * COMBAT_REVIVE_HEALTH_PERCENT), // 恢复30%生命值
           },
         }));
       }
@@ -1035,7 +1078,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       get().autoSave();
       
     } catch (error) {
-      console.error('Failed to end combat:', error);
+      gameLog.error('store', 'Failed to end combat', { error: error instanceof Error ? error.message : String(error) });
       set({ isLoading: false });
       get().setNotification({ message: '战斗结束处理失败', type: 'error' });
     }
@@ -1072,7 +1115,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         contextLoading: false,
       });
     } catch (error) {
-      console.error('Failed to fetch global context:', error);
+      gameLog.error('store', 'Failed to fetch global context', { error: error instanceof Error ? error.message : String(error) });
       set({ contextLoading: false });
     }
   },
@@ -1092,7 +1135,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         decisionLogsLoading: false,
       });
     } catch (error) {
-      console.error('Failed to fetch decision logs:', error);
+      gameLog.error('store', 'Failed to fetch decision logs', { error: error instanceof Error ? error.message : String(error) });
       set({ decisionLogsLoading: false });
     }
   },
@@ -1104,7 +1147,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ decisionLogsLoading: false });
       return result;
     } catch (error) {
-      console.error('Failed to traceback problem:', error);
+      gameLog.error('store', 'Failed to traceback problem', { error: error instanceof Error ? error.message : String(error) });
       set({ decisionLogsLoading: false });
       throw error;
     }
@@ -1136,7 +1179,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return response.status;
     } catch (error) {
       set({ isInitializing: false });
-      console.error('Failed to start initialization:', error);
+      gameLog.error('store', 'Failed to start initialization', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   },
@@ -1150,7 +1193,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       return null;
     } catch (error) {
-      console.error('Failed to fetch initialization status:', error);
+      gameLog.error('store', 'Failed to fetch initialization status', { error: error instanceof Error ? error.message : String(error) });
       return null;
     }
   },
@@ -1178,7 +1221,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return response.status;
     } catch (error) {
       set({ isInitializing: false });
-      console.error('Failed to retry initialization:', error);
+      gameLog.error('store', 'Failed to retry initialization', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   },
@@ -1195,12 +1238,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     // 更新任务列表
     if (data.quests?.createdQuests && data.quests.createdQuests.length > 0) {
       // 这里可以根据任务ID获取任务详情，暂时只记录ID
-      console.log('[GameStore] 初始化任务:', data.quests.createdQuests);
+      gameLog.debug('store', '初始化任务', { quests: data.quests.createdQuests });
     }
     
     // 更新NPC列表
     if (data.npcs?.npcIds && data.npcs.npcIds.length > 0) {
-      console.log('[GameStore] 初始化NPC:', data.npcs.npcIds);
+      gameLog.debug('store', '初始化NPC', { npcs: data.npcs.npcIds });
     }
     
     // 更新角色属性（如果有数值数据）
@@ -1217,7 +1260,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     
     // 记录初始化数据
-    console.log('[GameStore] 初始化数据已同步:', {
+    gameLog.debug('store', '初始化数据已同步', {
       skills: data.skills?.learnedSkills?.length || 0,
       items: data.inventory?.addedItems?.length || 0,
       equipment: data.equipment?.equippedItems?.length || 0,
@@ -1271,11 +1314,11 @@ export const useGameStore = create<GameState>((set, get) => ({
    */
   updateGameState: (data: Partial<GameState>) => {
     if (!data || Object.keys(data).length === 0) {
-      console.warn('[GameStore] updateGameState: 空数据，跳过更新');
+      gameLog.warn('store', 'updateGameState: 空数据，跳过更新');
       return;
     }
     
-    console.log('[GameStore] 更新游戏状态:', Object.keys(data));
+    gameLog.debug('store', '更新游戏状态', { keys: Object.keys(data) });
     
     set((state) => {
       const newState: Partial<GameState> = { hasUnsavedChanges: true };
@@ -1324,13 +1367,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     // 处理关闭操作时清空 dynamicUI 状态
     if (action === 'close') {
       set({ dynamicUI: null });
-      console.log('[GameStore] 动态 UI 已关闭');
+      gameLog.debug('store', '动态 UI 已关闭');
     }
     
     // 检查是否有动态 UI ID
     const dynamicUIId = state.dynamicUI?.id;
     if (!dynamicUIId) {
-      console.warn('[GameStore] sendDynamicUIAction: 没有活动的动态 UI');
+      gameLog.warn('store', 'sendDynamicUIAction: 没有活动的动态 UI');
       return;
     }
     
@@ -1346,9 +1389,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     // 通过 WebSocket 发送消息
     try {
       websocketService.send(message);
-      console.log('[GameStore] 发送动态 UI 操作:', action);
+      gameLog.debug('store', '发送动态 UI 操作', { action });
     } catch (error) {
-      console.error('[GameStore] 发送动态 UI 操作失败:', error);
+      gameLog.error('store', '发送动态 UI 操作失败', { error: error instanceof Error ? error.message : String(error) });
     }
   },
   
@@ -1356,13 +1399,13 @@ export const useGameStore = create<GameState>((set, get) => ({
    * 初始化 WebSocket 连接
    */
   initWebSocket: () => {
-    console.log('[GameStore] 初始化 WebSocket 监听');
+    gameLog.debug('store', '初始化 WebSocket 监听');
     
     // 监听游戏状态更新事件
     const unsubscribeGameState = websocketService.subscribe((message) => {
       // 直接处理 game_state_update 类型消息
       if (message.type === 'game_state_update' && message.data) {
-        console.log('[GameStore] 收到游戏状态更新', {
+        gameLog.debug('store', '收到游戏状态更新', {
           keys: Object.keys(message.data),
           saveId: message.saveId,
         });
@@ -1371,7 +1414,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       // 直接处理 dynamic_ui_update 类型消息
       if (message.type === 'dynamic_ui_update' && message.dynamicUI) {
-        console.log('[GameStore] 收到动态 UI 更新', {
+        gameLog.debug('store', '收到动态 UI 更新', {
           id: message.dynamicUI.id,
         });
         set({ dynamicUI: message.dynamicUI });

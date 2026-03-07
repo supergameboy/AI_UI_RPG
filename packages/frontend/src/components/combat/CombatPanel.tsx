@@ -4,6 +4,7 @@ import { CombatUnitCard } from './CombatUnitCard';
 import { ActionMenu } from './ActionMenu';
 import { CombatLog } from './CombatLog';
 import { TurnOrder } from './TurnOrder';
+import { useGameStore } from '../../stores/gameStore';
 import styles from './CombatPanel.module.css';
 
 /**
@@ -37,6 +38,10 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
 }) => {
   const [targetMode, setTargetMode] = useState(false);
   const [pendingAction, setPendingAction] = useState<ActionType | null>(null);
+
+  // 从 store 获取玩家技能和物品
+  const skills = useGameStore((state) => state.skills);
+  const inventory = useGameStore((state) => state.inventory);
 
   // 将 units 数组转换为 Map
   const unitsMap = useMemo(() => {
@@ -218,8 +223,8 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
         <div className={styles.actionSection}>
           <ActionMenu
             onAction={handleAction}
-            skills={[]} // TODO: 从玩家数据获取技能
-            items={[]} // TODO: 从玩家数据获取物品
+            skills={skills}
+            items={inventory}
             isPlayerTurn={isPlayerTurn}
             targetMode={targetMode}
             availableTargets={getTargetableUnits()}

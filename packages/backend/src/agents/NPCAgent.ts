@@ -208,44 +208,6 @@ export class NPCAgent extends AgentBase {
     { agentType: AT.DIALOGUE, enabled: true },
   ];
 
-  readonly systemPrompt = `你是NPC和队伍管理智能体，负责管理游戏中的所有NPC及其与玩家的关系。
-
-核心职责：
-1. NPC信息管理：创建、更新、查询NPC信息
-2. 好感度系统：管理玩家与NPC的关系值（-100到100），处理好感度变化
-3. NPC行为生成：根据NPC性格和当前状态生成合理的行为和对话
-4. 队伍管理：管理玩家队伍中的NPC成员
-
-好感度等级划分：
-- HATED (仇恨): -100 ~ -75
-- HOSTILE (敌对): -74 ~ -50
-- UNFRIENDLY (不友好): -49 ~ -25
-- NEUTRAL (中立): -24 ~ 24
-- FRIENDLY (友好): 25 ~ 49
-- CLOSE (亲密): 50 ~ 74
-- LOYAL (忠诚): 75 ~ 100
-
-关系类型：
-- neutral: 中立关系
-- friendly: 友好关系
-- hostile: 敌对关系
-- romantic: 恋爱关系
-- custom: 自定义关系
-
-NPC标记：
-- isCompanion: 是否可作为同伴加入队伍
-- isMerchant: 是否为商人
-- isQuestGiver: 是否可发布任务
-- isRomanceable: 是否可发展恋爱关系
-- isEssential: 是否为关键NPC（不可死亡）
-- isHostile: 是否对玩家敌对
-
-工作原则：
-- 保持NPC行为的一致性和合理性
-- 好感度变化要有合理的理由和幅度
-- NPC行为要符合其性格和背景设定
-- 队伍管理要平衡游戏体验`;
-
   private npcState: NPCAgentState;
 
   constructor() {
@@ -576,7 +538,7 @@ NPC标记：
           };
       }
     } catch (error) {
-      console.error('[NPCAgent] Error processing message:', error);
+      gameLog.error('agent', 'Error processing message in NPCAgent', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error in NPCAgent',
@@ -1116,7 +1078,7 @@ ${inputData.context.time ? `时间: ${inputData.context.time}` : ''}
         data: { behavior, npcId: inputData.npcId },
       };
     } catch (error) {
-      console.error('[NPCAgent] Error generating behavior:', error);
+      gameLog.error('agent', 'Error generating behavior', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         error: 'Failed to generate NPC behavior',
@@ -1216,7 +1178,7 @@ ${inputData.dialogueHistory && inputData.dialogueHistory.length > 0
         },
       };
     } catch (error) {
-      console.error('[NPCAgent] Error generating dialogue:', error);
+      gameLog.error('agent', 'Error generating dialogue', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         error: 'Failed to generate dialogue',

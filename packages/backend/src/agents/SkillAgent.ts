@@ -11,7 +11,7 @@ import type {
   InitializationContext,
   InitializationResult,
 } from '@ai-rpg/shared';
-import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
+import { AgentType as AT, ToolType as ToolTypeEnum, DEFAULT_RESOURCE_VALUES } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
 import { getInitialSkills } from '../data/initialData';
 import { gameLog } from '../services/GameLogService';
@@ -58,6 +58,30 @@ interface SkillRange {
 }
 
 /**
+ * 技能等级缩放配置
+ */
+interface SkillScalingConfig {
+  /** 效果值缩放倍率（每级乘以此值） */
+  effectMultiplier: number;
+  /** 消耗值缩放倍率（每级乘以此值） */
+  costMultiplier: number;
+  /** 冷却减少值（每级减少） */
+  cooldownReduction: number;
+  /** 缩放公式类型 */
+  scalingType: 'linear' | 'exponential' | 'logarithmic';
+}
+
+/**
+ * 默认技能缩放配置
+ */
+const DEFAULT_SKILL_SCALING: SkillScalingConfig = {
+  effectMultiplier: 1.1,      // 每级效果 +10%
+  costMultiplier: 1.05,       // 每级消耗 +5%
+  cooldownReduction: 0.5,     // 每级冷却减少 0.5 回合
+  scalingType: 'linear',
+};
+
+/**
  * 扩展技能接口
  */
 interface ExtendedSkill extends Omit<Skill, 'type' | 'cost'> {
@@ -70,6 +94,8 @@ interface ExtendedSkill extends Omit<Skill, 'type' | 'cost'> {
   channelTime?: number;
   isToggleOn?: boolean;
   tags?: string[];
+  /** 可选的自定义缩放配置 */
+  scalingConfig?: SkillScalingConfig;
 }
 
 /**
@@ -213,6 +239,27 @@ interface SkillStatistics {
   totalCooldowns: number;
 }
 
+/**
+ * 单个需求检查结果
+ */
+interface RequirementCheckDetail {
+  type: 'level' | 'attribute' | 'skill' | 'item' | 'class';
+  required: number | string;
+  actual?: number | string;
+  satisfied: boolean;
+  description: string;
+}
+
+/**
+ * 技能需求检查结果
+ */
+interface SkillRequirementCheckResult {
+  satisfied: boolean;
+  requirements: RequirementCheckDetail[];
+  missingRequirements: RequirementCheckDetail[];
+  summary: string;
+}
+
 // ==================== SkillAgent 实现 ====================
 
 /**
@@ -235,40 +282,6 @@ export class SkillAgent extends AgentBase {
     { agentType: AT.NUMERICAL, enabled: true },
     { agentType: AT.COMBAT, enabled: true },
   ];
-
-  readonly systemPrompt = `你是技能管理智能体，负责管理游戏中的所有技能系统。
-
-核心职责：
-1. 技能管理：管理技能的定义、分类、属性
-2. 学习和升级：处理技能的学习、升级、解锁
-3. 效果计算：计算技能使用时的效果数值
-4. 冷却管理：管理技能的冷却时间和状态
-5. 消耗计算：计算技能使用的资源消耗
-
-技能类型：
-- active: 主动技能，需要玩家主动使用
-- passive: 被动技能，自动生效
-- toggle: 切换技能，可以开启/关闭
-
-技能分类：
-- combat: 战斗技能，用于战斗场景
-- magic: 魔法技能，消耗魔力施放
-- craft: 制作技能，用于物品制作
-- social: 社交技能，影响NPC互动
-- exploration: 探索技能，用于地图探索
-- custom: 自定义技能，特殊用途
-
-消耗类型：
-- mana: 魔力消耗
-- health: 生命值消耗
-- stamina: 体力消耗
-- custom: 自定义资源消耗
-
-工作原则：
-- 确保技能平衡性
-- 合理设置技能冷却
-- 准确计算技能效果
-- 维护技能树结构`;
 
   // 技能存储
   private skills: Map<string, ExtendedSkill> = new Map();
@@ -985,7 +998,7 @@ export class SkillAgent extends AgentBase {
   /**
    * 学习技能
    */
-  private handleLearnSkill(data: Record<string, unknown>): AgentResponse {
+  private async handleLearnSkill(data: Record<string, unknown>): Promise<AgentResponse> {
     const learnData = data as unknown as SkillLearnParams;
 
     if (!learnData.skillId || !learnData.characterId) {
@@ -1012,9 +1025,25 @@ export class SkillAgent extends AgentBase {
       };
     }
 
-    // 检查前置条件（这里简化处理，实际应该检查角色属性等）
+    // 检查前置条件（调用 NUMERICAL agent 检查属性要求）
     if (skill.requirements && skill.requirements.length > 0) {
-      // TODO: 调用 NUMERICAL agent 检查属性要求
+      const requirementCheck = await this.checkSkillRequirements(skill, learnData.characterId);
+
+      if (!requirementCheck.satisfied) {
+        gameLog.info('agent', `Skill learning failed: requirements not met`, {
+          skillId: skill.id,
+          characterId: learnData.characterId,
+          missingRequirements: requirementCheck.missingRequirements.map(r => r.description),
+        });
+
+        return {
+          success: false,
+          error: `不满足学习条件: ${requirementCheck.summary}`,
+          data: {
+            requirementCheck,
+          },
+        };
+      }
     }
 
     // 学习技能
@@ -1245,7 +1274,7 @@ export class SkillAgent extends AgentBase {
   /**
    * 使用技能
    */
-  private handleUseSkill(data: Record<string, unknown>): AgentResponse {
+  private async handleUseSkill(data: Record<string, unknown>): Promise<AgentResponse> {
     const useData = data as unknown as SkillUseParams;
 
     if (!useData.skillId || !useData.characterId) {
@@ -1299,8 +1328,8 @@ export class SkillAgent extends AgentBase {
       };
     }
 
-    // 计算效果
-    const effectResult = this.calculateSkillEffect(skill, useData);
+    // 计算效果（异步调用 NUMERICAL agent）
+    const effectResult = await this.calculateSkillEffect(skill, useData);
 
     // 应用冷却
     this.applyCooldown(useData.characterId, useData.skillId, skill.cooldown);
@@ -1448,7 +1477,7 @@ export class SkillAgent extends AgentBase {
   /**
    * 计算技能效果
    */
-  private handleCalculateEffect(data: Record<string, unknown>): AgentResponse {
+  private async handleCalculateEffect(data: Record<string, unknown>): Promise<AgentResponse> {
     const calcData = data as {
       skillId: string;
       characterId: string;
@@ -1471,7 +1500,7 @@ export class SkillAgent extends AgentBase {
       };
     }
 
-    const effectResult = this.calculateSkillEffect(skill, {
+    const effectResult = await this.calculateSkillEffect(skill, {
       skillId: calcData.skillId,
       characterId: calcData.characterId,
       targetId: calcData.targetId,
@@ -1692,7 +1721,7 @@ export class SkillAgent extends AgentBase {
   /**
    * 获取可学习技能
    */
-  private handleGetAvailableSkills(data: Record<string, unknown>): AgentResponse {
+  private async handleGetAvailableSkills(data: Record<string, unknown>): Promise<AgentResponse> {
     const queryData = data as {
       characterId: string;
       category?: SkillCategory;
@@ -1707,26 +1736,110 @@ export class SkillAgent extends AgentBase {
 
     const characterSkillSet = this.characterSkills.get(queryData.characterId) || new Set();
 
-    let availableSkills = Array.from(this.skills.values())
-      .filter(skill => {
-        // 未学习
-        if (characterSkillSet.has(skill.id)) return false;
+    // 获取角色属性用于需求检查
+    const characterStatsResponse = await this.callAgent(AT.NUMERICAL, {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from: this.type,
+      to: AT.NUMERICAL,
+      type: 'request',
+      payload: {
+        action: 'get_character_stats',
+        data: { characterId: queryData.characterId },
+      },
+      metadata: {
+        priority: 'normal',
+        requiresResponse: true,
+      },
+    });
 
-        // 分类过滤
-        if (queryData.category && skill.category !== queryData.category) return false;
+    const characterData = characterStatsResponse.success && characterStatsResponse.data
+      ? (characterStatsResponse.data as { character?: {
+          level: number;
+          baseAttributes: Record<string, number>;
+          derivedAttributes: Record<string, number>;
+          class?: string;
+        } }).character
+      : undefined;
 
-        // 检查前置条件
-        if (skill.requirements) {
-          // TODO: 调用 NUMERICAL agent 检查详细要求
-          return true;
-        }
+    const availableSkills: Array<ExtendedSkill & { requirementStatus?: SkillRequirementCheckResult }> = [];
 
-        return true;
-      });
+    for (const skill of this.skills.values()) {
+      // 未学习
+      if (characterSkillSet.has(skill.id)) continue;
+
+      // 分类过滤
+      if (queryData.category && skill.category !== queryData.category) continue;
+
+      // 检查前置条件
+      if (skill.requirements && skill.requirements.length > 0) {
+        const requirementCheck = this.checkRequirementsLocally(skill, characterData, characterSkillSet);
+
+        // 只包含满足条件的技能，或者包含详细信息供前端展示
+        availableSkills.push({
+          ...skill,
+          requirementStatus: requirementCheck,
+        });
+      } else {
+        availableSkills.push({
+          ...skill,
+          requirementStatus: {
+            satisfied: true,
+            requirements: [],
+            missingRequirements: [],
+            summary: '无前置需求',
+          },
+        });
+      }
+    }
 
     return {
       success: true,
       data: { skills: availableSkills, count: availableSkills.length },
+    };
+  }
+
+  /**
+   * 本地检查需求（不调用 Agent，用于批量检查）
+   */
+  private checkRequirementsLocally(
+    skill: ExtendedSkill,
+    character?: {
+      level: number;
+      baseAttributes: Record<string, number>;
+      derivedAttributes: Record<string, number>;
+      class?: string;
+    },
+    learnedSkills?: Set<string>
+  ): SkillRequirementCheckResult {
+    const requirements: RequirementCheckDetail[] = [];
+    const missingRequirements: RequirementCheckDetail[] = [];
+
+    // 确保 requirements 存在
+    const skillRequirements = skill.requirements || [];
+    for (const req of skillRequirements) {
+      const detail = this.checkSingleRequirement(req, character, learnedSkills);
+      requirements.push(detail);
+
+      if (!detail.satisfied) {
+        missingRequirements.push(detail);
+      }
+    }
+
+    const satisfied = missingRequirements.length === 0;
+    let summary: string;
+    if (satisfied) {
+      summary = '满足所有前置需求';
+    } else {
+      const missingDescriptions = missingRequirements.map(r => r.description);
+      summary = `缺少条件: ${missingDescriptions.join(', ')}`;
+    }
+
+    return {
+      satisfied,
+      requirements,
+      missingRequirements,
+      summary,
     };
   }
 
@@ -1914,16 +2027,90 @@ export class SkillAgent extends AgentBase {
 
   /**
    * 应用等级缩放
+   * 支持配置化的缩放公式，根据技能等级调整效果、消耗和冷却
    */
   private applyLevelScaling(skill: ExtendedSkill): void {
-    // 简化的等级缩放逻辑
+    const config = skill.scalingConfig || DEFAULT_SKILL_SCALING;
+    const currentLevel = skill.level;
+    
+    // 根据缩放类型计算缩放因子
+    const scaleFactor = this.calculateScaleFactor(currentLevel, config);
+    
+    // 应用效果缩放
     for (const effect of skill.effects) {
-      effect.value = Math.floor(effect.value * 1.1);
+      effect.value = this.applyScalingToValue(
+        effect.value,
+        scaleFactor.effectScale,
+        config.scalingType
+      );
     }
+    
+    // 应用消耗缩放
     for (const cost of skill.costs) {
-      cost.value = Math.floor(cost.value * 1.05);
+      cost.value = this.applyScalingToValue(
+        cost.value,
+        scaleFactor.costScale,
+        config.scalingType
+      );
     }
-    skill.cooldown = Math.max(0, skill.cooldown - 1);
+    
+    // 应用冷却减少
+    const cooldownReduction = config.cooldownReduction * (currentLevel - 1);
+    skill.cooldown = Math.max(0, Math.floor(skill.cooldown - cooldownReduction));
+    
+    // 记录日志
+    gameLog.debug('agent', `Applied level scaling to skill ${skill.name}`, {
+      level: currentLevel,
+      effectScale: scaleFactor.effectScale,
+      costScale: scaleFactor.costScale,
+      cooldownReduction,
+    });
+  }
+  
+  /**
+   * 计算缩放因子
+   */
+  private calculateScaleFactor(
+    level: number,
+    config: SkillScalingConfig
+  ): { effectScale: number; costScale: number } {
+    const levelMultiplier = level - 1;
+    
+    switch (config.scalingType) {
+      case 'exponential':
+        // 指数增长：每级效果/消耗按倍率指数增长
+        return {
+          effectScale: Math.pow(config.effectMultiplier, levelMultiplier),
+          costScale: Math.pow(config.costMultiplier, levelMultiplier),
+        };
+        
+      case 'logarithmic':
+        // 对数增长：增长逐渐减缓
+        return {
+          effectScale: 1 + Math.log(1 + levelMultiplier * (config.effectMultiplier - 1)),
+          costScale: 1 + Math.log(1 + levelMultiplier * (config.costMultiplier - 1)),
+        };
+        
+      case 'linear':
+      default:
+        // 线性增长：每级固定增长
+        return {
+          effectScale: 1 + levelMultiplier * (config.effectMultiplier - 1),
+          costScale: 1 + levelMultiplier * (config.costMultiplier - 1),
+        };
+    }
+  }
+  
+  /**
+   * 应用缩放到数值
+   */
+  private applyScalingToValue(
+    baseValue: number,
+    scale: number,
+    _scalingType: string
+  ): number {
+    // 对数值进行缩放并取整
+    return Math.max(1, Math.floor(baseValue * scale));
   }
 
   /**
@@ -1938,32 +2125,40 @@ export class SkillAgent extends AgentBase {
 
   /**
    * 计算技能效果
+   * 调用 NUMERICAL agent 进行详细计算
    */
-  private calculateSkillEffect(
+  private async calculateSkillEffect(
     skill: ExtendedSkill,
-    _params: SkillUseParams
-  ): { effects: SkillEffectResult['effects'] } {
-    const effects: SkillEffectResult['effects'] = [];
+    params: SkillUseParams
+  ): Promise<{ effects: SkillEffectResult['effects'] }> {
+    // 获取角色属性用于详细计算
+    const characterStatsResponse = await this.callAgent(AT.NUMERICAL, {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from: this.type,
+      to: AT.NUMERICAL,
+      type: 'request',
+      payload: {
+        action: 'get_character_stats',
+        data: { characterId: params.characterId },
+      },
+      metadata: {
+        priority: 'normal',
+        requiresResponse: true,
+      },
+    });
 
-    for (const effect of skill.effects) {
-      // 基础效果值
-      let value = effect.value;
+    const characterData = characterStatsResponse.success && characterStatsResponse.data
+      ? (characterStatsResponse.data as { character?: {
+          level: number;
+          baseAttributes: Record<string, number>;
+          derivedAttributes: Record<string, number>;
+          class?: string;
+        } }).character
+      : undefined;
 
-      // 应用等级加成
-      value = Math.floor(value * (1 + (skill.level - 1) * 0.1));
-
-      // TODO: 调用 NUMERICAL agent 进行详细计算
-      // 包括：属性加成、暴击计算、抗性计算等
-
-      effects.push({
-        type: effect.type,
-        value: effect.value,
-        actualValue: value,
-        isCritical: false,
-        isBlocked: false,
-        isResisted: false,
-      });
-    }
+    // 使用详细计算方法
+    const effects = await this.calculateSkillEffectDetailed(skill, params, characterData);
 
     return { effects };
   }
@@ -1977,11 +2172,7 @@ export class SkillAgent extends AgentBase {
     resources?: Record<string, number>
   ): SkillCostResult {
     // 默认资源值（实际应从角色数据获取）
-    const defaultResources: Record<string, number> = resources || {
-      mana: 100,
-      health: 100,
-      stamina: 100,
-    };
+    const defaultResources: Record<string, number> = resources || { ...DEFAULT_RESOURCE_VALUES };
 
     const costs: SkillCostResult['costs'] = [];
     let totalInsufficient = 0;
@@ -2077,6 +2268,410 @@ export class SkillAgent extends AgentBase {
   private generateTemplateId(): string {
     this.templateIdCounter++;
     return `template_${Date.now()}_${this.templateIdCounter}`;
+  }
+
+  /**
+   * 检查技能需求
+   * 调用 NUMERICAL agent 获取角色属性并验证需求
+   */
+  private async checkSkillRequirements(
+    skill: ExtendedSkill,
+    characterId: string
+  ): Promise<SkillRequirementCheckResult> {
+    const requirements: RequirementCheckDetail[] = [];
+    const missingRequirements: RequirementCheckDetail[] = [];
+
+    // 如果没有需求，直接返回满足
+    if (!skill.requirements || skill.requirements.length === 0) {
+      return {
+        satisfied: true,
+        requirements: [],
+        missingRequirements: [],
+        summary: '无前置需求',
+      };
+    }
+
+    // 调用 NUMERICAL agent 获取角色属性
+    const characterStatsResponse = await this.callAgent(AT.NUMERICAL, {
+      id: this.generateMessageId(),
+      timestamp: Date.now(),
+      from: this.type,
+      to: AT.NUMERICAL,
+      type: 'request',
+      payload: {
+        action: 'get_character_stats',
+        data: { characterId },
+      },
+      metadata: {
+        priority: 'normal',
+        requiresResponse: true,
+      },
+    });
+
+    // 获取角色已学习技能
+    const characterSkillSet = this.characterSkills.get(characterId) || new Set();
+
+    // 如果获取角色数据失败，返回默认检查结果
+    if (!characterStatsResponse.success || !characterStatsResponse.data) {
+      gameLog.warn('agent', 'Failed to get character stats for requirement check', {
+        skillId: skill.id,
+        characterId,
+        error: characterStatsResponse.error,
+      });
+
+      // 返回保守结果：假设所有需求都不满足
+      for (const req of skill.requirements) {
+        const detail: RequirementCheckDetail = {
+          type: req.type,
+          required: req.value,
+          satisfied: false,
+          description: this.getRequirementDescription(req),
+        };
+        requirements.push(detail);
+        missingRequirements.push(detail);
+      }
+
+      return {
+        satisfied: false,
+        requirements,
+        missingRequirements,
+        summary: `无法获取角色数据，需要满足 ${missingRequirements.length} 个条件`,
+      };
+    }
+
+    const characterData = characterStatsResponse.data as {
+      character?: {
+        level: number;
+        baseAttributes: Record<string, number>;
+        derivedAttributes: Record<string, number>;
+        class?: string;
+      };
+    };
+    const character = characterData.character;
+
+    // 检查每个需求
+    for (const req of skill.requirements) {
+      const detail = this.checkSingleRequirement(req, character, characterSkillSet);
+      requirements.push(detail);
+
+      if (!detail.satisfied) {
+        missingRequirements.push(detail);
+      }
+    }
+
+    // 生成摘要
+    const satisfied = missingRequirements.length === 0;
+    let summary: string;
+    if (satisfied) {
+      summary = '满足所有前置需求';
+    } else {
+      const missingDescriptions = missingRequirements.map(r => r.description);
+      summary = `缺少条件: ${missingDescriptions.join(', ')}`;
+    }
+
+    return {
+      satisfied,
+      requirements,
+      missingRequirements,
+      summary,
+    };
+  }
+
+  /**
+   * 检查单个需求
+   * 完整实现所有前置条件检查
+   */
+  private checkSingleRequirement(
+    req: SkillRequirement,
+    character?: {
+      level: number;
+      baseAttributes: Record<string, number>;
+      derivedAttributes: Record<string, number>;
+      class?: string;
+    },
+    learnedSkills?: Set<string>
+  ): RequirementCheckDetail {
+    const detail: RequirementCheckDetail = {
+      type: req.type,
+      required: req.value,
+      satisfied: false,
+      description: '',
+    };
+
+    switch (req.type) {
+      case 'level': {
+        // 等级要求检查
+        const requiredLevel = typeof req.value === 'number' ? req.value : parseInt(String(req.value), 10);
+        const actualLevel = character?.level ?? 0;
+        detail.actual = actualLevel;
+        detail.satisfied = actualLevel >= requiredLevel;
+        detail.description = detail.satisfied
+          ? `等级要求: ${requiredLevel} (当前: ${actualLevel})`
+          : `需要等级 ${requiredLevel}，当前等级 ${actualLevel}`;
+        break;
+      }
+
+      case 'attribute': {
+        // 属性要求检查
+        // req.value 格式: "strength:15" 或 "intelligence:20"
+        const attrReq = String(req.value);
+        const [attrName, attrValueStr] = attrReq.includes(':') ? attrReq.split(':') : [attrReq, '0'];
+        const requiredValue = parseInt(attrValueStr, 10);
+
+        // 优先检查基础属性，其次检查衍生属性
+        let actualValue = character?.baseAttributes?.[attrName] ?? 0;
+        if (actualValue === 0 && character?.derivedAttributes) {
+          actualValue = character.derivedAttributes[attrName] ?? 0;
+        }
+
+        detail.actual = actualValue;
+        detail.satisfied = actualValue >= requiredValue;
+
+        const attrDisplayName = this.getAttributeDisplayName(attrName);
+        detail.description = detail.satisfied
+          ? `${attrDisplayName} 要求: ${requiredValue} (当前: ${actualValue})`
+          : `需要 ${attrDisplayName} ${requiredValue}，当前 ${actualValue}`;
+        break;
+      }
+
+      case 'skill': {
+        // 前置技能检查
+        // req.value 为前置技能的ID
+        const requiredSkillId = String(req.value);
+        const hasSkill = learnedSkills?.has(requiredSkillId) ?? false;
+
+        // 获取技能名称用于更友好的提示
+        const requiredSkill = this.skills.get(requiredSkillId);
+        const skillName = requiredSkill?.name ?? requiredSkillId;
+
+        detail.actual = hasSkill ? '已学习' : '未学习';
+        detail.satisfied = hasSkill;
+        detail.description = hasSkill
+          ? `前置技能: ${skillName} (已学习)`
+          : `需要先学习技能: ${skillName}`;
+        break;
+      }
+
+      case 'item': {
+        // 物品需求检查
+        // 注意: 完整的物品检查需要调用 INVENTORY agent
+        // 这里提供基础检查框架，实际物品验证应在调用层完成
+        const requiredItem = String(req.value);
+
+        // 标记为需要进一步验证
+        detail.actual = '需要验证';
+        detail.satisfied = false;
+        detail.description = `需要物品: ${requiredItem} (需要检查背包)`;
+
+        gameLog.debug('agent', 'Item requirement check needs INVENTORY agent integration', {
+          requiredItem,
+          requirementType: 'item',
+        });
+        break;
+      }
+
+      case 'class': {
+        // 职业限制检查
+        // req.value 可以是单个职业名称或职业数组（JSON格式）
+        const classReq = String(req.value);
+        let allowedClasses: string[];
+
+        try {
+          // 尝试解析为数组
+          const parsed = JSON.parse(classReq);
+          allowedClasses = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          // 解析失败，作为单个职业处理
+          allowedClasses = [classReq];
+        }
+
+        const characterClass = character?.class ?? '';
+        const isClassAllowed = allowedClasses.some(
+          allowedClass => allowedClass.toLowerCase() === characterClass.toLowerCase()
+        );
+
+        detail.actual = characterClass || '未知';
+        detail.satisfied = isClassAllowed;
+
+        const allowedClassesStr = allowedClasses.map(c => this.getClassDisplayName(c)).join('、');
+        detail.description = isClassAllowed
+          ? `职业限制: ${allowedClassesStr} (当前: ${this.getClassDisplayName(characterClass)})`
+          : `仅限 ${allowedClassesStr} 职业，当前职业: ${this.getClassDisplayName(characterClass)}`;
+        break;
+      }
+
+      default: {
+        // 未知需求类型
+        detail.description = `未知需求类型: ${req.type}`;
+        gameLog.warn('agent', `Unknown requirement type encountered: ${req.type}`, {
+          requirement: req,
+        });
+        break;
+      }
+    }
+
+    return detail;
+  }
+
+  /**
+   * 获取属性显示名称
+   */
+  private getAttributeDisplayName(attrName: string): string {
+    const attrNames: Record<string, string> = {
+      strength: '力量',
+      dexterity: '敏捷',
+      constitution: '体质',
+      intelligence: '智力',
+      wisdom: '感知',
+      charisma: '魅力',
+      // 衍生属性
+      critRate: '暴击率',
+      critDamage: '暴击伤害',
+      evasion: '闪避',
+      accuracy: '命中',
+    };
+    return attrNames[attrName] ?? attrName;
+  }
+
+  /**
+   * 获取职业显示名称
+   */
+  private getClassDisplayName(className: string): string {
+    const classNames: Record<string, string> = {
+      warrior: '战士',
+      mage: '法师',
+      rogue: '盗贼',
+      priest: '牧师',
+      ranger: '游侠',
+      paladin: '圣骑士',
+      necromancer: '死灵法师',
+      bard: '吟游诗人',
+      monk: '武僧',
+      druid: '德鲁伊',
+    };
+    return classNames[className.toLowerCase()] ?? className;
+  }
+
+  /**
+   * 获取需求描述
+   */
+  private getRequirementDescription(req: SkillRequirement): string {
+    switch (req.type) {
+      case 'level':
+        return `等级 ${req.value}`;
+      case 'attribute':
+        return `属性 ${req.value}`;
+      case 'skill': {
+        const skillId = String(req.value);
+        const skill = this.skills.get(skillId);
+        return `技能 ${skill?.name ?? skillId}`;
+      }
+      case 'item':
+        return `物品 ${req.value}`;
+      case 'class':
+        return `职业 ${req.value}`;
+      default:
+        return `未知需求`;
+    }
+  }
+
+  /**
+   * 计算技能效果详情
+   * 调用 NUMERICAL agent 进行详细计算
+   */
+  private async calculateSkillEffectDetailed(
+    skill: ExtendedSkill,
+    _params: SkillUseParams,
+    characterData?: {
+      level: number;
+      baseAttributes: Record<string, number>;
+      derivedAttributes: Record<string, number>;
+      class?: string;
+    }
+  ): Promise<SkillEffectResult['effects']> {
+    const effects: SkillEffectResult['effects'] = [];
+
+    for (const effect of skill.effects) {
+      // 基础效果值
+      let value = effect.value;
+
+      // 应用等级加成
+      value = Math.floor(value * (1 + (skill.level - 1) * 0.1));
+
+      // 如果有角色数据，进行属性加成计算
+      if (characterData) {
+        value = this.applyAttributeBonus(effect.type, value, characterData);
+      }
+
+      // 计算暴击（简化处理，实际应该调用 NUMERICAL agent）
+      const critRate = characterData?.derivedAttributes?.['critRate'] ?? 5;
+      const critDamage = 150; // 默认暴击伤害倍率
+      const isCritical = Math.random() * 100 < critRate;
+      if (isCritical) {
+        value = Math.floor(value * (critDamage / 100));
+      }
+
+      effects.push({
+        type: effect.type,
+        value: effect.value,
+        actualValue: value,
+        isCritical,
+        isBlocked: false,
+        isResisted: false,
+      });
+    }
+
+    return effects;
+  }
+
+  /**
+   * 应用属性加成
+   */
+  private applyAttributeBonus(
+    effectType: string,
+    baseValue: number,
+    characterData: {
+      level: number;
+      baseAttributes: Record<string, number>;
+      derivedAttributes: Record<string, number>;
+      class?: string;
+    }
+  ): number {
+    let value = baseValue;
+
+    switch (effectType) {
+      case 'damage':
+      case 'physical_damage':
+        // 物理伤害受力量加成
+        value += Math.floor((characterData.baseAttributes['strength'] ?? 10) * 0.5);
+        break;
+
+      case 'magic_damage':
+      case 'damage': // 魔法伤害
+        // 魔法伤害受智力加成
+        value += Math.floor((characterData.baseAttributes['intelligence'] ?? 10) * 0.5);
+        break;
+
+      case 'healing':
+        // 治疗受智力和感知加成
+        value += Math.floor(
+          (characterData.baseAttributes['intelligence'] ?? 10) * 0.3 +
+          (characterData.baseAttributes['wisdom'] ?? 10) * 0.2
+        );
+        break;
+
+      case 'defense_boost':
+      case 'shield':
+        // 防御类效果受体质加成
+        value += Math.floor((characterData.baseAttributes['constitution'] ?? 10) * 0.3);
+        break;
+
+      default:
+        // 默认不额外加成
+        break;
+    }
+
+    return value;
   }
 }
 

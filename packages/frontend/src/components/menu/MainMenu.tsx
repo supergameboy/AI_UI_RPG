@@ -6,6 +6,28 @@ import { mockGameService } from '../../services/mockGameService';
 import type { QuestState } from '../../stores/gameStore';
 import styles from './MainMenu.module.css';
 
+/**
+ * 简单的日志工具
+ */
+const gameLog = {
+  debug: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  info: (category: string, message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.log(`[${category}] ${message}`, data ?? '');
+    }
+  },
+  warn: (category: string, message: string, data?: unknown) => {
+    console.warn(`[${category}] ${message}`, data ?? '');
+  },
+  error: (category: string, message: string, data?: unknown) => {
+    console.error(`[${category}] ${message}`, data ?? '');
+  },
+};
+
 export const MainMenu: React.FC = () => {
   const { openSettings, openTemplateManager, saves, fetchSaves, loadGame, setScreen, updateGameState, setNotification, clearNotification } = useGameStore();
   const { theme, toggleTheme } = useThemeStore();
@@ -95,7 +117,7 @@ export const MainMenu: React.FC = () => {
       }, 3000);
       
     } catch (error) {
-      console.error('[MainMenu] 加载模拟数据失败:', error);
+      gameLog.error('frontend', '加载模拟数据失败', { error: error instanceof Error ? error.message : String(error) });
       setNotification({
         type: 'error',
         message: '加载模拟数据失败',

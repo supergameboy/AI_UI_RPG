@@ -26,6 +26,7 @@ export const WarehouseComponent: React.FC<DynamicUIComponentProps> = ({
   const [activeTab, setActiveTab] = useState<WarehouseTab>('inventory');
 
   // 解析内容
+  // 支持带连字符的 ID，如 iron-sword, health-potion
   const { tabs, items } = useMemo(() => {
     const parsedTabs: Array<{ id: WarehouseTab; label: string; maxSlots: number; usedSlots: number }> = [];
     const parsedItems: Record<string, WarehouseItem[]> = {
@@ -38,8 +39,8 @@ export const WarehouseComponent: React.FC<DynamicUIComponentProps> = ({
     let currentTabId: WarehouseTab = 'inventory';
 
     for (const line of lines) {
-      // 解析标签
-      const tabMatch = line.match(/\[([^\]]+)\]\(tab:(\w+)\s+maxSlots=(\d+)\s+usedSlots=(\d+)\)/);
+      // 解析标签 - 使用 [\w-]+ 支持连字符
+      const tabMatch = line.match(/\[([^\]]+)\]\(tab:([\w-]+)\s+maxSlots=(\d+)\s+usedSlots=(\d+)\)/);
       if (tabMatch) {
         const tabId = tabMatch[2] as WarehouseTab;
         currentTabId = tabId;
@@ -52,8 +53,8 @@ export const WarehouseComponent: React.FC<DynamicUIComponentProps> = ({
         continue;
       }
 
-      // 解析物品
-      const itemMatch = line.match(/\[([^\]]+)\]\(item:(\w+)\s+qty=(\d+)(?:\s+rarity=(\w+))?\)/);
+      // 解析物品 - 使用 [\w-]+ 支持连字符
+      const itemMatch = line.match(/\[([^\]]+)\]\(item:([\w-]+)\s+qty=(\d+)(?:\s+rarity=(\w+))?\)/);
       if (itemMatch) {
         parsedItems[currentTabId].push({
           id: itemMatch[2],

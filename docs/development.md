@@ -1016,6 +1016,289 @@ interface CombatUnit {
 
 ---
 
+### 28. 动态 UI 生成系统 (Dynamic UI Generation System)
+
+**实现时间**: 第十阶段  
+**文件位置**: 
+- 前端渲染器: `packages/frontend/src/components/ui/MarkdownRenderer.tsx`
+- 前端面板: `packages/frontend/src/components/ui/DynamicUIPanel.tsx`
+- 后端智能体: `packages/backend/src/agents/UIAgent.ts`
+- 动态组件: `packages/frontend/src/components/ui/dynamic-ui/`
+
+#### 28.1 概述
+
+动态 UI 生成系统允许 AI Agent 通过自然语言描述生成 Markdown 格式的用户界面，前端通过 MarkdownRenderer 组件渲染为交互式 UI。该系统支持 9 种扩展组件语法，可满足游戏中的各种 UI 需求。
+
+#### 28.2 核心组件
+
+##### MarkdownRenderer
+
+位置: `packages/frontend/src/components/ui/MarkdownRenderer.tsx`
+
+功能:
+- 渲染标准 Markdown 语法
+- 支持自定义组件语法（:::component-name）
+- 处理 action: 和 tooltip: 链接格式
+- 支持条件渲染上下文
+
+```typescript
+interface MarkdownRendererProps {
+  content: string;
+  onAction?: (action: DynamicUIAction) => void;
+  className?: string;
+  context?: Record<string, unknown>;
+}
+```
+
+##### DynamicUIPanel
+
+位置: `packages/frontend/src/components/ui/DynamicUIPanel.tsx`
+
+功能:
+- 窗口化显示动态 UI
+- 支持拖拽移动和缩放
+- 与 gameStore 集成
+- 自动响应 dynamicUI 状态变化
+
+```typescript
+interface DynamicUIPanelProps {
+  title?: string;
+  initialPosition?: Position;
+  initialSize?: Size;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+}
+```
+
+#### 28.3 扩展组件语法
+
+##### 选项按钮组 (:::options)
+
+```markdown
+:::options{layout=vertical}
+[选项文本](action:action-name)
+[取消](action:cancel)
+:::
+```
+
+支持的属性:
+- `layout`: 布局方式 (vertical/horizontal)
+
+##### 进度条 (:::progress)
+
+```markdown
+:::progress{value=75 max=100 label="生命值" color="health"}
+:::
+```
+
+支持的属性:
+- `value`: 当前值
+- `max`: 最大值
+- `label`: 标签文本
+- `color`: 颜色主题 (health/mana/experience/custom)
+
+##### 系统通知 (:::system-notify)
+
+```markdown
+:::system-notify{type=welcome}
+## 标题
+内容
+:::
+```
+
+支持的类型:
+- `welcome`: 欢迎界面
+- `achievement`: 成就解锁
+- `warning`: 警告提示
+- `error`: 错误提示
+- `info`: 信息提示
+
+##### 徽章 (:::badge)
+
+```markdown
+:::badge{type=rarity color=legendary}
+传说
+:::
+```
+
+支持的属性:
+- `type`: 徽章类型
+- `color`: 颜色 (common/uncommon/rare/epic/legendary)
+
+##### 标签页 (:::tabs)
+
+```markdown
+:::tabs
+[标签1](tab:tab1)
+内容1
+[标签2](tab:tab2)
+内容2
+:::
+```
+
+##### 条件显示 (:::conditional)
+
+```markdown
+:::conditional{condition="hasItem:magic-key"}
+内容
+:::
+```
+
+支持的条件:
+- `hasItem:item-id`: 检查是否拥有物品
+- `level:>=10`: 检查等级条件
+- `flag:flag-name`: 检查游戏标志
+
+##### 装备强化 (:::enhancement)
+
+```markdown
+:::enhancement{name="装备名" currentLevel=5 maxLevel=10 successRate=75}
+[强化石](material:enhance-stone required=3 owned=5)
+:::
+```
+
+支持的属性:
+- `name`: 装备名称
+- `currentLevel`: 当前强化等级
+- `maxLevel`: 最大强化等级
+- `successRate`: 成功率
+
+##### 仓库/银行 (:::warehouse)
+
+```markdown
+:::warehouse{maxSlots=100}
+[背包](tab:inventory maxSlots=50 usedSlots=30)
+[物品名](item:item-id qty=5 rarity=common)
+:::
+```
+
+##### 悬浮提示
+
+```markdown
+[显示文本](tooltip:提示内容)
+```
+
+#### 28.4 Agent 方法
+
+##### UIAgent.generateDynamicUI
+
+输入:
+- `description`: 自然语言描述
+- `context`: 可选上下文信息
+
+输出:
+- `DynamicUIData`: { id, markdown, context }
+
+```typescript
+// 调用示例
+const dynamicUI = await uiAgent.generateDynamicUI(
+  '显示一个欢迎界面，包含游戏标题和开始按钮',
+  { playerName: '勇者', gameMode: 'adventure' }
+);
+```
+
+特性:
+- 支持 LLM 生成 Markdown
+- 内置缓存机制（30分钟 TTL，最多 50 条）
+- 自动提取代码块中的 Markdown
+
+##### CoordinatorAgent.initializeNewGame
+
+用于新游戏初始化，并行调用各专业 Agent 并生成欢迎界面。
+
+```typescript
+interface InitializationContext {
+  saveId: string;
+  characterId: string;
+  character: CharacterData;
+  template: TemplateData;
+}
+```
+
+#### 28.5 统一状态更新
+
+##### updateGameState
+
+位置: `packages/frontend/src/stores/gameStore.ts`
+
+功能:
+- 接收 Partial<GameState> 参数
+- 支持部分更新
+- 触发 React 重新渲染
+- 智能合并对象，替换数组
+
+使用示例:
+```typescript
+updateGameState({
+  health: 80,
+  mana: 50,
+  dynamicUI: {
+    id: 'dynamic-ui-xxx',
+    markdown: '...',
+    context: {}
+  }
+});
+```
+
+#### 28.6 开发者工具
+
+##### UIAgent 测试面板
+
+位置: 开发者工具 -> UI测试  
+文件: `packages/frontend/src/components/developer/UIAgentTestPanel.tsx`
+
+功能:
+- 输入自然语言描述
+- 测试动态 UI 生成
+- 查看生成的 Markdown 源码
+- 复制 Markdown 内容
+
+##### 模拟动态 UI 面板
+
+位置: 开发者工具 -> 模拟UI  
+文件: `packages/frontend/src/components/developer/MockDynamicUIPanel.tsx`
+
+功能:
+- 选择预设模板（欢迎界面、系统通知、对话界面等）
+- 编辑 Markdown 内容
+- 实时预览渲染效果
+- 推送到 gameStore
+
+##### 动态 UI 状态查看器
+
+位置: 开发者工具 -> UI状态  
+文件: `packages/frontend/src/components/developer/DynamicUIStatePanel.tsx`
+
+功能:
+- 查看当前动态 UI 的 ID
+- 查看上下文信息
+- 切换源码/预览模式
+- 关闭当前动态 UI
+
+#### 28.7 动态 UI 组件列表
+
+| 组件 | 文件 | 功能 |
+|------|------|------|
+| OptionsComponent | dynamic-ui/OptionsComponent.tsx | 选项按钮组 |
+| ProgressComponent | dynamic-ui/ProgressComponent.tsx | 进度条 |
+| TabsComponent | dynamic-ui/TabsComponent.tsx | 标签页 |
+| SystemNotifyComponent | dynamic-ui/SystemNotifyComponent.tsx | 系统通知 |
+| BadgeComponent | dynamic-ui/BadgeComponent.tsx | 徽章 |
+| TooltipComponent | dynamic-ui/TooltipComponent.tsx | 悬浮提示 |
+| ConditionalComponent | dynamic-ui/ConditionalComponent.tsx | 条件显示 |
+| EnhancementComponent | dynamic-ui/EnhancementComponent.tsx | 装备强化 |
+| WarehouseComponent | dynamic-ui/WarehouseComponent.tsx | 仓库/银行 |
+
+#### 28.8 API 端点
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/developer/test-ui-agent` | POST | 测试动态 UI 生成 |
+
+---
+
 ## 开发规范
 
 ### 代码风格
@@ -1666,9 +1949,9 @@ export function MyPanel() {
 
 ---
 
-*文档版本: v2.7*
+*文档版本: v2.9*
 *创建日期: 2026-02-28*
-*最后更新: 2026-03-05*
+*最后更新: 2026-03-08*
 *项目版本: 0.10.0*
 
 ---

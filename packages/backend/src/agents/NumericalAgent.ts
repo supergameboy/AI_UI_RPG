@@ -284,51 +284,6 @@ export class NumericalAgent extends AgentBase {
     { agentType: AT.COMBAT, enabled: true },
   ];
 
-  readonly systemPrompt = `你是数值管理智能体，负责管理游戏中所有数值相关的计算和平衡。
-
-核心职责：
-1. 属性计算：计算基础属性和派生属性，处理装备和buff加成
-2. 伤害计算：计算物理、魔法、真实伤害，处理暴击、闪避、格挡
-3. 治疗计算：计算治疗量，处理治疗加成和过量治疗
-4. 等级系统：管理经验值获取、等级提升、属性成长
-5. 数值平衡：确保游戏数值的合理性和平衡性
-
-基础属性：
-- strength (力量): 影响物理攻击、暴击伤害
-- dexterity (敏捷): 影响速度、暴击率、闪避率
-- constitution (体质): 影响生命值、防御、格挡率
-- intelligence (智力): 影响魔法值、魔法攻击
-- wisdom (感知): 影响魔法值、治疗效果
-- charisma (魅力): 影响幸运值
-
-派生属性：
-- maxHp: 最大生命值 = 基础值 + 体质 * 10 + 等级 * 5
-- maxMp: 最大魔法值 = 基础值 + 智力 * 5 + 感知 * 3 + 等级 * 3
-- attack: 攻击力 = 基础值 + 力量 * 2 + 等级 * 1
-- defense: 防御力 = 基础值 + 体质 * 1 + 敏捷 * 0.5 + 等级 * 0.5
-- speed: 速度 = 基础值 + 敏捷 * 2
-- luck: 幸运 = 魅力 * 0.5
-- critRate: 暴击率 = 基础值 + 敏捷 * 0.3 + 幸运 * 0.1
-- critDamage: 暴击伤害 = 基础值 + 力量 * 0.5
-- dodgeRate: 闪避率 = 基础值 + 敏捷 * 0.3
-- blockRate: 格挡率 = 基础值 + 体质 * 0.2 + 力量 * 0.1
-
-伤害类型：
-- physical: 物理伤害，受防御减免
-- magical: 魔法伤害，受魔法防御减免
-- true: 真实伤害，无视防御
-
-成长曲线：
-- linear: 线性成长，每级固定增长
-- exponential: 指数成长，按比例增长
-- custom: 自定义公式
-
-工作原则：
-- 确保数值计算的准确性和一致性
-- 维护游戏的平衡性
-- 合理处理边界情况
-- 提供清晰的数值反馈`;
-
   // 角色数据存储
   private characters: Map<string, Character> = new Map();
 
@@ -558,6 +513,15 @@ export class NumericalAgent extends AgentBase {
       race?: string;
       class?: string;
       customGrowth?: Partial<Record<BaseAttributeName, AttributeGrowthConfig>>;
+      // 模板配置（可选，用于精确的种族/职业加成）
+      raceConfig?: {
+        bonuses?: Record<string, number>;
+        penalties?: Record<string, number>;
+      };
+      classConfig?: {
+        primaryAttributes?: string[];
+        attributeBonuses?: Record<string, number>;
+      };
     };
 
     if (params.level === undefined || params.level < 1) {
@@ -581,12 +545,12 @@ export class NumericalAgent extends AgentBase {
       attributes[attr] = this.calculateGrowthValue(params.level, config);
     }
 
-    // 应用种族和职业加成（简化实现）
+    // 应用种族和职业加成
     if (params.race) {
-      this.applyRaceBonus(attributes, params.race);
+      this.applyRaceBonus(attributes, params.race, params.raceConfig);
     }
     if (params.class) {
-      this.applyClassBonus(attributes, params.class);
+      this.applyClassBonus(attributes, params.class, params.classConfig);
     }
 
     this.addMemory(
@@ -2084,19 +2048,54 @@ export class NumericalAgent extends AgentBase {
 
   /**
    * 应用种族加成
+   * 支持从模板配置中读取种族加成，如果未提供则使用默认配置
    */
-  private applyRaceBonus(attributes: Record<BaseAttributeName, number>, race: string): void {
-    const raceBonuses: Record<string, Partial<Record<BaseAttributeName, number>>> = {
-      human: { strength: 1, intelligence: 1, charisma: 1 },
-      elf: { dexterity: 2, intelligence: 2, constitution: -1 },
-      dwarf: { constitution: 2, strength: 1, charisma: -1 },
-      orc: { strength: 3, constitution: 2, intelligence: -2 },
-      halfling: { dexterity: 2, charisma: 1, strength: -1 },
+  private applyRaceBonus(
+    attributes: Record<BaseAttributeName, number>,
+    race: string,
+    raceConfig?: {
+      bonuses?: Record<string, number>;
+      penalties?: Record<string, number>;
+    }
+  ): void {
+    // 如果提供了模板配置，优先使用
+    if (raceConfig) {
+      // 应用加成
+      if (raceConfig.bonuses) {
+        for (const [attr, value] of Object.entries(raceConfig.bonuses)) {
+          const attrName = attr as BaseAttributeName;
+          if (attrName in attributes) {
+            attributes[attrName] = Math.max(1, attributes[attrName] + value);
+          }
+        }
+      }
+      // 应用惩罚
+      if (raceConfig.penalties) {
+        for (const [attr, value] of Object.entries(raceConfig.penalties)) {
+          const attrName = attr as BaseAttributeName;
+          if (attrName in attributes) {
+            attributes[attrName] = Math.max(1, attributes[attrName] + value);
+          }
+        }
+      }
+      return;
+    }
+
+    // 默认种族加成配置（兼容旧数据）
+    const raceBonuses: Record<string, { bonuses: Partial<Record<BaseAttributeName, number>>; penalties: Partial<Record<BaseAttributeName, number>> }> = {
+      human: { bonuses: { strength: 1, intelligence: 1, charisma: 1 }, penalties: {} },
+      elf: { bonuses: { dexterity: 2, intelligence: 2 }, penalties: { constitution: -1 } },
+      dwarf: { bonuses: { constitution: 2, strength: 2 }, penalties: { charisma: -1 } },
+      orc: { bonuses: { strength: 3, constitution: 2 }, penalties: { intelligence: -2 } },
+      halfling: { bonuses: { dexterity: 2, charisma: 1 }, penalties: { strength: -1 } },
     };
 
-    const bonus = raceBonuses[race.toLowerCase()];
-    if (bonus) {
-      for (const [attr, value] of Object.entries(bonus)) {
+    const raceData = raceBonuses[race.toLowerCase()];
+    if (raceData) {
+      for (const [attr, value] of Object.entries(raceData.bonuses)) {
+        attributes[attr as BaseAttributeName] = Math.max(1, attributes[attr as BaseAttributeName] + (value || 0));
+      }
+      for (const [attr, value] of Object.entries(raceData.penalties)) {
         attributes[attr as BaseAttributeName] = Math.max(1, attributes[attr as BaseAttributeName] + (value || 0));
       }
     }
@@ -2104,14 +2103,46 @@ export class NumericalAgent extends AgentBase {
 
   /**
    * 应用职业加成
+   * 支持从模板配置中读取职业加成，如果未提供则使用默认配置
    */
-  private applyClassBonus(attributes: Record<BaseAttributeName, number>, characterClass: string): void {
+  private applyClassBonus(
+    attributes: Record<BaseAttributeName, number>,
+    characterClass: string,
+    classConfig?: {
+      primaryAttributes?: string[];
+      attributeBonuses?: Record<string, number>;
+    }
+  ): void {
+    // 如果提供了模板配置，优先使用
+    if (classConfig) {
+      if (classConfig.attributeBonuses) {
+        for (const [attr, value] of Object.entries(classConfig.attributeBonuses)) {
+          const attrName = attr as BaseAttributeName;
+          if (attrName in attributes) {
+            attributes[attrName] += value;
+          }
+        }
+      } else if (classConfig.primaryAttributes) {
+        // 如果只有主属性配置，给每个主属性 +2
+        for (const attr of classConfig.primaryAttributes) {
+          const attrName = attr as BaseAttributeName;
+          if (attrName in attributes) {
+            attributes[attrName] += 2;
+          }
+        }
+      }
+      return;
+    }
+
+    // 默认职业加成配置（兼容旧数据）
     const classBonuses: Record<string, Partial<Record<BaseAttributeName, number>>> = {
       warrior: { strength: 2, constitution: 1 },
       mage: { intelligence: 2, wisdom: 1 },
       rogue: { dexterity: 2, charisma: 1 },
       cleric: { wisdom: 2, constitution: 1 },
       ranger: { dexterity: 1, wisdom: 1, strength: 1 },
+      paladin: { strength: 1, constitution: 1, charisma: 1 },
+      bard: { charisma: 2, dexterity: 1 },
     };
 
     const bonus = classBonuses[characterClass.toLowerCase()];
@@ -2124,12 +2155,40 @@ export class NumericalAgent extends AgentBase {
 
   /**
    * 应用装备加成
+   * 正确解析装备数据结构，提取所有装备的加成属性
    */
   private applyEquipmentBonuses(
     attributes: Record<DerivedAttributeName, number>,
     equipment: Record<string, unknown>
   ): void {
-    // 简化实现：从装备数据中提取加成
+    // 定义装备槽位列表
+    const equipmentSlots = ['weapon', 'head', 'body', 'feet'] as const;
+    
+    // 处理单个装备槽位（weapon, head, body, feet）
+    for (const slot of equipmentSlots) {
+      const equippedItem = equipment[slot] as Record<string, unknown> | undefined;
+      if (equippedItem) {
+        this.extractItemBonuses(attributes, equippedItem, slot);
+      }
+    }
+    
+    // 处理饰品槽位（数组形式）
+    const accessories = equipment.accessories as Array<Record<string, unknown>> | undefined;
+    if (accessories && Array.isArray(accessories)) {
+      for (const accessory of accessories) {
+        this.extractItemBonuses(attributes, accessory, 'accessory');
+      }
+    }
+    
+    // 处理自定义槽位
+    const customSlots = equipment.customSlots as Record<string, Record<string, unknown>> | undefined;
+    if (customSlots) {
+      for (const [slotName, equippedItem] of Object.entries(customSlots)) {
+        this.extractItemBonuses(attributes, equippedItem, slotName);
+      }
+    }
+    
+    // 兼容旧格式：直接提供 bonuses 对象
     if (equipment.bonuses) {
       const bonuses = equipment.bonuses as Record<string, number>;
       for (const [attr, value] of Object.entries(bonuses)) {
@@ -2138,6 +2197,136 @@ export class NumericalAgent extends AgentBase {
         }
       }
     }
+  }
+  
+  /**
+   * 从单个装备项中提取加成
+   */
+  private extractItemBonuses(
+    attributes: Record<DerivedAttributeName, number>,
+    equippedItem: Record<string, unknown>,
+    slotName: string
+  ): void {
+    // 检查装备是否有效
+    if (!equippedItem || !equippedItem.itemId) {
+      return;
+    }
+    
+    // 从 item 属性中提取 stats
+    const item = equippedItem.item as Record<string, unknown> | undefined;
+    if (item) {
+      // 处理 stats 属性（数值加成）
+      const stats = item.stats as Record<string, number> | undefined;
+      if (stats) {
+        for (const [statName, value] of Object.entries(stats)) {
+          // 映射常见的属性名到派生属性
+          const mappedAttr = this.mapItemStatToAttribute(statName);
+          if (mappedAttr && mappedAttr in attributes) {
+            attributes[mappedAttr] += value;
+          }
+        }
+      }
+      
+      // 处理 effects 属性（效果加成）
+      const effects = item.effects as Array<Record<string, unknown>> | undefined;
+      if (effects && Array.isArray(effects)) {
+        for (const effect of effects) {
+          const effectType = effect.type as string;
+          const effectValue = effect.value as number;
+          const mappedAttr = this.mapEffectTypeToAttribute(effectType);
+          if (mappedAttr && mappedAttr in attributes) {
+            attributes[mappedAttr] += effectValue;
+          }
+        }
+      }
+    }
+    
+    // 记录日志
+    gameLog.debug('backend', `Applied equipment bonuses from slot: ${slotName}`, {
+      itemId: equippedItem.itemId as string,
+    });
+  }
+  
+  /**
+   * 映射物品属性名到派生属性名
+   */
+  private mapItemStatToAttribute(statName: string): DerivedAttributeName | null {
+    const statMapping: Record<string, DerivedAttributeName> = {
+      // 攻击相关
+      'attack': 'attack',
+      'atk': 'attack',
+      'damage': 'attack',
+      'physical_damage': 'attack',
+      'magical_damage': 'attack',
+      
+      // 防御相关
+      'defense': 'defense',
+      'def': 'defense',
+      'armor': 'defense',
+      'protection': 'defense',
+      
+      // 生命值
+      'maxHp': 'maxHp',
+      'max_hp': 'maxHp',
+      'hp': 'maxHp',
+      'health': 'maxHp',
+      
+      // 魔法值
+      'maxMp': 'maxMp',
+      'max_mp': 'maxMp',
+      'mp': 'maxMp',
+      'mana': 'maxMp',
+      
+      // 速度
+      'speed': 'speed',
+      'spd': 'speed',
+      
+      // 幸运
+      'luck': 'luck',
+      
+      // 暴击
+      'critRate': 'critRate',
+      'crit_rate': 'critRate',
+      'critical_rate': 'critRate',
+      'critChance': 'critRate',
+      
+      // 暴击伤害
+      'critDamage': 'critDamage',
+      'crit_damage': 'critDamage',
+      'critical_damage': 'critDamage',
+      
+      // 闪避
+      'dodgeRate': 'dodgeRate',
+      'dodge_rate': 'dodgeRate',
+      'evasion': 'dodgeRate',
+      
+      // 格挡
+      'blockRate': 'blockRate',
+      'block_rate': 'blockRate',
+      'block_chance': 'blockRate',
+    };
+    
+    return statMapping[statName.toLowerCase()] || null;
+  }
+  
+  /**
+   * 映射效果类型到派生属性名
+   */
+  private mapEffectTypeToAttribute(effectType: string): DerivedAttributeName | null {
+    const effectMapping: Record<string, DerivedAttributeName> = {
+      'attack_boost': 'attack',
+      'defense_boost': 'defense',
+      'hp_boost': 'maxHp',
+      'mp_boost': 'maxMp',
+      'speed_boost': 'speed',
+      'luck_boost': 'luck',
+      'crit_boost': 'critRate',
+      'crit_damage_boost': 'critDamage',
+      'dodge_boost': 'dodgeRate',
+      'block_boost': 'blockRate',
+    };
+    
+    return effectMapping[effectType.toLowerCase()] || null;
   }
 
   /**

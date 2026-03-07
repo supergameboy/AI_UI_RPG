@@ -23,6 +23,9 @@ export const CharacterConfirmStep: React.FC = () => {
   
   const hasCalculatedRef = useRef(false);
 
+  // 计算属性 - 只在组件挂载时执行一次
+  // 使用 hasCalculatedRef 防止重复计算
+  // storeRef 确保 calculateAttributes 调用始终有效
   useEffect(() => {
     // 只在首次渲染且未计算时执行
     if (!hasCalculatedRef.current) {
@@ -33,7 +36,8 @@ export const CharacterConfirmStep: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 空依赖数组，只在挂载时执行一次
+    // 空依赖数组：只在挂载时执行一次，属性计算基于 store 中的选择状态
+  }, []);
 
   const getAttributeName = (attrId: string): string => {
     const attr = templateAttributes.find((a) => a.id === attrId);

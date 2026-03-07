@@ -26,6 +26,12 @@ import { getDeveloperLogService } from '../services/DeveloperLogService';
 import { getToolRegistry, ToolRegistry } from '../tools/ToolRegistry';
 import type { ToolBase } from '../tools/ToolBase';
 import { gameLog } from '../services/GameLogService';
+import {
+  DEFAULT_PROCESS_INTERVAL_MS,
+  MAX_SHORT_TERM_MEMORY,
+  MAX_MID_TERM_MEMORY,
+  DEFAULT_LLM_CONFIG,
+} from '../constants';
 
 export abstract class AgentBase implements Agent {
   abstract readonly type: AgentType;
@@ -33,8 +39,6 @@ export abstract class AgentBase implements Agent {
   abstract readonly tools: ToolType[];
   /** 可调用的 Agent 绑定配置 */
   abstract readonly bindings: AgentBinding[];
-  abstract readonly systemPrompt: string;
-
   id: string;
   name: string;
   description: string;
@@ -45,7 +49,7 @@ export abstract class AgentBase implements Agent {
 
   protected isRunning: boolean = false;
   protected processInterval: ReturnType<typeof setInterval> | null = null;
-  protected processIntervalMs: number = 100;
+  protected processIntervalMs: number = DEFAULT_PROCESS_INTERVAL_MS;
   protected toolRegistry: ToolRegistry;
 
   constructor(config?: Partial<AgentConfig>, toolRegistry?: ToolRegistry) {
@@ -54,12 +58,12 @@ export abstract class AgentBase implements Agent {
     this.description = this.getAgentDescription();
     this.capabilities = this.getAgentCapabilities();
     this.config = {
-      provider: config?.provider || 'deepseek',
-      model: config?.model || 'deepseek-chat',
-      temperature: config?.temperature ?? 0.7,
-      maxTokens: config?.maxTokens ?? 2048,
-      timeout: config?.timeout ?? 30000,
-      maxRetries: config?.maxRetries ?? 3,
+      provider: config?.provider ?? DEFAULT_LLM_CONFIG.provider,
+      model: config?.model ?? DEFAULT_LLM_CONFIG.model,
+      temperature: config?.temperature ?? DEFAULT_LLM_CONFIG.temperature,
+      maxTokens: config?.maxTokens ?? DEFAULT_LLM_CONFIG.maxTokens,
+      timeout: config?.timeout ?? DEFAULT_LLM_CONFIG.timeout,
+      maxRetries: config?.maxRetries ?? DEFAULT_LLM_CONFIG.maxRetries,
     };
     this.memory = {
       shortTerm: [],
@@ -201,17 +205,17 @@ export abstract class AgentBase implements Agent {
    * 在 start() 之前调用，设置初始状态
    */
   async initAgent(): Promise<void> {
-    console.log(`[${this.name}] Initializing...`);
+    gameLog.info('agent', 'Initializing', { agentName: this.name });
     this.status = 'idle';
   }
 
   async start(): Promise<void> {
     if (this.isRunning) {
-      console.log(`[${this.name}] Already running`);
+      gameLog.warn('agent', 'Already running', { agentName: this.name });
       return;
     }
 
-    console.log(`[${this.name}] Starting...`);
+    gameLog.info('agent', 'Starting', { agentName: this.name });
     this.isRunning = true;
     this.status = 'idle';
 
@@ -219,7 +223,7 @@ export abstract class AgentBase implements Agent {
     router.registerHandler(this.type, this.handleMessage.bind(this));
 
     this.startMessageLoop();
-    console.log(`[${this.name}] Started successfully`);
+    gameLog.info('agent', 'Started successfully', { agentName: this.name });
   }
 
   async stop(): Promise<void> {
@@ -227,7 +231,7 @@ export abstract class AgentBase implements Agent {
       return;
     }
 
-    console.log(`[${this.name}] Stopping...`);
+    gameLog.info('agent', 'Stopping', { agentName: this.name });
     this.isRunning = false;
 
     if (this.processInterval) {
@@ -239,7 +243,7 @@ export abstract class AgentBase implements Agent {
     router.unregisterHandler(this.type);
 
     this.status = 'idle';
-    console.log(`[${this.name}] Stopped successfully`);
+    gameLog.info('agent', 'Stopped successfully', { agentName: this.name });
   }
 
   async sendMessage(
@@ -263,7 +267,9 @@ export abstract class AgentBase implements Agent {
         target,
         action,
         'sent',
-        data
+        data,
+        undefined,
+        'request'
       );
     }
     
@@ -341,13 +347,13 @@ export abstract class AgentBase implements Agent {
 
     this.memory.shortTerm.push(memory);
 
-    if (this.memory.shortTerm.length > 50) {
-      const overflow = this.memory.shortTerm.splice(0, this.memory.shortTerm.length - 50);
+    if (this.memory.shortTerm.length > MAX_SHORT_TERM_MEMORY) {
+      const overflow = this.memory.shortTerm.splice(0, this.memory.shortTerm.length - MAX_SHORT_TERM_MEMORY);
       this.memory.midTerm.push(...overflow);
     }
 
-    if (this.memory.midTerm.length > 100) {
-      const overflow = this.memory.midTerm.splice(0, this.memory.midTerm.length - 100);
+    if (this.memory.midTerm.length > MAX_MID_TERM_MEMORY) {
+      const overflow = this.memory.midTerm.splice(0, this.memory.midTerm.length - MAX_MID_TERM_MEMORY);
       this.memory.longTerm.push(...overflow);
     }
   }
@@ -361,12 +367,78 @@ export abstract class AgentBase implements Agent {
     };
   }
 
+  /**
+   * 从 LLM 响应中解析 JSON
+   * 处理 Markdown 代码块包裹的 JSON
+   * @param response LLM 响应字符串
+   * @returns 解析后的对象或 null
+   */
+  parseJsonResponse<T>(response: string): T | null {
+    if (!response || typeof response !== 'string') {
+      return null;
+    }
+
+    let jsonStr = response.trim();
+
+    // 处理 Markdown 代码块包裹的 JSON
+    // 匹配 ```json ... ``` 或 ``` ... ``` 格式
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    }
+
+    // 尝试提取 JSON 对象或数组
+    const jsonObjectMatch = jsonStr.match(/\{[\s\S]*\}/);
+    const jsonArrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+
+    const extractedJson = jsonObjectMatch?.[0] || jsonArrayMatch?.[0];
+    if (!extractedJson) {
+      gameLog.warn('agent', 'No valid JSON found in response', {
+        agentName: this.name,
+        responseLength: response.length,
+      });
+      return null;
+    }
+
+    try {
+      return JSON.parse(extractedJson) as T;
+    } catch (error) {
+      gameLog.error('agent', 'Failed to parse JSON from response', {
+        agentName: this.name,
+        error: error instanceof Error ? error.message : String(error),
+        jsonPreview: extractedJson.substring(0, 200),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 统一处理 LLM 调用错误
+   * 记录错误日志并抛出标准化的错误
+   * @param error 原始错误对象
+   * @param context 错误上下文描述
+   * @throws 永远抛出错误，不会返回
+   */
+  handleLLMError(error: unknown, context: string): never {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    gameLog.error('agent', `LLM error: ${context}`, {
+      agentName: this.name,
+      error: errorMessage,
+      stack: errorStack,
+    });
+
+    // 抛出标准化的错误
+    throw new Error(`[${this.name}] LLM Error - ${context}: ${errorMessage}`);
+  }
+
   updateConfig(config: Partial<AgentConfig>): void {
     this.config = {
       ...this.config,
       ...config,
     };
-    console.log(`[${this.name}] Config updated:`, this.config);
+    gameLog.debug('agent', 'Config updated', { agentName: this.name, config: this.config });
   }
 
   protected async handleMessage(message: AgentMessage): Promise<AgentMessage> {
@@ -378,7 +450,9 @@ export abstract class AgentBase implements Agent {
       this.type,
       message.payload?.action || 'unknown',
       'received',
-      message.payload?.data
+      message.payload?.data,
+      undefined,
+      message.type
     );
 
     try {
@@ -405,7 +479,10 @@ export abstract class AgentBase implements Agent {
       return responseMessage;
     } catch (error) {
       this.status = 'error';
-      console.error(`[${this.name}] Error processing message:`, error);
+      gameLog.error('agent', 'Error processing message', {
+        agentName: this.name,
+        error: error instanceof Error ? error.message : String(error),
+      });
 
       const errorMessage: AgentMessage = {
         id: this.generateMessageId(),
@@ -439,7 +516,10 @@ export abstract class AgentBase implements Agent {
       const message = queue.dequeue(this.type);
       if (message) {
         this.handleMessage(message).catch(error => {
-          console.error(`[${this.name}] Unhandled error in message loop:`, error);
+          gameLog.error('agent', 'Unhandled error in message loop', {
+            agentName: this.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
       }
     }, this.processIntervalMs);

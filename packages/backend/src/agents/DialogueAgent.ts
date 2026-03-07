@@ -9,6 +9,7 @@ import type {
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { gameLog } from '../services/GameLogService';
 
 // ==================== 对话类型定义 ====================
 
@@ -182,43 +183,6 @@ export class DialogueAgent extends AgentBase {
     { agentType: AT.QUEST, enabled: true },
   ];
 
-  readonly systemPrompt = `你是对话管理智能体，负责管理游戏中的所有对话系统。
-
-核心职责：
-1. 对话生成：根据NPC性格、关系、情境生成自然流畅的对话内容
-2. 对话选项生成：根据对话上下文生成合适的玩家选项
-3. 对话历史管理：维护对话记录，支持上下文感知
-4. 对话上下文感知：整合故事背景、任务状态、NPC关系等信息
-
-对话类型：
-- normal: 普通对话，日常交流
-- quest: 任务对话，涉及任务发布、进度、完成
-- trade: 交易对话，买卖物品
-- combat: 战斗对话，战斗中的喊话和互动
-- romantic: 浪漫对话，恋爱相关的特殊对话
-
-对话情绪：
-- neutral: 中性情绪
-- happy: 开心
-- angry: 愤怒
-- sad: 悲伤
-- surprised: 惊讶
-- fearful: 恐惧
-
-对话选项类型：
-- continue: 继续对话
-- accept: 接受（任务、交易等）
-- reject: 拒绝
-- inquire: 询问更多信息
-- leave: 结束对话离开
-
-工作原则：
-- 对话内容要符合NPC的性格和背景
-- 对话选项要提供有意义的选择
-- 好感度影响对话内容和可用选项
-- 保持对话的连贯性和沉浸感
-- 支持动态的对话分支和条件`;
-
   private dialogueState: DialogueAgentState;
 
   constructor() {
@@ -328,7 +292,7 @@ export class DialogueAgent extends AgentBase {
           };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error processing message:', error);
+      gameLog.error('agent', 'Error processing message:', { error: error instanceof Error ? error.message : String(error) });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error in DialogueAgent',
@@ -1227,7 +1191,7 @@ ${context.location ? `- 地点: ${context.location}` : ''}
         };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating opening dialogue:', error);
+      gameLog.error('agent', 'Error generating opening dialogue:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     // 默认开场
@@ -1311,7 +1275,7 @@ ${topic ? `话题: ${topic}` : ''}
         };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating NPC response:', error);
+      gameLog.error('agent', 'Error generating NPC response:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     return {
@@ -1389,7 +1353,7 @@ ${history.slice(-3).map(m => `${m.isPlayer ? '玩家' : m.speakerName}: ${m.cont
         }));
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating options:', error);
+      gameLog.error('agent', 'Error generating options:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     // 默认选项
@@ -1487,7 +1451,7 @@ NPC: ${context.npcName}
         };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating quest dialogue:', error);
+      gameLog.error('agent', 'Error generating quest dialogue:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     return {
@@ -1609,7 +1573,7 @@ ${tradeData.itemId ? `物品ID: ${tradeData.itemId}` : ''}
         };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating trade dialogue:', error);
+      gameLog.error('agent', 'Error generating trade dialogue:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     return {
@@ -1703,7 +1667,7 @@ ${combatData.enemyName ? `敌人: ${combatData.enemyName}` : ''}
         };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating combat dialogue:', error);
+      gameLog.error('agent', 'Error generating combat dialogue:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     const defaultDialogues: Record<string, { content: string; emotion: DialogueEmotion }> = {
@@ -1779,7 +1743,7 @@ ${romanticData.topic ? `话题: ${romanticData.topic}` : ''}
         };
       }
     } catch (error) {
-      console.error('[DialogueAgent] Error generating romantic dialogue:', error);
+      gameLog.error('agent', 'Error generating romantic dialogue:', { error: error instanceof Error ? error.message : String(error) });
     }
 
     return {

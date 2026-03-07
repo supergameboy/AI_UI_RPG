@@ -125,7 +125,7 @@ export class StoryDataTool extends ToolBase {
             nodeId: params.nodeId as string,
             choiceId: params.choiceId as string,
           };
-          result = service.recordChoice(request);
+          result = await service.recordChoice(request);
           this.logWriteOperation(method, params, context);
           break;
         }

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import type { DynamicUIComponentProps, ParsedTab } from './types';
 import { parseTabs } from './utils';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 import styles from './TabsComponent.module.css';
 
 /**
@@ -117,7 +118,7 @@ export const TabsComponent: React.FC<DynamicUIComponentProps> = ({
         tabIndex={0}
       >
         <div className={styles.tabContent}>
-          {activeContent}
+          <MarkdownRenderer content={activeContent} onAction={onAction} />
         </div>
       </div>
     </div>

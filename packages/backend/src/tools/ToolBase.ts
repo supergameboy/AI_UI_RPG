@@ -120,6 +120,7 @@ export abstract class ToolBase {
 
     try {
       if (!this.methodMetadata.has(method)) {
+        this.updateStatus(false, Date.now() - startTime);
         return this.createError<T>(
           'METHOD_NOT_FOUND',
           `Method '${method}' not found in tool '${this.toolType}'`

@@ -48,7 +48,7 @@ function parseCombatTrigger(content: string): CombatTrigger | null {
         reason: combatData.reason,
       };
     } catch (e) {
-      console.error('[DialogueRoutes] Failed to parse COMBAT_START data:', e);
+      gameLog.error('dialogue', 'Failed to parse COMBAT_START data', { error: e instanceof Error ? e.message : String(e) });
     }
   }
 
@@ -61,7 +61,7 @@ function parseCombatTrigger(content: string): CombatTrigger | null {
         return combatData;
       }
     } catch (e) {
-      console.error('[DialogueRoutes] Failed to parse combatTrigger JSON:', e);
+      gameLog.error('dialogue', 'Failed to parse combatTrigger JSON', { error: e instanceof Error ? e.message : String(e) });
     }
   }
 
@@ -223,8 +223,7 @@ ${worldSettingStr ? `世界设定:\n${worldSettingStr}` : ''}
 
     res.json(result);
   } catch (error) {
-    console.error('[DialogueRoutes] Error generating initial scene:', error);
-    gameLog.error('dialogue', '初始场景生成失败', { error: error instanceof Error ? error.message : 'Unknown error' });
+    gameLog.error('dialogue', 'Error generating initial scene', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -397,8 +396,7 @@ ${recentMessages ? `最近的对话：\n${recentMessages}\n` : ''}
 
     res.json(result);
   } catch (error) {
-    console.error('[DialogueRoutes] Error sending dialogue:', error);
-    gameLog.error('dialogue', '对话处理失败', { error: error instanceof Error ? error.message : 'Unknown error' });
+    gameLog.error('dialogue', 'Error sending dialogue', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -419,7 +417,7 @@ router.post('/options', async (_req: Request, res: Response) => {
       options,
     });
   } catch (error) {
-    console.error('[DialogueRoutes] Error getting options:', error);
+    gameLog.error('dialogue', 'Error getting options', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -436,7 +434,7 @@ router.get('/history/:characterId', async (_req: Request, res: Response) => {
       hasMore: false,
     });
   } catch (error) {
-    console.error('[DialogueRoutes] Error getting history:', error);
+    gameLog.error('dialogue', 'Error getting history', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
