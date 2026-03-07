@@ -14,6 +14,7 @@ import type {
 } from '@ai-rpg/shared';
 import { AgentType as AT, ToolType as ToolTypeEnum } from '@ai-rpg/shared';
 import { AgentBase } from './AgentBase';
+import { gameLog } from '../services/GameLogService';
 
 // 地点类型
 export enum LocationType {
@@ -246,9 +247,16 @@ export class MapAgent extends AgentBase {
         },
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during map initialization';
+      gameLog.error('agent', `Initialization failed: ${errorMessage}`, {
+        agentType: this.type,
+        characterId: context.character?.id,
+        saveId: context.saveId,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error during map initialization',
+        error: errorMessage,
       };
     }
   }

@@ -17,6 +17,7 @@ import {
   calculateInitialHP,
   calculateInitialMP,
 } from '../data/initialData';
+import { gameLog } from '../services/GameLogService';
 
 // ==================== 类型定义 ====================
 
@@ -396,7 +397,7 @@ export class NumericalAgent extends AgentBase {
       const baseAttributes = calculateInitialAttributes(
         character.race,
         character.class,
-        character.backstory // 使用 backstory 作为 backgroundId
+        character.backgroundId || 'commoner' // 使用 backgroundId，默认为 'commoner'
       );
       
       // 计算派生属性
@@ -449,9 +450,16 @@ export class NumericalAgent extends AgentBase {
         },
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during numerical initialization';
+      gameLog.error('agent', `Initialization failed: ${errorMessage}`, {
+        agentType: this.type,
+        characterId: context.character?.id,
+        saveId: context.saveId,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error during numerical initialization',
+        error: errorMessage,
       };
     }
   }

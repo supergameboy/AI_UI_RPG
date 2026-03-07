@@ -51,6 +51,7 @@ export interface Character {
   imagePrompt?: string;
   personality: string;
   backstory: string;
+  backgroundId?: string; // 背景模板 ID（如 'soldier', 'noble', 'peasant' 等）
 
   statistics: {
     battlesWon: number;

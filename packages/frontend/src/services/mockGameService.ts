@@ -17,6 +17,7 @@ import type {
   StatusEffect,
   GlobalContext,
   DialogueOption,
+  DynamicUIData,
 } from '@ai-rpg/shared';
 import {
   mockGameState,
@@ -38,8 +39,7 @@ import {
   emptyMockData,
   invalidMockData,
   type MockGameState,
-  type JournalEntry,
-  type DynamicUIData,
+  type MockJournalEntry,
 } from '../data/mockGameData';
 
 /**
@@ -139,7 +139,7 @@ export interface MockGameService {
   /**
    * 获取日志条目
    */
-  getJournalEntries(): JournalEntry[];
+  getJournalEntries(): MockJournalEntry[];
 
   /**
    * 获取动态 UI 数据
@@ -247,7 +247,7 @@ export const mockGameService: MockGameService = {
     return mockDialogueOptions;
   },
 
-  getJournalEntries(): JournalEntry[] {
+  getJournalEntries(): MockJournalEntry[] {
     return mockJournalEntries;
   },
 

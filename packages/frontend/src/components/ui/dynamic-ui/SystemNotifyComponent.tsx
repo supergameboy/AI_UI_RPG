@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import type { DynamicUIComponentProps, NotifyType } from './types';
 import styles from './SystemNotifyComponent.module.css';
 
@@ -15,10 +15,28 @@ import styles from './SystemNotifyComponent.module.css';
 export const SystemNotifyComponent: React.FC<DynamicUIComponentProps> = ({
   content,
   attrs,
+  onAction,
+  onDismiss,
 }) => {
+  const [isVisible, setIsVisible] = useState(true);
   const type = (attrs.type as NotifyType) || 'info';
   const title = attrs.title || '';
   const dismissible = attrs.dismissible === 'true';
+
+  // 处理关闭逻辑
+  const handleDismiss = useCallback(() => {
+    setIsVisible(false);
+    if (onDismiss) {
+      onDismiss();
+    } else if (onAction) {
+      onAction({ type: 'dismiss', payload: { notifyId: attrs.id } });
+    }
+  }, [onDismiss, onAction, attrs.id]);
+
+  // 如果不可见，不渲染
+  if (!isVisible) {
+    return null;
+  }
 
   // 获取图标
   const icon = useMemo(() => {
@@ -75,9 +93,7 @@ export const SystemNotifyComponent: React.FC<DynamicUIComponentProps> = ({
           type="button"
           className={styles.dismiss}
           aria-label="关闭通知"
-          onClick={() => {
-            // 这里可以添加关闭逻辑
-          }}
+          onClick={handleDismiss}
         >
           ×
         </button>

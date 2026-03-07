@@ -32,6 +32,8 @@ import type {
   CombatInstanceData,
   GlobalContext,
   DialogueOption,
+  JournalEntry,
+  DynamicUIData,
 } from '@ai-rpg/shared';
 import { CombatState, CombatDifficulty, ActionType } from '@ai-rpg/shared';
 
@@ -87,6 +89,7 @@ export const mockCharacter: Character = {
   imagePrompt: 'A tall warrior with brown short hair, wearing iron armor and holding a longsword, determined eyes, fantasy RPG style',
   personality: '勇敢、正直、有时过于直率',
   backstory: '出生于边境小镇，曾是当地卫队的一员。为了寻找更强的对手和保护更多的人，踏上了冒险之旅。',
+  backgroundId: 'soldier', // 背景模板 ID：士兵
 
   statistics: {
     battlesWon: 15,
@@ -1357,15 +1360,14 @@ export const mockDialogueOptions: DialogueOption[] = [
 
 // ==================== 模拟日志数据 ====================
 
-export interface JournalEntry {
-  id: string;
-  timestamp: number;
-  type: 'quest' | 'combat' | 'exploration' | 'dialogue' | 'system';
-  content: string;
+/**
+ * 扩展的日志条目类型（添加 relatedId 字段）
+ */
+export interface MockJournalEntry extends JournalEntry {
   relatedId?: string;
 }
 
-export const mockJournalEntries: JournalEntry[] = [
+export const mockJournalEntries: MockJournalEntry[] = [
   {
     id: 'journal-001',
     timestamp: Date.now() - 86400000,
@@ -1376,7 +1378,7 @@ export const mockJournalEntries: JournalEntry[] = [
   {
     id: 'journal-002',
     timestamp: Date.now() - 43200000,
-    type: 'exploration',
+    type: 'discovery',
     content: '进入了东部森林，发现了狼群的踪迹',
   },
   {
@@ -1395,7 +1397,7 @@ export const mockJournalEntries: JournalEntry[] = [
   {
     id: 'journal-005',
     timestamp: Date.now() - 259200000,
-    type: 'exploration',
+    type: 'discovery',
     content: '发现了神秘洞穴的入口',
   },
   {
@@ -1414,19 +1416,13 @@ export const mockJournalEntries: JournalEntry[] = [
   {
     id: 'journal-008',
     timestamp: Date.now() - 7200000,
-    type: 'dialogue',
+    type: 'dialog',
     content: '与村长霍华德交谈，了解了更多关于村庄的历史',
     relatedId: 'npc-001',
   },
 ];
 
 // ==================== 动态 UI 数据 ====================
-
-export interface DynamicUIData {
-  id: string;
-  markdown: string;
-  context?: Record<string, unknown>;
-}
 
 export const mockDynamicUI: DynamicUIData = {
   id: 'dynamic-ui-mock',
@@ -1465,7 +1461,7 @@ export interface MockGameState {
   statusEffects: StatusEffect[];
   globalContext: GlobalContext;
   dialogueOptions: DialogueOption[];
-  journalEntries: JournalEntry[];
+  journalEntries: MockJournalEntry[];
   dynamicUI: DynamicUIData;
 }
 

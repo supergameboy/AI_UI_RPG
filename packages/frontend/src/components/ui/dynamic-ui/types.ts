@@ -11,6 +11,7 @@ export type DynamicUIComponentProps = {
   content: string;
   attrs: Record<string, string>;
   onAction?: (action: DynamicUIAction) => void;
+  onDismiss?: () => void;
 };
 
 export type ParsedOption = {

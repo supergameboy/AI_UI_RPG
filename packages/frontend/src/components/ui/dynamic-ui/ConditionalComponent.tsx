@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { DynamicUIComponentProps } from './types';
 import { evaluateCondition } from './utils';
+import styles from './ConditionalComponent.module.css';
 
 /**
  * 条件显示组件
@@ -36,7 +37,7 @@ export const ConditionalComponent: React.FC<DynamicUIComponentProps & {
 
   // 渲染条件内容
   return (
-    <div className="conditional-content">
+    <div className={styles.conditionalContent}>
       {content.trim()}
     </div>
   );

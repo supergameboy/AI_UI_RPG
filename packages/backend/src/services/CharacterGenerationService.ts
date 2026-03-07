@@ -374,6 +374,7 @@ ${options.generateImagePrompt ? '请同时生成英文的AI绘图提示词。' :
       name: characterName,
       race: race.id,
       class: cls.id,
+      backgroundId: background.id, // 添加背景模板 ID
       level: 1,
       experience: 0,
       baseAttributes,
